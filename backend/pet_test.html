@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pet QR System - Pet API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #6366F1;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #5856EB;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            background-color: #e7f5e7;
+            border: 1px solid #c3e6c3;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            background-color: #ffe7e7;
+            border-color: #ffb3b3;
+        }
+        .token-display {
+            background-color: #f0f8ff;
+            border: 1px solid #add8e6;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .two-column {
+            display: flex;
+            gap: 20px;
+        }
+        .column {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐾 Pet QR System - Pet API Test</h1>
+
+        <!-- Authentication Section -->
+        <div class="section">
+            <h2>🔐 Authentication</h2>
+            <div class="two-column">
+                <div class="column">
+                    <div class="form-group">
+                        <label for="auth-email">Email:</label>
+                        <input type="email" id="auth-email" value="testuser@example.com" placeholder="Enter email">
+                    </div>
+                    <div class="form-group">
+                        <label for="auth-password">Password:</label>
+                        <input type="password" id="auth-password" value="password123" placeholder="Enter password">
+                    </div>
+                    <button onclick="loginUser()">Login & Get Token</button>
+                    <button onclick="clearToken()">Clear Token</button>
+                </div>
+                <div class="column">
+                    <div id="token-display"></div>
+                </div>
+            </div>
+            <div id="auth-result"></div>
+        </div>
+
+        <!-- Create Pet Section -->
+        <div class="section">
+            <h2>➕ Create Pet</h2>
+            <div class="two-column">
+                <div class="column">
+                    <div class="form-group">
+                        <label for="pet-name">Pet Name:</label>
+                        <input type="text" id="pet-name" value="Max" placeholder="Enter pet name">
+                    </div>
+                    <div class="form-group">
+                        <label for="pet-breed">Breed:</label>
+                        <input type="text" id="pet-breed" value="Golden Retriever" placeholder="Enter breed">
+                    </div>
+                    <div class="form-group">
+                        <label for="pet-age">Age (years):</label>
+                        <input type="number" id="pet-age" value="3" placeholder="Enter age">
+                    </div>
+                    <div class="form-group">
+                        <label for="pet-sex">Sex:</label>
+                        <select id="pet-sex">
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="unknown">Unknown</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="column">
+                    <div class="form-group">
+                        <label for="pet-color">Color:</label>
+                        <input type="text" id="pet-color" value="Golden" placeholder="Enter color">
+                    </div>
+                    <div class="form-group">
+                        <label for="pet-size">Size:</label>
+                        <select id="pet-size">
+                            <option value="">Select size</option>
+                            <option value="xs">Extra Small</option>
+                            <option value="s">Small</option>
+                            <option value="m">Medium</option>
+                            <option value="l" selected>Large</option>
+                            <option value="xl">Extra Large</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="pet-weight">Weight:</label>
+                        <input type="text" id="pet-weight" value="65 lbs" placeholder="Enter weight">
+                    </div>
+                    <div class="form-group">
+                        <label for="pet-description">Description:</label>
+                        <textarea id="pet-description" rows="3" placeholder="Enter description">Friendly and energetic dog who loves playing fetch.</textarea>
+                    </div>
+                </div>
+            </div>
+            <button onclick="createPet()">Create Pet</button>
+            <div id="create-result"></div>
+        </div>
+
+        <!-- List Pets Section -->
+        <div class="section">
+            <h2>📋 My Pets</h2>
+            <button onclick="listPets()">Get My Pets</button>
+            <button onclick="searchPets()">Search Pets</button>
+            <input type="text" id="search-query" placeholder="Search by name, breed, or description" style="margin-left: 10px; width: 300px;">
+            <div id="list-result"></div>
+        </div>
+
+        <!-- Pet Details Section -->
+        <div class="section">
+            <h2>🔍 Pet Details</h2>
+            <div class="form-group">
+                <label for="pet-id">Pet ID:</label>
+                <input type="number" id="pet-id" placeholder="Enter pet ID">
+            </div>
+            <button onclick="getPetDetails()">Get Pet Details</button>
+            <button onclick="updatePet()">Update Pet</button>
+            <button onclick="deletePet()">Delete Pet</button>
+            <div id="details-result"></div>
+        </div>
+
+        <!-- API Endpoints Reference -->
+        <div class="section">
+            <h2>📚 Available Pet API Endpoints</h2>
+            <ul>
+                <li><code>POST /api/v1/pets/</code> - Create a new pet</li>
+                <li><code>GET /api/v1/pets/</code> - List user's pets (with pagination)</li>
+                <li><code>GET /api/v1/pets/search?q=query</code> - Search pets</li>
+                <li><code>GET /api/v1/pets/{pet_id}</code> - Get specific pet</li>
+                <li><code>PUT /api/v1/pets/{pet_id}</code> - Update pet</li>
+                <li><code>DELETE /api/v1/pets/{pet_id}</code> - Delete pet</li>
+            </ul>
+            <p><strong>Base URL:</strong> http://localhost:8000</p>
+            <p><strong>Interactive Docs:</strong> <a href="http://localhost:8000/docs" target="_blank">http://localhost:8000/docs</a></p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+        let accessToken = localStorage.getItem('pet_access_token');
+
+        // Update UI based on stored token
+        function updateTokenDisplay() {
+            const tokenDiv = document.getElementById('token-display');
+            if (accessToken) {
+                tokenDiv.innerHTML = `<div class="token-display"><strong>Access Token:</strong><br>${accessToken}</div>`;
+            } else {
+                tokenDiv.innerHTML = '<p>No token available. Please login first.</p>';
+            }
+        }
+
+        // Login to get token
+        async function loginUser() {
+            alert('Login function called!');
+            console.log('loginUser function called');
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const resultDiv = document.getElementById('auth-result');
+
+            console.log('Email:', email, 'Password:', password);
+
+            if (!email || !password) {
+                showResult(resultDiv, 'Please enter email and password', true);
+                return;
+            }
+
+            try {
+                console.log('Making fetch request to:', `${API_BASE}/auth/login`);
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                console.log('Response status:', response.status);
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                if (response.ok) {
+                    accessToken = data.access_token;
+                    localStorage.setItem('pet_access_token', accessToken);
+                    showResult(resultDiv, `✅ Login successful! User: ${data.email}`, false);
+                    updateTokenDisplay();
+                } else {
+                    showResult(resultDiv, `❌ Login failed: ${data.detail}`, true);
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showResult(resultDiv, `❌ Network error: ${error.message}`, true);
+            }
+        }
+
+        // Clear token
+        function clearToken() {
+            accessToken = null;
+            localStorage.removeItem('pet_access_token');
+            updateTokenDisplay();
+            document.getElementById('auth-result').innerHTML = '';
+        }
+
+        // Create pet
+        async function createPet() {
+            const resultDiv = document.getElementById('create-result');
+
+            if (!accessToken) {
+                showResult(resultDiv, 'Please login first to get an access token', true);
+                return;
+            }
+
+            const petData = {
+                name: document.getElementById('pet-name').value,
+                breed: document.getElementById('pet-breed').value || null,
+                age: parseInt(document.getElementById('pet-age').value) || null,
+                sex: document.getElementById('pet-sex').value || null,
+                color: document.getElementById('pet-color').value || null,
+                size: document.getElementById('pet-size').value || null,
+                weight: document.getElementById('pet-weight').value || null,
+                description: document.getElementById('pet-description').value || null
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/pets/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(petData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult(resultDiv, `✅ Pet created successfully!\\nPet ID: ${data.id}\\nName: ${data.name}\\n${JSON.stringify(data, null, 2)}`, false);
+                    // Auto-fill pet ID for other operations
+                    document.getElementById('pet-id').value = data.id;
+                } else {
+                    showResult(resultDiv, `❌ Failed to create pet: ${data.detail}`, true);
+                }
+            } catch (error) {
+                showResult(resultDiv, `❌ Network error: ${error.message}`, true);
+            }
+        }
+
+        // List pets
+        async function listPets() {
+            const resultDiv = document.getElementById('list-result');
+
+            if (!accessToken) {
+                showResult(resultDiv, 'Please login first to get an access token', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/pets/`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.length === 0) {
+                        showResult(resultDiv, '📋 No pets found. Create a pet first!', false);
+                    } else {
+                        showResult(resultDiv, `✅ Found ${data.length} pets:\\n${JSON.stringify(data, null, 2)}`, false);
+                    }
+                } else {
+                    showResult(resultDiv, `❌ Failed to list pets: ${data.detail}`, true);
+                }
+            } catch (error) {
+                showResult(resultDiv, `❌ Network error: ${error.message}`, true);
+            }
+        }
+
+        // Search pets
+        async function searchPets() {
+            const resultDiv = document.getElementById('list-result');
+            const query = document.getElementById('search-query').value;
+
+            if (!accessToken) {
+                showResult(resultDiv, 'Please login first to get an access token', true);
+                return;
+            }
+
+            if (!query) {
+                showResult(resultDiv, 'Please enter a search query', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/pets/search?q=${encodeURIComponent(query)}`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult(resultDiv, `🔍 Search results for "${query}": ${data.length} pets found\\n${JSON.stringify(data, null, 2)}`, false);
+                } else {
+                    showResult(resultDiv, `❌ Search failed: ${data.detail}`, true);
+                }
+            } catch (error) {
+                showResult(resultDiv, `❌ Network error: ${error.message}`, true);
+            }
+        }
+
+        // Get pet details
+        async function getPetDetails() {
+            const resultDiv = document.getElementById('details-result');
+            const petId = document.getElementById('pet-id').value;
+
+            if (!accessToken) {
+                showResult(resultDiv, 'Please login first to get an access token', true);
+                return;
+            }
+
+            if (!petId) {
+                showResult(resultDiv, 'Please enter a pet ID', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/pets/${petId}`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult(resultDiv, `✅ Pet details for ID ${petId}:\\n${JSON.stringify(data, null, 2)}`, false);
+                } else {
+                    showResult(resultDiv, `❌ Failed to get pet details: ${data.detail}`, true);
+                }
+            } catch (error) {
+                showResult(resultDiv, `❌ Network error: ${error.message}`, true);
+            }
+        }
+
+        // Update pet
+        async function updatePet() {
+            const resultDiv = document.getElementById('details-result');
+            const petId = document.getElementById('pet-id').value;
+
+            if (!accessToken) {
+                showResult(resultDiv, 'Please login first to get an access token', true);
+                return;
+            }
+
+            if (!petId) {
+                showResult(resultDiv, 'Please enter a pet ID', true);
+                return;
+            }
+
+            // Use current form values for update
+            const updateData = {
+                name: document.getElementById('pet-name').value || undefined,
+                breed: document.getElementById('pet-breed').value || undefined,
+                description: "Updated: " + (document.getElementById('pet-description').value || "Updated pet")
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/pets/${petId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updateData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult(resultDiv, `✅ Pet updated successfully!\\n${JSON.stringify(data, null, 2)}`, false);
+                } else {
+                    showResult(resultDiv, `❌ Failed to update pet: ${data.detail}`, true);
+                }
+            } catch (error) {
+                showResult(resultDiv, `❌ Network error: ${error.message}`, true);
+            }
+        }
+
+        // Delete pet
+        async function deletePet() {
+            const resultDiv = document.getElementById('details-result');
+            const petId = document.getElementById('pet-id').value;
+
+            if (!accessToken) {
+                showResult(resultDiv, 'Please login first to get an access token', true);
+                return;
+            }
+
+            if (!petId) {
+                showResult(resultDiv, 'Please enter a pet ID', true);
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to delete pet with ID ${petId}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/pets/${petId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult(resultDiv, `✅ Pet deleted successfully: ${data.message}`, false);
+                } else {
+                    showResult(resultDiv, `❌ Failed to delete pet: ${data.detail}`, true);
+                }
+            } catch (error) {
+                showResult(resultDiv, `❌ Network error: ${error.message}`, true);
+            }
+        }
+
+        // Helper function to show results
+        function showResult(element, message, isError) {
+            element.innerHTML = `<div class="result ${isError ? 'error' : ''}">${message}</div>`;
+        }
+
+        // Initialize UI on page load
+        updateTokenDisplay();
+    </script>
+</body>
+</html>

@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pet QR Code Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #007cba 0%, #00a8e6 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .demo-input {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .demo-input h3 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .demo-input input {
+            width: 200px;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 16px;
+            text-align: center;
+            margin-right: 10px;
+        }
+
+        .demo-input input:focus {
+            outline: none;
+            border-color: #007cba;
+        }
+
+        .btn {
+            background: #007cba;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #005a85;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .status-card {
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .status-inactive {
+            background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
+            color: #2d3436;
+        }
+
+        .status-unassigned {
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            color: white;
+        }
+
+        .status-assigned {
+            background: linear-gradient(135deg, #55efc4 0%, #00b894 100%);
+            color: #2d3436;
+        }
+
+        .status-error {
+            background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);
+            color: white;
+        }
+
+        .pet-info {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            border: 2px solid #e9ecef;
+        }
+
+        .pet-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .pet-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #007cba, #00a8e6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            margin-right: 15px;
+        }
+
+        .pet-details h3 {
+            color: #2d3436;
+            margin-bottom: 5px;
+        }
+
+        .pet-details p {
+            color: #636e72;
+            margin: 5px 0;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .info-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2d3436;
+        }
+
+        .pin-input {
+            background: #fff3cd;
+            border: 2px solid #ffeeba;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .pin-input h4 {
+            color: #856404;
+            margin-bottom: 15px;
+        }
+
+        .pin-input input {
+            width: 120px;
+            padding: 10px;
+            font-size: 18px;
+            text-align: center;
+            border: 2px solid #ffeeba;
+            border-radius: 6px;
+            margin-right: 10px;
+        }
+
+        .demo-links {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .demo-links h4 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .demo-links a {
+            display: block;
+            margin: 8px 0;
+            color: #007cba;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .demo-links a:hover {
+            text-decoration: underline;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #6c757d;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007cba;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .emergency-contact {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .emergency-contact h4 {
+            color: #f57c00;
+            margin-bottom: 10px;
+        }
+
+        .contact-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .contact-item {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 1px solid #ffcc02;
+        }
+
+        .contact-item strong {
+            color: #f57c00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🐕 Pet QR Scanner</h1>
+            <p>Scan QR code to view pet information</p>
+        </div>
+
+        <div class="content">
+            <!-- Demo Input Section -->
+            <div class="demo-input">
+                <h3>🔍 Test QR Code Scanner</h3>
+                <input type="text" id="qrCodeInput" placeholder="Enter QR code" value="">
+                <button class="btn" onclick="scanQRCode()">Scan</button>
+            </div>
+
+            <!-- Demo Links -->
+            <div class="demo-links">
+                <h4>📱 Test with Sample QR Codes:</h4>
+                <a href="#" onclick="loadQRCode('5GVZ77TDPHPB'); return false;">
+                    QR: 5GVZ77TDPHPB (Activated + Pet Assigned)
+                </a>
+                <a href="#" onclick="loadQRCode('AWAL33IEM3EB'); return false;">
+                    QR: AWAL33IEM3EB (Inactive - Need Activation)
+                </a>
+                <a href="#" onclick="loadQRCode('INVALID123'); return false;">
+                    QR: INVALID123 (Invalid QR Code)
+                </a>
+            </div>
+
+            <!-- Results Area -->
+            <div id="scanResults">
+                <div style="text-align: center; color: #6c757d; padding: 20px;">
+                    👆 Enter a QR code above to test different scenarios
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+
+        // Load QR code and display results
+        function loadQRCode(qrCode) {
+            document.getElementById('qrCodeInput').value = qrCode;
+            scanQRCode();
+        }
+
+        // Main QR scanning function
+        async function scanQRCode() {
+            const qrCode = document.getElementById('qrCodeInput').value.trim();
+            const resultsDiv = document.getElementById('scanResults');
+
+            if (!qrCode) {
+                resultsDiv.innerHTML = '<div class="status-error status-card">❌ Please enter a QR code</div>';
+                return;
+            }
+
+            // Show loading state
+            resultsDiv.innerHTML = '<div class="loading">Loading QR code information...</div>';
+
+            try {
+                // Step 1: Get basic QR code info (public endpoint)
+                const qrInfoResponse = await fetch(`${API_BASE}/qr-codes/${qrCode}`);
+                const qrInfo = await qrInfoResponse.json();
+
+                if (!qrInfoResponse.ok) {
+                    showInvalidQR(qrInfo.detail || 'QR code not found');
+                    return;
+                }
+
+                // Step 2: Handle different QR code states
+                if (!qrInfo.is_active) {
+                    showInactiveQR(qrCode);
+                } else if (!qrInfo.is_assigned) {
+                    showUnassignedQR(qrCode);
+                } else {
+                    // QR is active and assigned - show PIN input
+                    showPINInput(qrCode);
+                }
+
+            } catch (error) {
+                console.error('Error scanning QR code:', error);
+                showInvalidQR('Network error. Please try again.');
+            }
+        }
+
+        // Show invalid QR code message
+        function showInvalidQR(message) {
+            document.getElementById('scanResults').innerHTML = `
+                <div class="status-error status-card">
+                    <h2>❌ Invalid QR Code</h2>
+                    <p>${message}</p>
+                    <br>
+                    <button class="btn btn-secondary" onclick="document.getElementById('qrCodeInput').value=''; document.getElementById('scanResults').innerHTML='';">
+                        Try Another Code
+                    </button>
+                </div>
+            `;
+        }
+
+        // Show inactive QR code - need activation
+        function showInactiveQR(qrCode) {
+            document.getElementById('scanResults').innerHTML = `
+                <div class="status-inactive status-card">
+                    <h2>⚠️ QR Code Not Activated</h2>
+                    <p>This QR code needs to be activated before it can be used.</p>
+                    <br>
+                    <p><strong>QR Code:</strong> ${qrCode}</p>
+                    <br>
+                    <h3>📋 To Activate This QR Code:</h3>
+                    <ol style="text-align: left; max-width: 300px; margin: 15px auto;">
+                        <li>Register for a pet owner account</li>
+                        <li>Log in to your dashboard</li>
+                        <li>Go to QR Code management</li>
+                        <li>Activate this QR code: <strong>${qrCode}</strong></li>
+                        <li>Assign it to your pet</li>
+                    </ol>
+                    <br>
+                    <button class="btn" onclick="window.open('/register', '_blank')">
+                        📝 Register Account
+                    </button>
+                    <button class="btn btn-secondary" onclick="window.open('/login', '_blank')">
+                        🔑 Login
+                    </button>
+                </div>
+            `;
+        }
+
+        // Show activated but unassigned QR code
+        function showUnassignedQR(qrCode) {
+            document.getElementById('scanResults').innerHTML = `
+                <div class="status-unassigned status-card">
+                    <h2>✅ QR Code Activated</h2>
+                    <p>This QR code is activated but not yet assigned to a pet.</p>
+                    <br>
+                    <p><strong>QR Code:</strong> ${qrCode}</p>
+                    <br>
+                    <h3>🐕 Next Steps:</h3>
+                    <p>The pet owner needs to:</p>
+                    <ol style="text-align: left; max-width: 300px; margin: 15px auto;">
+                        <li>Log in to their account</li>
+                        <li>Add their pet information</li>
+                        <li>Assign this QR code to their pet</li>
+                    </ol>
+                    <br>
+                    <button class="btn" onclick="window.open('/login', '_blank')">
+                        🔑 Owner Login
+                    </button>
+                </div>
+            `;
+        }
+
+        // Show PIN input for assigned QR codes
+        function showPINInput(qrCode) {
+            document.getElementById('scanResults').innerHTML = `
+                <div class="pin-input">
+                    <h4>🔒 Enter PIN to View Pet Information</h4>
+                    <p>This pet's QR code is protected with a PIN</p>
+                    <br>
+                    <input type="text" id="pinInput" placeholder="PIN" maxlength="4" style="letter-spacing: 3px;">
+                    <button class="btn" onclick="verifyPIN('${qrCode}')">Verify</button>
+                    <br><br>
+                    <small style="color: #6c757d;">
+                        💡 The PIN is usually printed on the QR code tag
+                    </small>
+                </div>
+            `;
+
+            // Auto-focus PIN input
+            setTimeout(() => {
+                document.getElementById('pinInput').focus();
+            }, 100);
+
+            // Allow Enter key to submit
+            document.getElementById('pinInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    verifyPIN(qrCode);
+                }
+            });
+        }
+
+        // Verify PIN and show pet information
+        async function verifyPIN(qrCode) {
+            const pin = document.getElementById('pinInput').value.trim();
+            const resultsDiv = document.getElementById('scanResults');
+
+            if (!pin) {
+                alert('Please enter the PIN');
+                return;
+            }
+
+            // Show loading
+            resultsDiv.innerHTML = '<div class="loading">Verifying PIN...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/qr-codes/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ qr_code: qrCode, pin: pin })
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.pet_info) {
+                    showPetInformation(result.pet_info, qrCode);
+                } else {
+                    // Wrong PIN - show error and keep PIN input
+                    showPINInput(qrCode);
+                    document.getElementById('pinInput').value = '';
+                    document.getElementById('pinInput').style.borderColor = '#dc3545';
+
+                    // Add error message
+                    const errorDiv = document.createElement('div');
+                    errorDiv.style.color = '#dc3545';
+                    errorDiv.style.marginTop = '10px';
+                    errorDiv.textContent = '❌ Incorrect PIN. Please try again.';
+                    document.querySelector('.pin-input').appendChild(errorDiv);
+
+                    setTimeout(() => {
+                        if (errorDiv.parentNode) {
+                            errorDiv.parentNode.removeChild(errorDiv);
+                        }
+                        document.getElementById('pinInput').style.borderColor = '#ffeeba';
+                    }, 3000);
+                }
+
+            } catch (error) {
+                console.error('Error verifying PIN:', error);
+                showInvalidQR('Error verifying PIN. Please try again.');
+            }
+        }
+
+        // Show pet information after successful PIN verification
+        function showPetInformation(pet, qrCode) {
+            const avatarLetter = pet.name ? pet.name.charAt(0).toUpperCase() : '🐕';
+            const ageDisplay = pet.age ? `${pet.age} year${pet.age !== 1 ? 's' : ''} old` : 'Age unknown';
+
+            const sizeMap = {
+                'xs': 'Extra Small', 's': 'Small', 'm': 'Medium',
+                'l': 'Large', 'xl': 'Extra Large'
+            };
+            const sizeDisplay = sizeMap[pet.size] || pet.size || 'Unknown';
+
+            let emergencyContact = '';
+            if (pet.emergency_contact && (pet.emergency_contact.name || pet.emergency_contact.phone || pet.emergency_contact.email)) {
+                const contact = pet.emergency_contact;
+                emergencyContact = `
+                    <div class="emergency-contact">
+                        <h4>📞 Emergency Contact</h4>
+                        <div class="contact-info">
+                            ${contact.name ? `<div class="contact-item"><strong>Name:</strong> ${contact.name}</div>` : ''}
+                            ${contact.phone ? `<div class="contact-item"><strong>Phone:</strong> <a href="tel:${contact.phone}">${contact.phone}</a></div>` : ''}
+                            ${contact.email ? `<div class="contact-item"><strong>Email:</strong> <a href="mailto:${contact.email}">${contact.email}</a></div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('scanResults').innerHTML = `
+                <div class="status-assigned status-card">
+                    <h2>🎉 Pet Found!</h2>
+                    <p>QR Code: ${qrCode}</p>
+                </div>
+
+                <div class="pet-info">
+                    <div class="pet-header">
+                        <div class="pet-avatar">${avatarLetter}</div>
+                        <div class="pet-details">
+                            <h3>${pet.name || 'Unknown'}</h3>
+                            <p>${pet.breed || 'Mixed breed'}</p>
+                            <p>${ageDisplay}</p>
+                        </div>
+                    </div>
+
+                    ${pet.is_lost ? '<div style="background: #ffebee; color: #c62828; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin: 15px 0;">🚨 LOST PET - Please contact owner immediately!</div>' : ''}
+
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Sex</div>
+                            <div class="info-value">${pet.sex || 'Unknown'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Size</div>
+                            <div class="info-value">${sizeDisplay}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Color</div>
+                            <div class="info-value">${pet.color || 'Unknown'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">QR Scans</div>
+                            <div class="info-value">Just scanned</div>
+                        </div>
+                    </div>
+
+                    ${pet.description ? `
+                        <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #2196f3;">
+                            <h4 style="color: #1976d2; margin-bottom: 10px;">🐾 About ${pet.name}</h4>
+                            <p style="color: #1976d2;">${pet.description}</p>
+                        </div>
+                    ` : ''}
+
+                    ${emergencyContact}
+
+                    <div style="text-align: center; margin-top: 20px;">
+                        <button class="btn btn-secondary" onclick="recordScan('${qrCode}')">
+                            📱 Record Scan Event
+                        </button>
+                        <button class="btn btn-secondary" onclick="window.location.reload()">
+                            🔍 Scan Another Code
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // Automatically record the scan
+            recordScan(qrCode);
+        }
+
+        // Record QR code scan
+        async function recordScan(qrCode) {
+            try {
+                await fetch(`${API_BASE}/qr-codes/${qrCode}/scan`, {
+                    method: 'POST'
+                });
+                console.log('Scan recorded for QR code:', qrCode);
+            } catch (error) {
+                console.error('Error recording scan:', error);
+            }
+        }
+
+        // Parse URL parameters for direct QR access
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const qrCode = urlParams.get('qr');
+
+            if (qrCode) {
+                document.getElementById('qrCodeInput').value = qrCode;
+                scanQRCode();
+            }
+        };
+    </script>
+</body>
+</html>

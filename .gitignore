@@ -1,0 +1,85 @@
+# Python
+venv
+venv_linux
+__pycache__
+.ruff_cache
+.pytest_cache
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.coverage
+.pytest_cache/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+coverage/
+*.tsbuildinfo
+.eslintcache
+dist/
+dist-ssr/
+.next
+.nuxt
+.cache
+.parcel-cache
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.staging
+
+# IDEs
+.vscode/
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs
+*.log
+
+# Uploads and generated files
+uploads/
+*.qr.png
+backup/
+migrations/versions/
+
+# Docker
+.docker/
+
+# AWS
+.aws/
+
+# Project specific
+local/
+dev/
+tmp/
+temp/

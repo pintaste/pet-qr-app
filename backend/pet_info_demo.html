@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pet Information Page Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .pet-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-left: 6px solid #007cba;
+        }
+        .pet-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .pet-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #007cba, #00a8e6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            color: white;
+            margin-right: 20px;
+        }
+        .pet-name {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            margin: 0;
+        }
+        .pet-breed {
+            font-size: 18px;
+            color: #666;
+            margin: 5px 0 0 0;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .info-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #495057;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        .info-value {
+            color: #212529;
+            font-size: 16px;
+        }
+        .description {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #2196f3;
+        }
+        .description h3 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+        .emergency-contact {
+            background: #fff3e0;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #ff9800;
+        }
+        .emergency-contact h3 {
+            margin: 0 0 10px 0;
+            color: #f57c00;
+        }
+        .status-lost {
+            background: #ffebee;
+            color: #c62828;
+            padding: 10px 15px;
+            border-radius: 20px;
+            display: inline-block;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .demo-controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .demo-controls input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+            width: 100px;
+        }
+        .demo-controls button {
+            background: #007cba;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .demo-controls button:hover {
+            background: #005a85;
+        }
+        .demo-links {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .demo-links a {
+            display: block;
+            margin: 10px 0;
+            color: #007cba;
+            text-decoration: none;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .demo-links a:hover {
+            background: #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <h1>🐕 Pet Information Page Demo</h1>
+
+    <div class="demo-controls">
+        <h3>🔗 Test Public Pet Links</h3>
+        <div>
+            <label>Pet ID:</label>
+            <input type="number" id="petIdInput" value="2" min="1">
+            <button onclick="loadPetInfo()">🔍 Load Pet Info</button>
+        </div>
+    </div>
+
+    <div class="demo-links">
+        <h3>📋 Direct Links Examples</h3>
+        <p>These are public URLs that can be shared without authentication:</p>
+        <a href="http://localhost:8000/api/v1/pets/public/2" target="_blank">
+            🔗 http://localhost:8000/api/v1/pets/public/2
+        </a>
+        <a href="#" onclick="loadPetInfo(); return false;">
+            📱 Load Pet 2 in this page
+        </a>
+        <p><small>💡 These URLs can be embedded in QR codes or shared directly</small></p>
+    </div>
+
+    <div id="petInfoContainer">
+        <!-- Pet information will be loaded here -->
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+
+        async function loadPetInfo() {
+            const petId = document.getElementById('petIdInput').value;
+            const container = document.getElementById('petInfoContainer');
+
+            if (!petId) {
+                container.innerHTML = '<div class="error">Please enter a Pet ID</div>';
+                return;
+            }
+
+            try {
+                container.innerHTML = '<div style="text-align: center; padding: 40px;">Loading pet information...</div>';
+
+                const response = await fetch(`${API_BASE}/pets/public/${petId}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayPetInfo(data);
+                } else {
+                    container.innerHTML = `<div class="error">❌ ${data.detail || 'Pet not found'}</div>`;
+                }
+            } catch (error) {
+                console.error('Error loading pet info:', error);
+                container.innerHTML = '<div class="error">❌ Network error loading pet information</div>';
+            }
+        }
+
+        function displayPetInfo(pet) {
+            const container = document.getElementById('petInfoContainer');
+
+            // Get first letter of pet name for avatar
+            const avatarLetter = pet.name ? pet.name.charAt(0).toUpperCase() : '🐕';
+
+            // Format age display
+            const ageDisplay = pet.age ? `${pet.age} year${pet.age !== 1 ? 's' : ''} old` : 'Age unknown';
+
+            // Format size
+            const sizeMap = {
+                'xs': 'Extra Small',
+                's': 'Small',
+                'm': 'Medium',
+                'l': 'Large',
+                'xl': 'Extra Large'
+            };
+            const sizeDisplay = sizeMap[pet.size] || pet.size || 'Unknown';
+
+            container.innerHTML = `
+                <div class="pet-card">
+                    <div class="pet-header">
+                        <div class="pet-avatar">${avatarLetter}</div>
+                        <div>
+                            <h1 class="pet-name">${pet.name || 'Unknown'}</h1>
+                            <p class="pet-breed">${pet.breed || 'Mixed breed'}</p>
+                        </div>
+                    </div>
+
+                    ${pet.is_lost ? '<div class="status-lost">🚨 LOST PET - Please contact owner!</div>' : ''}
+
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Age</div>
+                            <div class="info-value">${ageDisplay}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Sex</div>
+                            <div class="info-value">${pet.sex || 'Unknown'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Size</div>
+                            <div class="info-value">${sizeDisplay}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Color</div>
+                            <div class="info-value">${pet.color || 'Unknown'}</div>
+                        </div>
+                    </div>
+
+                    ${pet.description ? `
+                        <div class="description">
+                            <h3>🐾 About ${pet.name}</h3>
+                            <p>${pet.description}</p>
+                        </div>
+                    ` : ''}
+
+                    ${pet.emergency_contact && (pet.emergency_contact.name || pet.emergency_contact.phone) ? `
+                        <div class="emergency-contact">
+                            <h3>📞 Emergency Contact</h3>
+                            ${pet.emergency_contact.name ? `<p><strong>Name:</strong> ${pet.emergency_contact.name}</p>` : ''}
+                            ${pet.emergency_contact.phone ? `<p><strong>Phone:</strong> <a href="tel:${pet.emergency_contact.phone}">${pet.emergency_contact.phone}</a></p>` : ''}
+                            ${pet.emergency_contact.email ? `<p><strong>Email:</strong> <a href="mailto:${pet.emergency_contact.email}">${pet.emergency_contact.email}</a></p>` : ''}
+                        </div>
+                    ` : ''}
+
+                    ${pet.basic_medical_info && Object.keys(pet.basic_medical_info).length > 0 ? `
+                        <div class="info-item" style="grid-column: 1 / -1;">
+                            <div class="info-label">Medical Information</div>
+                            <div class="info-value">
+                                ${Object.entries(pet.basic_medical_info).map(([key, value]) =>
+                                    `<strong>${key}:</strong> ${value}`
+                                ).join('<br>')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    ${pet.last_known_location ? `
+                        <div class="info-item" style="grid-column: 1 / -1; background: #ffebee;">
+                            <div class="info-label">Last Known Location</div>
+                            <div class="info-value">${pet.last_known_location}</div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // Load default pet on page load
+        window.onload = function() {
+            loadPetInfo();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Language Persistence Test Guide</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-case {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .step {
+            background: #e8f4fd;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #007acc;
+        }
+        .expected {
+            background: #e8f5e8;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #28a745;
+        }
+        .code {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌍 Language Persistence Testing Guide</h1>
+
+    <div class="test-case">
+        <h2>📋 Test Requirements</h2>
+        <p>The enhanced language selection should:</p>
+        <ul>
+            <li>✅ Cache language selection permanently (never expires)</li>
+            <li>✅ Skip language selection for returning users</li>
+            <li>✅ Apply stored language to main page</li>
+            <li>✅ Handle QR code scanning with language preference</li>
+        </ul>
+    </div>
+
+    <div class="test-case">
+        <h2>🧪 Test Case 1: First Time User</h2>
+        <div class="step">
+            <strong>Step 1:</strong> Open Developer Tools → Application → Storage → Clear storage data for localhost:3001
+        </div>
+        <div class="step">
+            <strong>Step 2:</strong> Visit http://localhost:3001/
+        </div>
+        <div class="step">
+            <strong>Step 3:</strong> Click "Scan QR" → Upload any test QR code image
+        </div>
+        <div class="expected">
+            <strong>Expected:</strong> Should navigate to /language?qr=demo123 (language selection page)
+        </div>
+        <div class="step">
+            <strong>Step 4:</strong> Select a language (e.g., 中文)
+        </div>
+        <div class="expected">
+            <strong>Expected:</strong> Should navigate to /qr/demo123 and store language preference
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h2>🔄 Test Case 2: Returning User</h2>
+        <div class="step">
+            <strong>Step 1:</strong> After completing Test Case 1, visit http://localhost:3001/
+        </div>
+        <div class="step">
+            <strong>Step 2:</strong> Click "Try Demo" button
+        </div>
+        <div class="expected">
+            <strong>Expected:</strong> Should navigate directly to /qr/DEMO123 (skip language selection)
+        </div>
+        <div class="step">
+            <strong>Step 3:</strong> Go back to home and click "Scan QR" → Upload any test QR code
+        </div>
+        <div class="expected">
+            <strong>Expected:</strong> Should navigate directly to /qr/demo123 (skip language selection)
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h2>🌐 Test Case 3: Language Persistence</h2>
+        <div class="step">
+            <strong>Step 1:</strong> Check browser's localStorage for stored language data
+        </div>
+        <div class="code">
+            // Open Developer Tools → Console
+            console.log(JSON.parse(localStorage.getItem('pet-qr-language')))
+        </div>
+        <div class="expected">
+            <strong>Expected:</strong> Should show object with language code and hasSelectedLanguage: true
+        </div>
+        <div class="step">
+            <strong>Step 2:</strong> Refresh the page multiple times
+        </div>
+        <div class="expected">
+            <strong>Expected:</strong> Language preference should persist across refreshes
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h2>🔧 Test Case 4: Reset Language Preference (Development)</h2>
+        <div class="step">
+            <strong>Step 1:</strong> To reset for testing, run in browser console:
+        </div>
+        <div class="code">
+            // Clear language preference
+            localStorage.removeItem('pet-qr-language')
+            window.location.reload()
+        </div>
+        <div class="expected">
+            <strong>Expected:</strong> Should behave like first-time user again
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h2>📊 Test Results Verification</h2>
+        <h3>✅ Success Criteria:</h3>
+        <ul>
+            <li>First visit requires language selection</li>
+            <li>Language selection is cached permanently</li>
+            <li>Subsequent visits skip language selection</li>
+            <li>QR scanning works with and without cached language</li>
+            <li>Language preference persists across browser sessions</li>
+        </ul>
+
+        <h3>🔍 Debugging:</h3>
+        <p>Check localStorage data:</p>
+        <div class="code">
+            {
+              "state": {
+                "language": "zh",
+                "hasSelectedLanguage": true
+              },
+              "version": 0
+            }
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h2>🚀 Available Test QR Codes</h2>
+        <p>Use the generated QR codes from:</p>
+        <div class="code">
+            /Users/pin/Desktop/Context-Engineering-Intro/frontend/test-qr-codes/
+        </div>
+        <ul>
+            <li><strong>demo123-activated_and_bound_to_pet.png</strong> - Full flow test</li>
+            <li><strong>demo456-activated_but_needs_binding.png</strong> - Registration flow</li>
+            <li><strong>demo789-needs_activation.png</strong> - Activation required</li>
+            <li><strong>demo999-qr_code_not_found.png</strong> - Error handling</li>
+        </ul>
+    </div>
+</body>
+</html>

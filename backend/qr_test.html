@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .button { background: #007cba; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .button:hover { background: #005a85; }
+        .result { margin-top: 10px; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        input, select { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
+        .token-display { background: #f8f9fa; padding: 10px; border-radius: 4px; word-break: break-all; font-family: monospace; font-size: 12px; }
+        .qr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
+        .qr-card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; background: #f9f9f9; }
+        .qr-code { font-family: monospace; font-weight: bold; color: #007cba; }
+        .pin { color: #dc3545; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🔗 QR Code API Testing Interface</h1>
+
+    <!-- Authentication Section -->
+    <div class="section">
+        <h2>🔐 Authentication</h2>
+        <div>
+            <label>Email:</label>
+            <input type="email" id="loginEmail" value="testuser@example.com">
+        </div>
+        <div>
+            <label>Password:</label>
+            <input type="password" id="loginPassword" value="password123">
+        </div>
+        <button class="button" onclick="loginUser()">🔑 Login & Get Token</button>
+        <div id="authResult"></div>
+        <div id="tokenDisplay" class="token-display" style="display: none;"></div>
+    </div>
+
+    <!-- Create Single QR Code -->
+    <div class="section">
+        <h2>➕ Create Single QR Code</h2>
+        <div>
+            <label>Pet ID (optional):</label>
+            <input type="number" id="singlePetId" placeholder="Leave empty for unassigned">
+        </div>
+        <div>
+            <label>Custom PIN (optional):</label>
+            <input type="text" id="singlePin" placeholder="Auto-generated if empty" maxlength="4">
+        </div>
+        <div>
+            <label>Physical Format:</label>
+            <select id="singleFormat">
+                <option value="sticker">Sticker</option>
+                <option value="tag">Tag</option>
+                <option value="collar">Collar</option>
+                <option value="keychain">Keychain</option>
+            </select>
+        </div>
+        <div>
+            <label>Batch ID (optional):</label>
+            <input type="text" id="singleBatchId" placeholder="Auto-generated if empty">
+        </div>
+        <button class="button" onclick="createSingleQR()">🏷️ Create QR Code</button>
+        <div id="singleQRResult"></div>
+    </div>
+
+    <!-- Batch Generate QR Codes -->
+    <div class="section">
+        <h2>📦 Batch Generate QR Codes</h2>
+        <div>
+            <label>Quantity:</label>
+            <input type="number" id="batchQuantity" value="5" min="1" max="100">
+        </div>
+        <div>
+            <label>Batch ID (optional):</label>
+            <input type="text" id="batchId" placeholder="Auto-generated if empty">
+        </div>
+        <div>
+            <label>Physical Format:</label>
+            <select id="batchFormat">
+                <option value="sticker">Sticker</option>
+                <option value="tag">Tag</option>
+                <option value="collar">Collar</option>
+                <option value="keychain">Keychain</option>
+            </select>
+        </div>
+        <button class="button" onclick="generateBatchQR()">📋 Generate Batch</button>
+        <div id="batchQRResult"></div>
+    </div>
+
+    <!-- List QR Codes -->
+    <div class="section">
+        <h2>📋 List QR Codes</h2>
+        <div>
+            <input type="checkbox" id="unassignedOnly">
+            <label for="unassignedOnly">Show only unassigned QR codes</label>
+        </div>
+        <div>
+            <label>Skip:</label>
+            <input type="number" id="listSkip" value="0" min="0">
+            <label>Limit:</label>
+            <input type="number" id="listLimit" value="20" min="1" max="100">
+        </div>
+        <button class="button" onclick="listQRCodes()">📝 List QR Codes</button>
+        <div id="listQRResult"></div>
+    </div>
+
+    <!-- QR Code Info (Public) -->
+    <div class="section">
+        <h2>🔍 Get QR Code Info (Public)</h2>
+        <div>
+            <label>QR Code:</label>
+            <input type="text" id="infoQRCode" placeholder="Enter QR code string">
+        </div>
+        <button class="button" onclick="getQRInfo()">ℹ️ Get Info</button>
+        <div id="infoQRResult"></div>
+    </div>
+
+    <!-- PIN Verification -->
+    <div class="section">
+        <h2>🔐 Verify PIN & Get Pet Info</h2>
+        <div>
+            <label>QR Code:</label>
+            <input type="text" id="verifyQRCode" placeholder="Enter QR code string">
+        </div>
+        <div>
+            <label>PIN:</label>
+            <input type="text" id="verifyPIN" placeholder="Enter 4-digit PIN" maxlength="4">
+        </div>
+        <button class="button" onclick="verifyQRPin()">✅ Verify PIN</button>
+        <div id="verifyPINResult"></div>
+    </div>
+
+    <!-- Assign QR to Pet -->
+    <div class="section">
+        <h2>🐕 Assign QR Code to Pet</h2>
+        <div>
+            <label>QR Code ID:</label>
+            <input type="number" id="assignQRId" placeholder="Enter QR code ID">
+        </div>
+        <div>
+            <label>Pet ID:</label>
+            <input type="number" id="assignPetId" placeholder="Enter pet ID">
+        </div>
+        <button class="button" onclick="assignQRToPet()">🔗 Assign to Pet</button>
+        <div id="assignQRResult"></div>
+    </div>
+
+    <!-- Activate QR with Pet -->
+    <div class="section">
+        <h2>⚡ Activate QR Code with Pet</h2>
+        <div>
+            <label>QR Code:</label>
+            <input type="text" id="activateQRCode" placeholder="Enter QR code string">
+        </div>
+        <div>
+            <label>Pet ID:</label>
+            <input type="number" id="activatePetId" placeholder="Enter pet ID">
+        </div>
+        <button class="button" onclick="activateQRCode()">🚀 Activate QR Code</button>
+        <div id="activateQRResult"></div>
+    </div>
+
+    <!-- Get Pet's QR Codes -->
+    <div class="section">
+        <h2>🐾 Get Pet's QR Codes</h2>
+        <div>
+            <label>Pet ID:</label>
+            <input type="number" id="petQRId" placeholder="Enter pet ID">
+        </div>
+        <button class="button" onclick="getPetQRCodes()">📱 Get Pet QR Codes</button>
+        <div id="petQRResult"></div>
+    </div>
+
+    <!-- Record Scan -->
+    <div class="section">
+        <h2>📱 Record QR Code Scan</h2>
+        <div>
+            <label>QR Code:</label>
+            <input type="text" id="scanQRCode" placeholder="Enter QR code string">
+        </div>
+        <button class="button" onclick="recordScan()">📲 Record Scan</button>
+        <div id="scanResult"></div>
+    </div>
+
+    <script>
+        let authToken = '';
+        const API_BASE = 'http://localhost:8000/api/v1';
+
+        // Authentication
+        async function loginUser() {
+            console.log('Login function called');
+
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const resultDiv = document.getElementById('authResult');
+            const tokenDiv = document.getElementById('tokenDisplay');
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    authToken = data.access_token;
+                    resultDiv.innerHTML = `<p class="success">✅ Login successful!</p>`;
+                    tokenDiv.innerHTML = `<strong>Token:</strong> ${authToken.substring(0, 50)}...`;
+                    tokenDiv.style.display = 'block';
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Login failed: ${data.detail}</p>`;
+                    tokenDiv.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                resultDiv.innerHTML = `<p class="error">❌ Network error: ${error.message}</p>`;
+                tokenDiv.style.display = 'none';
+            }
+        }
+
+        // Helper function for authenticated requests
+        async function makeAuthenticatedRequest(url, options = {}) {
+            if (!authToken) {
+                throw new Error('Not authenticated. Please login first.');
+            }
+
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`,
+                ...options.headers
+            };
+
+            return fetch(url, {
+                ...options,
+                headers
+            });
+        }
+
+        // Create Single QR Code
+        async function createSingleQR() {
+            const resultDiv = document.getElementById('singleQRResult');
+
+            try {
+                const requestData = {
+                    physical_format: document.getElementById('singleFormat').value
+                };
+
+                const petId = document.getElementById('singlePetId').value;
+                if (petId) requestData.pet_id = parseInt(petId);
+
+                const pin = document.getElementById('singlePin').value;
+                if (pin) requestData.pin = pin;
+
+                const batchId = document.getElementById('singleBatchId').value;
+                if (batchId) requestData.batch_id = batchId;
+
+                const response = await makeAuthenticatedRequest(`${API_BASE}/qr-codes/`, {
+                    method: 'POST',
+                    body: JSON.stringify(requestData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ QR Code Created Successfully!</h4>
+                            <div class="qr-card">
+                                <p><strong>ID:</strong> ${data.id}</p>
+                                <p><strong>Code:</strong> <span class="qr-code">${data.code}</span></p>
+                                <p><strong>PIN:</strong> <span class="pin">${data.pin}</span></p>
+                                <p><strong>Status:</strong> ${data.status}</p>
+                                <p><strong>Format:</strong> ${data.print_data?.physical_format || 'N/A'}</p>
+                                <p><strong>Pet ID:</strong> ${data.pet_id || 'Unassigned'}</p>
+                                <p><strong>Batch ID:</strong> ${data.batch_id || 'N/A'}</p>
+                            </div>
+                        </div>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                console.error('Create QR error:', error);
+                resultDiv.innerHTML = `<p class="error">❌ ${error.message}</p>`;
+            }
+        }
+
+        // Generate Batch QR Codes
+        async function generateBatchQR() {
+            const resultDiv = document.getElementById('batchQRResult');
+
+            try {
+                const requestData = {
+                    quantity: parseInt(document.getElementById('batchQuantity').value),
+                    physical_format: document.getElementById('batchFormat').value
+                };
+
+                const batchId = document.getElementById('batchId').value;
+                if (batchId) requestData.batch_id = batchId;
+
+                const response = await makeAuthenticatedRequest(`${API_BASE}/qr-codes/batch/generate`, {
+                    method: 'POST',
+                    body: JSON.stringify(requestData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const qrCards = data.qr_codes.map(qr => `
+                        <div class="qr-card">
+                            <p><strong>ID:</strong> ${qr.id}</p>
+                            <p><strong>Code:</strong> <span class="qr-code">${qr.code}</span></p>
+                            <p><strong>PIN:</strong> <span class="pin">${qr.pin}</span></p>
+                        </div>
+                    `).join('');
+
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Generated ${data.quantity} QR Codes!</h4>
+                            <p><strong>Batch ID:</strong> ${data.batch_id}</p>
+                            <div class="qr-grid">${qrCards}</div>
+                        </div>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                console.error('Batch generate error:', error);
+                resultDiv.innerHTML = `<p class="error">❌ ${error.message}</p>`;
+            }
+        }
+
+        // List QR Codes
+        async function listQRCodes() {
+            const resultDiv = document.getElementById('listQRResult');
+
+            try {
+                const skip = document.getElementById('listSkip').value;
+                const limit = document.getElementById('listLimit').value;
+                const unassignedOnly = document.getElementById('unassignedOnly').checked;
+
+                const params = new URLSearchParams({
+                    skip: skip,
+                    limit: limit,
+                    unassigned_only: unassignedOnly
+                });
+
+                const response = await makeAuthenticatedRequest(`${API_BASE}/qr-codes/?${params}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.length === 0) {
+                        resultDiv.innerHTML = '<p class="info">📝 No QR codes found.</p>';
+                        return;
+                    }
+
+                    const qrCards = data.map(qr => `
+                        <div class="qr-card">
+                            <p><strong>ID:</strong> ${qr.id}</p>
+                            <p><strong>Code:</strong> <span class="qr-code">${qr.code}</span></p>
+                            <p><strong>PIN:</strong> <span class="pin">${qr.pin}</span></p>
+                            <p><strong>Status:</strong> ${qr.status}</p>
+                            <p><strong>Pet ID:</strong> ${qr.pet_id || 'Unassigned'}</p>
+                            <p><strong>Batch:</strong> ${qr.batch_id || 'N/A'}</p>
+                        </div>
+                    `).join('');
+
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>📋 Found ${data.length} QR Code(s)</h4>
+                            <div class="qr-grid">${qrCards}</div>
+                        </div>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                console.error('List QR error:', error);
+                resultDiv.innerHTML = `<p class="error">❌ ${error.message}</p>`;
+            }
+        }
+
+        // Get QR Code Info (Public)
+        async function getQRInfo() {
+            const resultDiv = document.getElementById('infoQRResult');
+            const qrCode = document.getElementById('infoQRCode').value;
+
+            if (!qrCode) {
+                resultDiv.innerHTML = '<p class="error">❌ Please enter a QR code</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/qr-codes/${qrCode}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>ℹ️ QR Code Information</h4>
+                            <div class="qr-card">
+                                <p><strong>Code:</strong> <span class="qr-code">${data.code}</span></p>
+                                <p><strong>Active:</strong> ${data.is_active ? '✅ Yes' : '❌ No'}</p>
+                                <p><strong>Assigned:</strong> ${data.is_assigned ? '✅ Yes' : '❌ No'}</p>
+                                <p><strong>Requires PIN:</strong> ${data.requires_pin ? '🔒 Yes' : '🔓 No'}</p>
+                                <p><strong>Pet Info:</strong> ${data.pet_info ? 'Available after PIN verification' : 'Not available'}</p>
+                            </div>
+                        </div>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                console.error('Get QR info error:', error);
+                resultDiv.innerHTML = `<p class="error">❌ ${error.message}</p>`;
+            }
+        }
+
+        // Verify QR PIN
+        async function verifyQRPin() {
+            const resultDiv = document.getElementById('verifyPINResult');
+            const qrCode = document.getElementById('verifyQRCode').value;
+            const pin = document.getElementById('verifyPIN').value;
+
+            if (!qrCode || !pin) {
+                resultDiv.innerHTML = '<p class="error">❌ Please enter both QR code and PIN</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/qr-codes/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ qr_code: qrCode, pin: pin })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.success) {
+                        const petInfo = data.pet_info;
+                        const emergencyContact = petInfo.emergency_contact || {};
+
+                        resultDiv.innerHTML = `
+                            <div class="success">
+                                <h4>✅ PIN Verified Successfully!</h4>
+                                <div class="qr-card">
+                                    <h5>🐕 Pet Information</h5>
+                                    <p><strong>Name:</strong> ${petInfo.name}</p>
+                                    <p><strong>Breed:</strong> ${petInfo.breed}</p>
+                                    <p><strong>Age:</strong> ${petInfo.age}</p>
+                                    <p><strong>Sex:</strong> ${petInfo.sex}</p>
+                                    <p><strong>Size:</strong> ${petInfo.size}</p>
+                                    <p><strong>Color:</strong> ${petInfo.color}</p>
+                                    <p><strong>Description:</strong> ${petInfo.description || 'N/A'}</p>
+                                    ${emergencyContact.name ? `<p><strong>Emergency Contact:</strong> ${emergencyContact.name} - ${emergencyContact.phone || 'N/A'}</p>` : ''}
+                                    <p><strong>Photos:</strong> ${petInfo.photo_urls ? petInfo.photo_urls.length : 0} available</p>
+                                </div>
+                            </div>`;
+                    } else {
+                        resultDiv.innerHTML = `<p class="error">❌ ${data.message}</p>`;
+                    }
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                console.error('Verify PIN error:', error);
+                resultDiv.innerHTML = `<p class="error">❌ ${error.message}</p>`;
+            }
+        }
+
+        // Assign QR to Pet
+        async function assignQRToPet() {
+            const resultDiv = document.getElementById('assignQRResult');
+            const qrId = document.getElementById('assignQRId').value;
+            const petId = document.getElementById('assignPetId').value;
+
+            if (!qrId || !petId) {
+                resultDiv.innerHTML = '<p class="error">❌ Please enter both QR code ID and Pet ID</p>';
+                return;
+            }
+
+            try {
+                const response = await makeAuthenticatedRequest(`${API_BASE}/qr-codes/${qrId}/assign/${petId}`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>🔗 QR Code Assigned Successfully!</h4>
+                            <div class="qr-card">
+                                <p><strong>QR Code:</strong> <span class="qr-code">${data.code}</span></p>
+                                <p><strong>Status:</strong> ${data.status}</p>
+                                <p><strong>Pet ID:</strong> ${data.pet_id}</p>
+                                <p><strong>Activated:</strong> ${data.activated_at ? new Date(data.activated_at).toLocaleString() : 'N/A'}</p>
+                            </div>
+                        </div>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                console.error('Assign QR error:', error);
+                resultDiv.innerHTML = `<p class="error">❌ ${error.message}</p>`;
+            }
+        }
+
+        // Activate QR Code
+        async function activateQRCode() {
+            const resultDiv = document.getElementById('activateQRResult');
+            const qrCode = document.getElementById('activateQRCode').value;
+            const petId = document.getElementById('activatePetId').value;
+
+            if (!qrCode || !petId) {
+                resultDiv.innerHTML = '<p class="error">❌ Please enter both QR code and Pet ID</p>';
+                return;
+            }
+
+            try {
+                const response = await makeAuthenticatedRequest(`${API_BASE}/qr-codes/${qrCode}/activate?pet_id=${petId}`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>⚡ QR Code Activated Successfully!</h4>
+                            <div class="qr-card">
+                                <p><strong>Code:</strong> <span class="qr-code">${data.code}</span></p>
+                                <p><strong>Status:</strong> ${data.status}</p>
+                                <p><strong>Pet ID:</strong> ${data.pet_id}</p>
+                                <p><strong>Activated:</strong> ${new Date(data.activated_at).toLocaleString()}</p>
+                            </div>
+                        </div>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                console.error('Activate QR error:', error);
+                resultDiv.innerHTML = `<p class="error">❌ ${error.message}</p>`;
+            }
+        }
+
+        // Get Pet's QR Codes
+        async function getPetQRCodes() {
+            const resultDiv = document.getElementById('petQRResult');
+            const petId = document.getElementById('petQRId').value;
+
+            if (!petId) {
+                resultDiv.innerHTML = '<p class="error">❌ Please enter a Pet ID</p>';
+                return;
+            }
+
+            try {
+                const response = await makeAuthenticatedRequest(`${API_BASE}/qr-codes/pet/${petId}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.length === 0) {
+                        resultDiv.innerHTML = '<p class="info">📱 No QR codes found for this pet.</p>';
+                        return;
+                    }
+
+                    const qrCards = data.map(qr => `
+                        <div class="qr-card">
+                            <p><strong>ID:</strong> ${qr.id}</p>
+                            <p><strong>Code:</strong> <span class="qr-code">${qr.code}</span></p>
+                            <p><strong>PIN:</strong> <span class="pin">${qr.pin}</span></p>
+                            <p><strong>Status:</strong> ${qr.status}</p>
+                            <p><strong>Created:</strong> ${new Date(qr.created_at).toLocaleDateString()}</p>
+                        </div>
+                    `).join('');
+
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>🐾 Found ${data.length} QR Code(s) for Pet</h4>
+                            <div class="qr-grid">${qrCards}</div>
+                        </div>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                console.error('Get pet QR codes error:', error);
+                resultDiv.innerHTML = `<p class="error">❌ ${error.message}</p>`;
+            }
+        }
+
+        // Record Scan
+        async function recordScan() {
+            const resultDiv = document.getElementById('scanResult');
+            const qrCode = document.getElementById('scanQRCode').value;
+
+            if (!qrCode) {
+                resultDiv.innerHTML = '<p class="error">❌ Please enter a QR code</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/qr-codes/${qrCode}/scan`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>📲 Scan Recorded Successfully!</h4>
+                            <p>${data.message}</p>
+                            <p><strong>QR Code:</strong> <span class="qr-code">${data.qr_code}</span></p>
+                        </div>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                console.error('Record scan error:', error);
+                resultDiv.innerHTML = `<p class="error">❌ ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

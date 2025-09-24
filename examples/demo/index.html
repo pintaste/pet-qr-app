@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pet Info System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header" id="header" style="display: none;">
+            <div class="logo">
+                <i class="bi bi-heart-fill"></i>
+                <span>PetID</span>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <div class="language-switcher">
+                    <button class="language-switcher-btn" id="languageSwitcherBtn">
+                        <i class="bi bi-globe"></i>
+                        <span id="currentLangCode">EN</span>
+                    </button>
+                    <div class="language-dropdown" id="languageDropdown">
+                        <button class="language-option" data-lang="en">
+                            🇺🇸 <span>English</span>
+                        </button>
+                        <button class="language-option" data-lang="zh">
+                            🇨🇳 <span>中文</span>
+                        </button>
+                        <button class="language-option" data-lang="es">
+                            🇪🇸 <span>Español</span>
+                        </button>
+                        <button class="language-option" data-lang="fr">
+                            🇫🇷 <span>Français</span>
+                        </button>
+                    </div>
+                </div>
+                <button class="theme-toggle" id="themeToggle">
+                    <i class="bi bi-sun"></i>
+                </button>
+                <button class="login-btn" id="loginBtn">
+                    <i class="bi bi-person"></i>
+                </button>
+                <button class="menu-btn" id="menuBtn">
+                    <i class="bi bi-list"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Language Selection Page -->
+        <div class="page active" id="languagePage">
+            <div class="language-selection">
+                <h1 id="selectLanguageTitle">Select Your Language</h1>
+                <div class="language-grid">
+                    <button class="language-btn" data-lang="en">
+                        🇺🇸 English
+                    </button>
+                    <button class="language-btn" data-lang="zh">
+                        🇨🇳 中文
+                    </button>
+                    <button class="language-btn" data-lang="es">
+                        🇪🇸 Español
+                    </button>
+                    <button class="language-btn" data-lang="fr">
+                        🇫🇷 Français
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PIN Entry Page -->
+        <div class="page" id="pinPage">
+            <div class="pin-entry">
+                <h2 id="pinTitle">Enter Security Code</h2>
+                <p id="pinDescription">Please enter the 4-digit code from the pet tag</p>
+                <div class="pin-input">
+                    <input type="text" class="pin-digit" maxlength="1" data-index="0">
+                    <input type="text" class="pin-digit" maxlength="1" data-index="1">
+                    <input type="text" class="pin-digit" maxlength="1" data-index="2">
+                    <input type="text" class="pin-digit" maxlength="1" data-index="3">
+                </div>
+                <button class="btn" id="verifyBtn" disabled>
+                    <span id="verifyText">Verify</span>
+                </button>
+                <div id="pinError" class="error"></div>
+            </div>
+        </div>
+
+        <!-- Pet Information Page -->
+        <div class="page" id="petPage">
+            <div class="pet-info">
+                <div class="pet-card">
+                    <!-- Pet Image Gallery -->
+                    <div class="pet-gallery">
+                        <div class="gallery-main">
+                            <img src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=400&h=250&fit=crop" alt="Pet Main" class="gallery-main-image" id="mainImage">
+                            <div class="gallery-counter">
+                                <span id="currentImage">1</span> / <span id="totalImages">4</span>
+                            </div>
+                        </div>
+                        <div class="gallery-thumbnails">
+                            <img src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=100&h=100&fit=crop" alt="Pet 1" class="gallery-thumb active" data-src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=400&h=250&fit=crop">
+                            <img src="https://images.unsplash.com/photo-1552053831-71594a27632d?w=100&h=100&fit=crop" alt="Pet 2" class="gallery-thumb" data-src="https://images.unsplash.com/photo-1552053831-71594a27632d?w=400&h=250&fit=crop">
+                            <img src="https://images.unsplash.com/photo-1518717758536-85ae29035b6d?w=100&h=100&fit=crop" alt="Pet 3" class="gallery-thumb" data-src="https://images.unsplash.com/photo-1518717758536-85ae29035b6d?w=400&h=250&fit=crop">
+                            <img src="https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=100&h=100&fit=crop" alt="Pet 4" class="gallery-thumb" data-src="https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=400&h=250&fit=crop">
+                        </div>
+                    </div>
+                    <div class="pet-details">
+                        <div class="pet-header">
+                            <div class="pet-title-section">
+                                <h2 class="pet-name" id="petName">Max</h2>
+                                <p class="pet-breed" id="petBreed">Golden Retriever • 3 years old</p>
+                            </div>
+                            <button class="profile-btn-subtle" id="profileBtn">
+                                <i class="bi bi-info-circle"></i>
+                            </button>
+                        </div>
+                        <p class="pet-description" id="petDescription">
+                            Friendly and energetic dog who loves playing fetch and swimming. 
+                            He's very social and gets along well with children and other pets.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="action-btn location-btn" id="locationBtn">
+                        <div class="btn-icon">
+                            <i class="bi bi-geo-alt-fill"></i>
+                        </div>
+                        <div class="btn-content">
+                            <span class="btn-title" id="locationText">Send Location</span>
+                            <span class="btn-subtitle">Share where you found me</span>
+                        </div>
+                    </button>
+                    <button class="action-btn phone-btn" id="phoneBtn">
+                        <div class="btn-icon">
+                            <i class="bi bi-telephone-fill"></i>
+                        </div>
+                        <div class="btn-content">
+                            <span class="btn-title" id="phoneText">Call Owner</span>
+                            <span class="btn-subtitle">Direct contact</span>
+                        </div>
+                    </button>
+                    <a href="https://example.com/store" class="action-btn store-btn" target="_blank">
+                        <div class="btn-icon">
+                            <i class="bi bi-bag-heart-fill"></i>
+                        </div>
+                        <div class="btn-content">
+                            <span class="btn-title" id="storeText">Buy Tag</span>
+                            <span class="btn-subtitle">Get your own</span>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Page -->
+        <div class="page" id="profilePage">
+            <div class="profile-container">
+                <div class="profile-header">
+                    <button class="back-btn" id="backToMainBtn">
+                        <i class="bi bi-arrow-left"></i>
+                        <span id="backText">Back</span>
+                    </button>
+                    <h1 id="profilePageTitle">Pet & Owner Profile</h1>
+                </div>
+
+                <!-- Bento Grid Layout -->
+                <div class="bento-grid">
+                    <!-- Owner Contact Card -->
+                    <div class="bento-card owner-card">
+                        <div class="card-header">
+                            <div class="card-icon owner-icon">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                            <h3 id="ownerContactTitle">Owner Contact</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="contact-item">
+                                <i class="bi bi-person-badge"></i>
+                                <span id="ownerNameValue">John Smith</span>
+                            </div>
+                            <div class="contact-item">
+                                <i class="bi bi-telephone"></i>
+                                <span id="ownerPhoneValue">+1 (555) 123-4567</span>
+                            </div>
+                            <div class="contact-item">
+                                <i class="bi bi-envelope"></i>
+                                <span id="ownerEmailValue">john.smith@email.com</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pet Basic Info Card -->
+                    <div class="bento-card pet-basic-card">
+                        <div class="card-header">
+                            <div class="card-icon pet-icon">
+                                <i class="bi bi-heart-fill"></i>
+                            </div>
+                            <h3 id="petInfoTitle">Pet Information</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="info-row">
+                                <div class="info-item">
+                                    <label id="petNameLabel">Name</label>
+                                    <span id="petNameValue">Max</span>
+                                </div>
+                                <div class="info-item">
+                                    <label id="petBreedLabel">Breed</label>
+                                    <span id="petBreedValue">Golden Retriever</span>
+                                </div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-item">
+                                    <label id="petAgeLabel">Age</label>
+                                    <span id="petAgeValue">3 years old</span>
+                                </div>
+                                <div class="info-item">
+                                    <label id="petSexLabel">Sex</label>
+                                    <span id="petSexValue">Male</span>
+                                </div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-item">
+                                    <label id="petColorLabel">Color</label>
+                                    <span id="petColorValue">Golden</span>
+                                </div>
+                                <div class="info-item">
+                                    <label id="petSizeLabel">Size</label>
+                                    <span id="petSizeValue">Large (65 lbs)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Special Message Card -->
+                    <div class="bento-card message-card">
+                        <div class="card-header">
+                            <div class="card-icon message-icon">
+                                <i class="bi bi-chat-heart-fill"></i>
+                            </div>
+                            <h3 id="ownerMessageLabel">Special Message</h3>
+                        </div>
+                        <div class="card-content">
+                            <p id="ownerMessageValue">If you find Max, please call me immediately. He's very friendly but can get anxious without his family. Thank you for helping bring him home!</p>
+                        </div>
+                    </div>
+
+                    <!-- Medical Info Card -->
+                    <div class="bento-card medical-card">
+                        <div class="card-header">
+                            <div class="card-icon medical-icon">
+                                <i class="bi bi-clipboard2-pulse-fill"></i>
+                            </div>
+                            <h3 id="healthInfoTitle">Health Information</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="info-item">
+                                <label id="petWeightLabel">Weight</label>
+                                <span id="petWeightValue">65 lbs (29.5 kg)</span>
+                            </div>
+                            <div class="info-item">
+                                <label id="petMicrochipLabel">Microchip</label>
+                                <span id="petMicrochipValue">Yes - ID: 982000123456789</span>
+                            </div>
+                            <div class="info-item">
+                                <label id="petSpayedLabel">Spayed/Neutered</label>
+                                <span id="petSpayedValue">Neutered</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Veterinary Care Card -->
+                    <div class="bento-card vet-card">
+                        <div class="card-header">
+                            <div class="card-icon vet-icon">
+                                <i class="bi bi-hospital-fill"></i>
+                            </div>
+                            <h3 id="petVetLabel">Veterinary Care</h3>
+                        </div>
+                        <div class="card-content">
+                            <p id="petVetValue">Dr. Sarah Johnson, Happy Pets Clinic, 123 Main St. Regular checkups every 6 months.</p>
+                            <div class="emergency-contact">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <span id="petEmergencyValue">Emergency: (555) 911-PETS</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Details Card -->
+                    <div class="bento-card details-card">
+                        <div class="card-header">
+                            <div class="card-icon details-icon">
+                                <i class="bi bi-list-stars"></i>
+                            </div>
+                            <h3>Additional Details</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="info-item">
+                                <label id="petBirthdayLabel">Birthday</label>
+                                <span id="petBirthdayValue">March 15, 2021</span>
+                            </div>
+                            <div class="info-item">
+                                <label id="petCollarLabel">Collar</label>
+                                <span id="petCollarValue">Blue leather with silver tags</span>
+                            </div>
+                            <div class="info-item">
+                                <label id="petVaccinationsLabel">Vaccinations</label>
+                                <span id="petVaccinationsValue">Up to date (2024)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="loginModalTitle">Login</h3>
+                <button class="close-btn" id="closeLoginModal">
+                    <i data-lucide="x" width="20" height="20"></i>
+                </button>
+            </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label" id="emailLabel">Email</label>
+                    <input type="email" class="form-input" id="emailInput" placeholder="Enter your email" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" id="passwordLabel">Password</label>
+                    <input type="password" class="form-input" id="passwordInput" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="btn" id="loginSubmitBtn">
+                    <span id="loginButtonText">Login</span>
+                </button>
+                <div class="login-links">
+                    <a href="#" id="forgotPasswordLink">Forgot Password?</a>
+                    <a href="#" id="signupLink">Sign Up</a>
+                </div>
+            </form>
+            <div id="loginSuccess" class="success"></div>
+        </div>
+    </div>
+
+    <!-- Location Modal -->
+    <div class="modal" id="locationModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="locationModalTitle">Share Your Location</h3>
+                <button class="close-btn" id="closeLocationModal">
+                    <i data-lucide="x" width="20" height="20"></i>
+                </button>
+            </div>
+            <form id="locationForm">
+                <div class="form-group">
+                    <label class="form-label" id="locationLabel">Current Location</label>
+                    <input type="text" class="form-input" id="locationInput" readonly>
+                    <button type="button" class="btn" id="getLocationBtn" style="margin-top: 0.5rem; padding: 0.5rem 1rem; font-size: 0.9rem;">
+                        <span id="getLocationText">Get My Location</span>
+                    </button>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" id="messageLabel">Message (Optional)</label>
+                    <textarea class="form-textarea" id="messageInput"></textarea>
+                </div>
+                <button type="submit" class="btn" id="sendLocationBtn">
+                    <span id="sendLocationText">Send to Owner</span>
+                </button>
+            </form>
+            <div id="locationSuccess" class="success"></div>
+        </div>
+    </div>
+
+    <!-- Phone Modal -->
+    <div class="modal" id="phoneModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="phoneModalTitle">Contact Owner</h3>
+                <button class="close-btn" id="closePhoneModal">
+                    <i data-lucide="x" width="20" height="20"></i>
+                </button>
+            </div>
+            <div class="phone-display">
+                <p id="ownerName">John Smith</p>
+                <div class="phone-number">+1 (555) 123-4567</div>
+                <a href="tel:+15551234567" class="call-btn">
+                    <i data-lucide="phone" width="20" height="20"></i>
+                    <span id="callNowText">Call Now</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Side Menu -->
+    <div class="menu-overlay" id="menuOverlay"></div>
+    <div class="side-menu" id="sideMenu">
+        <div class="menu-header">
+            <h3 id="menuTitle">Menu</h3>
+            <button class="close-btn" id="closeMenu">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
+        <ul class="menu-items">
+            <li class="menu-item">
+                <a href="#" class="menu-link" id="homeLink">
+                    <i class="bi bi-house"></i>
+                    <span id="homeText">Home</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="#" class="menu-link" id="aboutLink">
+                    <i class="bi bi-info-circle"></i>
+                    <span id="aboutText">About</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="#" class="menu-link" id="privacyLink">
+                    <i class="bi bi-shield-check"></i>
+                    <span id="privacyText">Privacy</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="#" class="menu-link" id="supportLink">
+                    <i class="bi bi-question-circle"></i>
+                    <span id="supportText">Support</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <script src="assets/js/app.js"></script>
+</body>
+</html>

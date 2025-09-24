@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pet QR System - Authentication Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #6366F1;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #5856EB;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .result {
+            background-color: #e7f5e7;
+            border: 1px solid #c3e6c3;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .error {
+            background-color: #ffe7e7;
+            border-color: #ffb3b3;
+        }
+        .token-display {
+            background-color: #f0f8ff;
+            border: 1px solid #add8e6;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐾 Pet QR System - Authentication Test</h1>
+
+        <!-- Registration Section -->
+        <div class="section">
+            <h2>📝 User Registration</h2>
+            <div class="form-group">
+                <label for="reg-email">Email:</label>
+                <input type="email" id="reg-email" placeholder="Enter email address">
+            </div>
+            <div class="form-group">
+                <label for="reg-password">Password:</label>
+                <input type="password" id="reg-password" placeholder="Enter password (min 8 chars)">
+            </div>
+            <button onclick="registerUser()">Register User</button>
+            <div id="register-result"></div>
+        </div>
+
+        <!-- Login Section -->
+        <div class="section">
+            <h2>🔐 User Login</h2>
+            <div class="form-group">
+                <label for="login-email">Email:</label>
+                <input type="email" id="login-email" placeholder="Enter email address">
+            </div>
+            <div class="form-group">
+                <label for="login-password">Password:</label>
+                <input type="password" id="login-password" placeholder="Enter password">
+            </div>
+            <button onclick="loginUser()">Login</button>
+            <div id="login-result"></div>
+            <div id="tokens"></div>
+        </div>
+
+        <!-- Protected Endpoint Section -->
+        <div class="section">
+            <h2>🔒 Test Protected Endpoint</h2>
+            <p>Use the access token from login to test the protected /auth/me endpoint:</p>
+            <button onclick="testProtectedEndpoint()" id="test-btn" disabled>Get My Profile</button>
+            <button onclick="clearTokens()">Clear Stored Tokens</button>
+            <div id="profile-result"></div>
+        </div>
+
+        <!-- API Documentation -->
+        <div class="section">
+            <h2>📚 API Endpoints</h2>
+            <p><strong>Base URL:</strong> http://localhost:8000/api/v1</p>
+            <ul>
+                <li><code>POST /auth/register</code> - User registration</li>
+                <li><code>POST /auth/login</code> - User login</li>
+                <li><code>GET /auth/me</code> - Get current user profile (protected)</li>
+                <li><code>POST /auth/refresh</code> - Refresh access token</li>
+                <li><code>GET /docs</code> - FastAPI interactive documentation</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+        let accessToken = localStorage.getItem('access_token');
+        let refreshToken = localStorage.getItem('refresh_token');
+
+        // Update UI based on stored tokens
+        function updateUI() {
+            const testBtn = document.getElementById('test-btn');
+            if (accessToken) {
+                testBtn.disabled = false;
+                testBtn.textContent = 'Get My Profile ✓';
+            } else {
+                testBtn.disabled = true;
+                testBtn.textContent = 'Get My Profile (Login Required)';
+            }
+        }
+
+        // Register user function
+        async function registerUser() {
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+            const resultDiv = document.getElementById('register-result');
+
+            if (!email || !password) {
+                showResult(resultDiv, 'Please fill in all fields', true);
+                return;
+            }
+
+            if (password.length < 8) {
+                showResult(resultDiv, 'Password must be at least 8 characters', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult(resultDiv, `✅ Registration successful!\nUser ID: ${data.user_id}\nEmail: ${data.email}`, false);
+                    // Auto-fill login form
+                    document.getElementById('login-email').value = email;
+                    document.getElementById('login-password').value = password;
+                } else {
+                    showResult(resultDiv, `❌ Registration failed: ${data.detail}`, true);
+                }
+            } catch (error) {
+                showResult(resultDiv, `❌ Network error: ${error.message}`, true);
+            }
+        }
+
+        // Login user function
+        async function loginUser() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const resultDiv = document.getElementById('login-result');
+
+            if (!email || !password) {
+                showResult(resultDiv, 'Please fill in all fields', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Store tokens
+                    accessToken = data.access_token;
+                    refreshToken = data.refresh_token;
+                    localStorage.setItem('access_token', accessToken);
+                    localStorage.setItem('refresh_token', refreshToken);
+
+                    showResult(resultDiv, `✅ Login successful!\nUser ID: ${data.user_id}\nEmail: ${data.email}\nRole: ${data.role}`, false);
+
+                    // Show tokens
+                    const tokensDiv = document.getElementById('tokens');
+                    tokensDiv.innerHTML = `
+                        <div class="token-display">
+                            <strong>Access Token:</strong><br>${data.access_token}<br><br>
+                            <strong>Refresh Token:</strong><br>${data.refresh_token}
+                        </div>
+                    `;
+
+                    updateUI();
+                } else {
+                    showResult(resultDiv, `❌ Login failed: ${data.detail}`, true);
+                }
+            } catch (error) {
+                showResult(resultDiv, `❌ Network error: ${error.message}`, true);
+            }
+        }
+
+        // Test protected endpoint
+        async function testProtectedEndpoint() {
+            const resultDiv = document.getElementById('profile-result');
+
+            if (!accessToken) {
+                showResult(resultDiv, 'Please login first to get an access token', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult(resultDiv, `✅ Profile retrieved successfully!\n${JSON.stringify(data, null, 2)}`, false);
+                } else {
+                    showResult(resultDiv, `❌ Failed to get profile: ${data.detail}`, true);
+                    if (response.status === 401) {
+                        // Token expired, clear it
+                        clearTokens();
+                    }
+                }
+            } catch (error) {
+                showResult(resultDiv, `❌ Network error: ${error.message}`, true);
+            }
+        }
+
+        // Clear stored tokens
+        function clearTokens() {
+            accessToken = null;
+            refreshToken = null;
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            document.getElementById('tokens').innerHTML = '';
+            document.getElementById('profile-result').innerHTML = '';
+            updateUI();
+        }
+
+        // Helper function to show results
+        function showResult(element, message, isError) {
+            element.innerHTML = `<div class="result ${isError ? 'error' : ''}">${message}</div>`;
+        }
+
+        // Initialize UI on page load
+        updateUI();
+    </script>
+</body>
+</html>
