@@ -8,11 +8,14 @@ interface QRVerification {
 
 interface QRAccessState {
   verifiedQRCodes: Record<string, QRVerification> // QR code -> verification details
+  petIdToQRCode: Record<number, string> // Pet ID -> QR code mapping
 
   // Actions
   markQRAsVerified: (qrCode: string, petId: number) => void
   isQRVerified: (qrCode: string) => boolean
   getVerifiedPetId: (qrCode: string) => number | null
+  getQRCodeForPetId: (petId: number) => string | null
+  isPetAccessible: (petId: number) => boolean
   clearVerification: (qrCode: string) => void
   clearAllVerifications: () => void
 }
@@ -23,6 +26,7 @@ export const useQRAccessStore = create<QRAccessState>()(
   persist(
     (set, get) => ({
       verifiedQRCodes: {},
+      petIdToQRCode: {},
 
       markQRAsVerified: (qrCode: string, petId: number) => {
         set((state) => ({
@@ -32,6 +36,10 @@ export const useQRAccessStore = create<QRAccessState>()(
               timestamp: Date.now(),
               petId
             }
+          },
+          petIdToQRCode: {
+            ...state.petIdToQRCode,
+            [petId]: qrCode
           }
         }))
       },
@@ -67,16 +75,37 @@ export const useQRAccessStore = create<QRAccessState>()(
         return verification.petId
       },
 
+      getQRCodeForPetId: (petId: number) => {
+        return get().petIdToQRCode[petId] || null
+      },
+
+      isPetAccessible: (petId: number) => {
+        const qrCode = get().getQRCodeForPetId(petId)
+        if (!qrCode) return false
+        return get().isQRVerified(qrCode)
+      },
+
       clearVerification: (qrCode: string) => {
         set((state) => {
           const newVerifiedQRCodes = { ...state.verifiedQRCodes }
+          const newPetIdToQRCode = { ...state.petIdToQRCode }
+
+          // Find and remove pet ID mapping
+          const verification = state.verifiedQRCodes[qrCode]
+          if (verification) {
+            delete newPetIdToQRCode[verification.petId]
+          }
+
           delete newVerifiedQRCodes[qrCode]
-          return { verifiedQRCodes: newVerifiedQRCodes }
+          return {
+            verifiedQRCodes: newVerifiedQRCodes,
+            petIdToQRCode: newPetIdToQRCode
+          }
         })
       },
 
       clearAllVerifications: () => {
-        set({ verifiedQRCodes: {} })
+        set({ verifiedQRCodes: {}, petIdToQRCode: {} })
       }
     }),
     {

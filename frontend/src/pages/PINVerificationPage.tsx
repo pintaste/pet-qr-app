@@ -3,13 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useLanguage } from '@/hooks/useLanguage'
 import { useQRAccessStore } from '@/stores/qrAccessStore'
 import { useSecurityStore, MAX_ATTEMPTS, COOLDOWN_TIMES, BLOCK_AFTER_ATTEMPTS } from '@/stores/securityStore'
+import { useSecurityMonitorStore, SUSPICIOUS_ACTIVITY_TYPES } from '@/stores/securityMonitorStore'
 
 const PINVerificationPage: React.FC = () => {
   const { qrCode } = useParams<{ qrCode: string }>()
   const navigate = useNavigate()
   const { t } = useLanguage()
-  const { markQRAsVerified, isQRVerified, getVerifiedPetId } = useQRAccessStore()
-  const { getSecurityData, incrementAttempts } = useSecurityStore()
+  const { markQRAsVerified, isQRVerified, getVerifiedPetId, clearVerification } = useQRAccessStore()
+  const { getSecurityData, incrementAttempts, clearSecurityData } = useSecurityStore()
+  const { logSuspiciousActivity } = useSecurityMonitorStore()
 
   const [pin, setPin] = useState(['', '', '', ''])
   const [isVerifying, setIsVerifying] = useState(false)
@@ -19,6 +21,9 @@ const PINVerificationPage: React.FC = () => {
   const [captchaRequired, setCaptchaRequired] = useState(false)
   const [captchaAnswer, setCaptchaAnswer] = useState('')
   const [captchaProblem, setCaptchaProblem] = useState({ question: '', answer: 0 })
+  const [isValidatingQR, setIsValidatingQR] = useState(true)
+  const [isQRValid, setIsQRValid] = useState(false)
+  const [qrValidationError, setQRValidationError] = useState('')
 
   // Get current security data for this QR code
   const securityData = qrCode ? getSecurityData(qrCode) : null
@@ -27,11 +32,6 @@ const PINVerificationPage: React.FC = () => {
   const isBlocked = securityData?.isBlocked || false
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
-
-  // Security constants
-  const MAX_ATTEMPTS = 3
-  const COOLDOWN_TIMES = [30, 60, 300] // 30s, 1min, 5min
-  const BLOCK_AFTER_ATTEMPTS = 6
 
   // Generate simple captcha
   const generateCaptcha = useCallback(() => {
@@ -67,25 +67,15 @@ const PINVerificationPage: React.FC = () => {
       setCooldownTime(Math.ceil((cooldownUntil - now) / 1000))
       return true
     } else {
-      setCooldownUntil(null)
       setCooldownTime(0)
       return false
     }
   }, [cooldownUntil])
 
-  // Start cooldown period
-  const startCooldown = useCallback((attemptNumber: number) => {
-    const cooldownIndex = Math.min(Math.floor((attemptNumber - 1) / MAX_ATTEMPTS), COOLDOWN_TIMES.length - 1)
-    const cooldownSeconds = COOLDOWN_TIMES[cooldownIndex]
-    const until = Date.now() + (cooldownSeconds * 1000)
-    setCooldownUntil(until)
-    setCooldownTime(cooldownSeconds)
-  }, [MAX_ATTEMPTS, COOLDOWN_TIMES])
-
   // Define handleVerify first with useCallback
   const handleVerify = useCallback(async () => {
-    if (!isComplete || isVerifying || isBlocked) {
-      console.log('Skipping verification - isComplete:', isComplete, 'isVerifying:', isVerifying, 'isBlocked:', isBlocked)
+    if (!isComplete || isVerifying || isBlocked || !isQRValid) {
+      console.log('Skipping verification - isComplete:', isComplete, 'isVerifying:', isVerifying, 'isBlocked:', isBlocked, 'isQRValid:', isQRValid)
       return
     }
 
@@ -107,7 +97,7 @@ const PINVerificationPage: React.FC = () => {
 
     try {
       const pinString = pin.join('')
-      console.log('Sending PIN verification request:', { qr_code: qrCode, pin: pinString })
+      console.log('Sending PIN verification request for QR code:', qrCode, '(PIN masked for security)')
 
       // API call to verify QR code + PIN
       const response = await fetch('/api/v1/qr-codes/verify', {
@@ -123,7 +113,7 @@ const PINVerificationPage: React.FC = () => {
 
       console.log('API response status:', response.status)
       const result = await response.json()
-      console.log('API response data:', result)
+      console.log('API response received, status:', result.status)
 
       if (response.ok && result.success && result.status === 'verified') {
         console.log('PIN verified successfully! Marking QR as verified and navigating...')
@@ -134,6 +124,8 @@ const PINVerificationPage: React.FC = () => {
         // Mark QR code as verified in the access store
         if (qrCode && petId) {
           markQRAsVerified(qrCode, petId)
+          // Clear security data after successful verification
+          clearSecurityData(qrCode)
         }
 
         if (!petId) {
@@ -149,34 +141,74 @@ const PINVerificationPage: React.FC = () => {
         }, 100)
         return
       } else {
-        console.log('PIN verification failed:', result)
+        console.log('PIN verification failed for QR code:', qrCode)
 
-        // Increment attempt counter
-        const newAttempts = attempts + 1
-        setAttempts(newAttempts)
+        // Increment attempt counter in persistent store
+        if (qrCode) {
+          incrementAttempts(qrCode)
 
-        // Check if user should be blocked
-        if (newAttempts >= BLOCK_AFTER_ATTEMPTS) {
-          setIsBlocked(true)
-          setError(t('pin.blocked', 'Too many failed attempts. Access blocked.'))
-          clearPin()
-          return
-        }
+          // Get updated security data after increment
+          const updatedSecurity = getSecurityData(qrCode)
+          const newAttempts = updatedSecurity.attempts
 
-        // Start cooldown after every MAX_ATTEMPTS failures
-        if (newAttempts % MAX_ATTEMPTS === 0) {
-          startCooldown(newAttempts)
-          setError(t('pin.cooldown_started', `Too many failed attempts. Please wait ${COOLDOWN_TIMES[Math.min(Math.floor((newAttempts - 1) / MAX_ATTEMPTS), COOLDOWN_TIMES.length - 1)]} seconds.`))
-        } else {
-          setError(t('pin.error', `Incorrect PIN. ${MAX_ATTEMPTS - (newAttempts % MAX_ATTEMPTS)} attempts remaining.`))
-        }
+          // Log excessive PIN attempts as suspicious activity
+          if (newAttempts >= MAX_ATTEMPTS) {
+            logSuspiciousActivity({
+              type: SUSPICIOUS_ACTIVITY_TYPES.EXCESSIVE_PIN_ATTEMPTS,
+              qrCode,
+              metadata: {
+                attempts: newAttempts,
+                url: window.location.href,
+                isBlocked: updatedSecurity.isBlocked,
+                cooldownUntil: updatedSecurity.cooldownUntil,
+                timestamp: new Date().toISOString()
+              }
+            })
+          }
 
-        // Require captcha after 2 failed attempts
-        if (newAttempts >= 2 && !captchaRequired) {
-          setCaptchaRequired(true)
-          generateCaptcha()
-        } else if (captchaRequired) {
-          generateCaptcha() // Generate new captcha after each failed attempt
+          // Check if user should be blocked
+          if (updatedSecurity.isBlocked) {
+            setError(t('pin.blocked', 'Access permanently blocked after 10 failed attempts. Please contact help@demo.com for assistance.'))
+            clearPin()
+            return
+          }
+
+          // Check if in cooldown
+          if (updatedSecurity.cooldownUntil && Date.now() < updatedSecurity.cooldownUntil) {
+            const cooldownMs = updatedSecurity.cooldownUntil - Date.now()
+            const cooldownSeconds = Math.ceil(cooldownMs / 1000)
+
+            // Format human-readable time
+            let timeMessage = ''
+            if (cooldownSeconds >= 3600) {
+              const hours = Math.floor(cooldownSeconds / 3600)
+              const minutes = Math.floor((cooldownSeconds % 3600) / 60)
+              timeMessage = hours > 1 ? `${hours} hours` : `${hours} hour`
+              if (minutes > 0) timeMessage += ` and ${minutes} minutes`
+            } else if (cooldownSeconds >= 60) {
+              const minutes = Math.floor(cooldownSeconds / 60)
+              const seconds = cooldownSeconds % 60
+              timeMessage = `${minutes} minutes`
+              if (seconds > 0) timeMessage += ` and ${seconds} seconds`
+            } else {
+              timeMessage = `${cooldownSeconds} seconds`
+            }
+
+            setError(t('pin.cooldown_started', `Too many failed attempts. Please wait ${timeMessage} before trying again.`))
+          } else {
+            const remainingAttempts = MAX_ATTEMPTS - (newAttempts % MAX_ATTEMPTS)
+            if (remainingAttempts > 0) {
+              setError(t('pin.error', `Incorrect PIN. ${remainingAttempts} attempts remaining.`))
+            }
+          }
+
+          // Require captcha after 2 failed attempts
+          if (newAttempts >= 2 && !captchaRequired) {
+            setCaptchaRequired(true)
+            generateCaptcha()
+          } else if (captchaRequired) {
+            generateCaptcha() // Generate new captcha after each failed attempt
+          }
         }
 
         clearPin()
@@ -189,7 +221,7 @@ const PINVerificationPage: React.FC = () => {
       console.log('Verification complete, setting isVerifying to false')
       setIsVerifying(false)
     }
-  }, [isComplete, isVerifying, pin, qrCode, navigate, t, markQRAsVerified, attempts, captchaRequired, captchaAnswer, captchaProblem, isBlocked, isInCooldown, cooldownTime, startCooldown, generateCaptcha, MAX_ATTEMPTS, BLOCK_AFTER_ATTEMPTS, COOLDOWN_TIMES])
+  }, [isComplete, isVerifying, pin, qrCode, navigate, t, markQRAsVerified, captchaRequired, captchaAnswer, captchaProblem, isBlocked, isInCooldown, cooldownTime, generateCaptcha, incrementAttempts, getSecurityData, clearSecurityData, isQRValid])
 
   const clearPin = useCallback(() => {
     setPin(['', '', '', ''])
@@ -197,7 +229,105 @@ const PINVerificationPage: React.FC = () => {
     inputRefs.current[0]?.focus()
   }, [])
 
+  // Validate QR code first
   useEffect(() => {
+    const validateQRCode = async () => {
+      console.log('Starting QR validation for:', qrCode)
+
+      if (!qrCode) {
+        console.log('No QR code provided, redirecting to home')
+        navigate('/')
+        return
+      }
+
+      try {
+        setIsValidatingQR(true)
+
+        // Handle demo QR code
+        if (qrCode === 'DEMO123') {
+          console.log('Processing DEMO123 QR code')
+          setIsQRValid(true)
+          setIsValidatingQR(false)
+          console.log('DEMO123 validation completed')
+          return
+        }
+
+        // Validate real QR code via API
+        const response = await fetch(`/api/v1/qr-codes/${qrCode}`)
+
+        if (response.ok) {
+          const result = await response.json()
+          if (result.is_active && result.is_assigned && result.requires_pin) {
+            setIsQRValid(true)
+          } else {
+            // Log invalid QR access attempt
+            logSuspiciousActivity({
+              type: SUSPICIOUS_ACTIVITY_TYPES.INVALID_QR_ACCESS,
+              qrCode,
+              metadata: {
+                reason: 'QR code not active or not assigned',
+                url: window.location.href,
+                referrer: document.referrer || 'direct',
+                timestamp: new Date().toISOString()
+              }
+            })
+
+            setQRValidationError('QR code is not active or not assigned to a pet')
+            setIsQRValid(false)
+            // Clear any invalid cached data for this QR code
+            clearVerification(qrCode)
+            clearSecurityData(qrCode)
+            // Redirect back to QR status page to show proper message
+            setTimeout(() => {
+              navigate(`/qr/${qrCode}`, { replace: true })
+            }, 2000)
+          }
+        } else {
+          // Log QR not found attempt
+          logSuspiciousActivity({
+            type: SUSPICIOUS_ACTIVITY_TYPES.INVALID_QR_ACCESS,
+            qrCode,
+            metadata: {
+              reason: 'QR code not found',
+              url: window.location.href,
+              referrer: document.referrer || 'direct',
+              timestamp: new Date().toISOString()
+            }
+          })
+
+          setQRValidationError('QR code not found')
+          setIsQRValid(false)
+          // Clear any invalid cached data for this QR code
+          clearVerification(qrCode)
+          clearSecurityData(qrCode)
+          // Redirect back to QR status page to show proper error
+          setTimeout(() => {
+            navigate(`/qr/${qrCode}`, { replace: true })
+          }, 2000)
+        }
+      } catch (error) {
+        console.error('QR validation error:', error)
+        setQRValidationError('Network error during QR validation')
+        setIsQRValid(false)
+        // Clear any invalid cached data for this QR code
+        clearVerification(qrCode)
+        clearSecurityData(qrCode)
+        setTimeout(() => {
+          navigate(`/qr/${qrCode}`, { replace: true })
+        }, 2000)
+      } finally {
+        console.log('QR validation completed, setting isValidatingQR to false')
+        setIsValidatingQR(false)
+      }
+    }
+
+    validateQRCode()
+  }, [qrCode, navigate, clearVerification, clearSecurityData])
+
+  useEffect(() => {
+    // Only proceed if QR is valid
+    if (!isQRValid) return
+
     // Focus on first input when component mounts
     if (inputRefs.current[0]) {
       inputRefs.current[0].focus()
@@ -206,13 +336,26 @@ const PINVerificationPage: React.FC = () => {
     // Generate initial captcha (though not shown until needed)
     generateCaptcha()
 
+    // Check if captcha should be required based on attempts
+    if (qrCode && attempts >= 2) {
+      setCaptchaRequired(true)
+    }
+
     // Check if PIN is already verified for this QR code
     if (qrCode && isQRVerified(qrCode)) {
       console.log('PIN already verified for this QR code, auto-verifying...')
-      // Auto-verify by making API call to get pet_id
-      handleAutoVerifyFromCache()
+      // Double check that we have a valid cached pet ID before auto-verifying
+      const cachedPetId = getVerifiedPetId(qrCode)
+      if (cachedPetId) {
+        console.log('Confirmed cached pet ID exists, proceeding with auto-verification')
+        handleAutoVerifyFromCache()
+      } else {
+        console.log('No cached pet ID found, clearing verification and staying on PIN page')
+        // Clear invalid verification state
+        clearVerification(qrCode)
+      }
     }
-  }, [generateCaptcha, qrCode, isQRVerified, handleAutoVerifyFromCache])
+  }, [generateCaptcha, qrCode, isQRVerified, handleAutoVerifyFromCache, attempts, isQRValid, getVerifiedPetId, clearVerification])
 
   // Cooldown timer effect
   useEffect(() => {
@@ -223,7 +366,6 @@ const PINVerificationPage: React.FC = () => {
       const remaining = Math.ceil((cooldownUntil - now) / 1000)
 
       if (remaining <= 0) {
-        setCooldownUntil(null)
         setCooldownTime(0)
         clearInterval(timer)
       } else {
@@ -302,6 +444,60 @@ const PINVerificationPage: React.FC = () => {
     setError('')
   }
 
+  // Show QR validation status
+  if (isValidatingQR) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-gray-900">
+        <div className="container mx-auto max-w-md min-h-screen flex flex-col justify-center p-8">
+          <div className="text-center">
+            <div className="mb-8">
+              <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <h2 className="text-2xl font-light text-gray-900 dark:text-white mb-2 tracking-wide">
+                {t('qr.validating', 'Validating QR Code')}
+              </h2>
+              <p className="text-gray-500 dark:text-gray-500 text-sm uppercase tracking-wider">
+                {t('qr.validatingDescription', 'Please wait while we validate this QR code...')}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show QR validation error
+  if (!isQRValid && qrValidationError) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-gray-900">
+        <div className="container mx-auto max-w-md min-h-screen flex flex-col justify-center p-8">
+          <div className="text-center">
+            <div className="mb-8">
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-light text-gray-900 dark:text-white mb-4 tracking-wide">
+                {t('qr.invalid', 'Invalid QR Code')}
+              </h2>
+              <p className="text-red-600 dark:text-red-400 text-sm mb-4 leading-relaxed">
+                {qrValidationError}
+              </p>
+              <p className="text-gray-500 dark:text-gray-500 text-xs uppercase tracking-wider">
+                {t('qr.redirecting', 'Redirecting to QR status page...')}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render PIN verification UI if QR is not valid
+  if (!isQRValid) {
+    return null
+  }
+
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
       <div className="container mx-auto max-w-md min-h-screen flex flex-col justify-center p-8">
@@ -348,20 +544,21 @@ const PINVerificationPage: React.FC = () => {
           <div className="mb-6 p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
             <div className="text-sm text-yellow-800 dark:text-yellow-200">
               {isBlocked && (
-                <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                  <span>🚫</span>
-                  <span className="font-semibold">Access Blocked - Too many failed attempts</span>
+                <div className="text-red-600 dark:text-red-400">
+                  <div className="font-semibold mb-2">Access Blocked - Too many failed attempts</div>
+                  <div className="text-sm">
+                    <p className="mb-1">This access has been blocked for 24 hours due to security reasons.</p>
+                    <p>Please try again later or contact <a href="mailto:help@demo.com" className="underline hover:no-underline">help@demo.com</a> for assistance.</p>
+                  </div>
                 </div>
               )}
               {cooldownTime > 0 && (
                 <div className="flex items-center gap-2">
-                  <span>⏰</span>
                   <span>Please wait {cooldownTime} seconds before trying again</span>
                 </div>
               )}
               {attempts > 0 && !isBlocked && cooldownTime === 0 && (
                 <div className="flex items-center gap-2">
-                  <span>⚠️</span>
                   <span>Failed attempts: {attempts}/{BLOCK_AFTER_ATTEMPTS}</span>
                 </div>
               )}
@@ -374,7 +571,7 @@ const PINVerificationPage: React.FC = () => {
           <div className="mb-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
             <div className="text-center mb-3">
               <span className="text-sm text-blue-800 dark:text-blue-200 font-medium">
-                🤖 Anti-Robot Verification
+                Anti-Robot Verification
               </span>
             </div>
             <div className="flex items-center justify-center gap-3">

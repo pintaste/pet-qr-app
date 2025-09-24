@@ -3,11 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useLanguage } from '@/hooks/useLanguage'
 import { useQRAccessStore } from '@/stores/qrAccessStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useSecurityStore } from '@/stores/securityStore'
+import { useSecurityMonitorStore, SUSPICIOUS_ACTIVITY_TYPES } from '@/stores/securityMonitorStore'
 import { useTheme } from '@/hooks/useTheme'
 import { qrService } from '@/services/qrService'
 import { authService } from '@/services/authService'
 import AuthModal from '@/components/AuthModal'
-import { Heart, LogOut, Globe, Sun, Moon, User, Menu, LayoutDashboard, Trash2, RefreshCw } from 'lucide-react'
+import { Heart, LogOut, Globe, Sun, Moon, User, Menu, LayoutDashboard, Trash2, RefreshCw, Shield, Download } from 'lucide-react'
 
 interface PetInfo {
   name: string
@@ -31,8 +33,10 @@ const PetDisplayPage: React.FC = () => {
   const navigate = useNavigate()
   const { t, clearLanguagePreference, language, setLanguage } = useLanguage()
   const { theme, toggleTheme } = useTheme()
-  const { isQRVerified, clearVerification } = useQRAccessStore()
+  const { isQRVerified, clearVerification, isPetAccessible, getQRCodeForPetId } = useQRAccessStore()
+  const { clearSecurityData } = useSecurityStore()
   const { isAuthenticated } = useAuthStore()
+  const { logSuspiciousActivity, getSuspiciousActivities, exportSecurityLog } = useSecurityMonitorStore()
 
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
@@ -55,15 +59,52 @@ const PetDisplayPage: React.FC = () => {
   console.log('PetDisplayPage component mounted with pet ID:', petId)
 
   useEffect(() => {
-    if (petId) {
-      // Pet pages are accessed through verified QR codes, so we can directly fetch pet info
-      console.log('Fetching pet info for pet ID:', petId)
-      fetchPetInfo()
-    } else {
+    if (!petId) {
       // No pet ID provided, redirect to home
       navigate('/', { replace: true })
+      return
     }
-  }, [petId, navigate])
+
+    // CRITICAL SECURITY CHECK: Verify access before allowing pet info fetch
+    const petIdNum = parseInt(petId, 10)
+    if (isNaN(petIdNum)) {
+      console.warn('Invalid pet ID format:', petId)
+      navigate('/', { replace: true })
+      return
+    }
+
+    // Check if this pet ID is accessible (has verified QR)
+    const hasAccess = isPetAccessible(petIdNum)
+    if (!hasAccess) {
+      console.warn('Access denied: Pet ID', petId, 'not accessible without QR verification')
+
+      // Log suspicious direct access attempt
+      logSuspiciousActivity({
+        type: SUSPICIOUS_ACTIVITY_TYPES.DIRECT_PET_ACCESS,
+        petId: petIdNum,
+        metadata: {
+          url: window.location.href,
+          referrer: document.referrer || 'direct',
+          timestamp: new Date().toISOString()
+        }
+      })
+
+      // Get the QR code that should be verified for this pet
+      const qrCode = getQRCodeForPetId(petIdNum)
+      if (qrCode) {
+        // Redirect to QR verification page
+        navigate(`/qr/${qrCode}`, { replace: true })
+      } else {
+        // No QR code mapped, redirect to home
+        navigate('/', { replace: true })
+      }
+      return
+    }
+
+    // Access granted - proceed with fetching pet info
+    console.log('Access granted for pet ID:', petId)
+    fetchPetInfo()
+  }, [petId, navigate, isPetAccessible, getQRCodeForPetId])
 
   const fetchPetInfo = async () => {
     try {
@@ -186,6 +227,14 @@ const PetDisplayPage: React.FC = () => {
     console.log('Development: PIN verification cache cleared for', demoQrCode)
   }
 
+  const handleClearSecurityData = () => {
+    // Clear security data for DEMO123 QR code
+    const demoQrCode = 'DEMO123'
+    clearSecurityData(demoQrCode)
+    alert('Security data (attempts, cooldowns, blocks) cleared for DEMO123!')
+    console.log('Development: Security data cleared for', demoQrCode)
+  }
+
   const handleClearLanguageCache = () => {
     clearLanguagePreference()
     alert('Language preference cleared!')
@@ -195,9 +244,37 @@ const PetDisplayPage: React.FC = () => {
   const handleClearAllCache = () => {
     const demoQrCode = 'DEMO123'
     clearVerification(demoQrCode)
+    clearSecurityData(demoQrCode)
     clearLanguagePreference()
-    alert('All caches cleared! (PIN verification for DEMO123 and language preference)')
-    console.log('Development: All caches cleared - PIN verification and language preference')
+    alert('All caches cleared! (PIN verification, security data for DEMO123, and language preference)')
+    console.log('Development: All caches cleared - PIN verification, security data, and language preference')
+  }
+
+  const handleViewSecurityLog = () => {
+    const activities = getSuspiciousActivities()
+    const logData = activities.map(activity =>
+      `${new Date(activity.timestamp).toISOString()} - ${activity.type} - QR: ${activity.qrCode || 'N/A'} - Pet: ${activity.petId || 'N/A'}`
+    ).join('\n')
+
+    const message = activities.length > 0
+      ? `Security Activities (${activities.length} entries):\n\n${logData}`
+      : 'No suspicious activities recorded'
+
+    alert(message)
+  }
+
+  const handleExportSecurityLog = () => {
+    const logData = exportSecurityLog()
+    const blob = new Blob([logData], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `security-log-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    alert('Security log exported successfully!')
   }
 
   const handleLogout = async () => {
@@ -500,6 +577,14 @@ const PetDisplayPage: React.FC = () => {
             Clear PIN
           </button>
           <button
+            onClick={handleClearSecurityData}
+            className="flex items-center gap-2 px-3 py-2 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900 dark:hover:bg-yellow-800 text-yellow-800 dark:text-yellow-200 text-sm rounded-md transition-colors"
+            title="Clear security data (attempts, cooldowns, blocks)"
+          >
+            <Trash2 className="w-3 h-3" />
+            Clear Security
+          </button>
+          <button
             onClick={handleClearLanguageCache}
             className="flex items-center gap-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-800 dark:text-blue-200 text-sm rounded-md transition-colors"
             title="Clear language preference"
@@ -514,6 +599,22 @@ const PetDisplayPage: React.FC = () => {
           >
             <Trash2 className="w-3 h-3" />
             Clear All
+          </button>
+          <button
+            onClick={handleViewSecurityLog}
+            className="flex items-center gap-2 px-3 py-2 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900 dark:hover:bg-purple-800 text-purple-800 dark:text-purple-200 text-sm rounded-md transition-colors"
+            title="View security activities log"
+          >
+            <Shield className="w-3 h-3" />
+            Security Log
+          </button>
+          <button
+            onClick={handleExportSecurityLog}
+            className="flex items-center gap-2 px-3 py-2 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900 dark:hover:bg-indigo-800 text-indigo-800 dark:text-indigo-200 text-sm rounded-md transition-colors"
+            title="Export security log as JSON"
+          >
+            <Download className="w-3 h-3" />
+            Export Log
           </button>
           <button
             onClick={handleLogout}

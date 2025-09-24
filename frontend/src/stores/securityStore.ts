@@ -23,8 +23,17 @@ interface SecurityState {
 
 // Security constants
 const MAX_ATTEMPTS = 3
-const COOLDOWN_TIMES = [30, 60, 300] // 30s, 1min, 5min
-const BLOCK_AFTER_ATTEMPTS = 6
+// Progressive cooldown: 30s for 4th, 1min for 5th, 5min for 6th, 30min for 7th, 2hr for 8th, 12hr for 9th, 24hr for 10th+
+const COOLDOWN_TIMES = [
+  30,           // 4th attempt (after 3 failures)
+  60,           // 5th attempt
+  300,          // 6th attempt (5 minutes)
+  1800,         // 7th attempt (30 minutes)
+  7200,         // 8th attempt (2 hours)
+  43200,        // 9th attempt (12 hours)
+  86400         // 10th+ attempt (24 hours)
+]
+const BLOCK_AFTER_ATTEMPTS = 10 // Block after 10 attempts instead of 6
 const SECURITY_DATA_EXPIRY = 24 * 60 * 60 * 1000 // 24 hours
 
 export const useSecurityStore = create<SecurityState>()(
