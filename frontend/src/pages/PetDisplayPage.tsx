@@ -594,11 +594,9 @@ const PetDisplayPage: React.FC = () => {
           </div>
 
           {petInfo.description && (
-            <div className="pet-description-container mt-4 p-4 bg-gray-50/80 dark:bg-gray-700/30 rounded-2xl border border-gray-200/50 dark:border-gray-600/50">
-              <p className="pet-description text-gray-700 dark:text-gray-300 leading-relaxed text-base">
-                {petInfo.description}
-              </p>
-            </div>
+            <p className="pet-description text-gray-700 dark:text-gray-300 leading-relaxed text-base mt-3">
+              {petInfo.description}
+            </p>
           )}
         </div>
       </div>
