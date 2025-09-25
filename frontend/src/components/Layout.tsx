@@ -49,9 +49,9 @@ const Layout: React.FC<LayoutProps> = ({
             </div>
           )}
 
-          <main className={`relative flex-1 ${showHeader ? '' : 'pt-0'}`}>
+          <main className={`relative flex-1 ${showHeader ? 'pt-4' : 'pt-0'}`}>
             <div className={`${
-              isMinimal ? 'pl-4 pr-4 pb-4' : 'pl-4 pr-4 pb-4 sm:pl-6 sm:pr-6 sm:pb-6'
+              isMinimal ? 'px-4 pb-4' : 'px-4 pb-4 sm:px-6 sm:pb-6'
             } transition-all duration-300`}>
               {children}
             </div>

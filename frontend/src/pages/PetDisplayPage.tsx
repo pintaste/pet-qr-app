@@ -160,7 +160,10 @@ const PetDisplayPage: React.FC = () => {
         profile_photo_url: petData.profile_photo_url,
         photo_urls: petData.photo_urls || [],
         basic_medical_info: petData.basic_medical_info || {},
-        emergency_contact: petData.emergency_contact || {},
+        emergency_contact: petData.emergency_contact || {
+          phone: '+1 (555) 123-4567',
+          email: 'owner@example.com'
+        },
         is_lost: petData.is_lost || false,
         last_known_location: petData.last_known_location
       }
@@ -367,20 +370,7 @@ const PetDisplayPage: React.FC = () => {
     window.open('https://example.com/store', '_blank')
   }
 
-  const handleExit = () => {
-    if (!qrCode) return
 
-    // Clear the PIN verification cache for this QR code
-    clearVerification(qrCode)
-    console.log('PIN verification cleared for QR code:', qrCode)
-
-    // Clear language preference so user needs to select language again
-    clearLanguagePreference()
-    console.log('Language preference cleared')
-
-    // Navigate back to home page
-    navigate('/')
-  }
 
   // Development tools functions
   const handleClearPinCache = () => {
@@ -502,7 +492,7 @@ const PetDisplayPage: React.FC = () => {
   return (
     <>
       {/* Pet Card - Enhanced Design */}
-      <div className="bg-white dark:bg-gray-800 rounded-3xl overflow-hidden shadow-xl border border-gray-100 dark:border-gray-700 mb-8 backdrop-blur-sm">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl overflow-hidden shadow-sm hover:shadow-md border border-gray-200/50 dark:border-gray-700/50 mb-8 backdrop-blur-sm transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600">
         {/* Pet Gallery */}
         <div className="pet-gallery relative" onMouseEnter={handleGalleryMouseEnter} onMouseLeave={handleGalleryMouseLeave}>
           <div className="gallery-main relative w-full h-[250px] overflow-hidden rounded-t-3xl">
@@ -563,8 +553,8 @@ const PetDisplayPage: React.FC = () => {
                   alt={`${petInfo.name} photo ${index + 1}`}
                   className={`gallery-thumb w-[60px] h-[60px] object-cover rounded-xl cursor-pointer transition-all duration-200 border-2 flex-shrink-0 ${
                     index === currentImageIndex
-                      ? 'border-indigo-500 scale-105'
-                      : 'border-transparent hover:scale-105'
+                      ? 'border-gray-300 dark:border-gray-500 scale-105 opacity-100'
+                      : 'border-transparent hover:scale-105 opacity-70 hover:opacity-100'
                   }`}
                   onClick={() => setCurrentImageIndex(index)}
                 />
@@ -574,71 +564,87 @@ const PetDisplayPage: React.FC = () => {
         </div>
 
         {/* Pet Details */}
-        <div className="pet-details p-6">
+        <div className="pet-details p-6 bg-gradient-to-b from-white to-gray-50/50 dark:from-gray-800 dark:to-gray-800/80">
           <div className="pet-header flex justify-between items-start mb-4 gap-4">
             <div className="pet-title-section flex-1">
-              <h2 className="pet-name text-[1.75rem] font-bold text-gray-900 dark:text-white mb-1 leading-tight">
+              <h2 className="pet-name text-[1.75rem] font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent mb-2 leading-tight tracking-wide">
                 {petInfo.name}
               </h2>
-              <p className="pet-breed text-gray-600 dark:text-gray-400 text-base">
+              <p className="pet-breed text-gray-600 dark:text-gray-400 text-base font-medium mb-1 leading-relaxed">
                 {petInfo.breed} • {Math.floor(petInfo.age / 12)} years old
               </p>
             </div>
             <button
               onClick={() => navigate(`/profile/${qrCode}`)}
-              className="profile-btn-subtle p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-colors flex-shrink-0"
+              className="profile-btn-subtle relative p-2.5 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all duration-300 hover:scale-110 group flex-shrink-0 border border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md"
               id="profileBtn"
+              title="View detailed profile"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {/* Animated background glow */}
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-all duration-300 animate-pulse"></div>
+
+              {/* Info icon with animation */}
+              <svg className="w-5 h-5 relative z-10 transition-transform duration-300 group-hover:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
+
+              {/* Subtle pulse effect */}
+              <div className="absolute inset-0 rounded-xl border-2 border-indigo-400/20 opacity-0 group-hover:opacity-100 animate-ping"></div>
             </button>
           </div>
 
           {petInfo.description && (
-            <p className="pet-description text-gray-700 dark:text-gray-300 leading-relaxed text-base">
-              {petInfo.description}
-            </p>
+            <div className="pet-description-container mt-4 p-4 bg-gray-50/80 dark:bg-gray-700/30 rounded-2xl border border-gray-200/50 dark:border-gray-600/50">
+              <p className="pet-description text-gray-700 dark:text-gray-300 leading-relaxed text-base">
+                {petInfo.description}
+              </p>
+            </div>
           )}
         </div>
       </div>
 
 
       {/* Action Buttons - Enhanced Layout */}
-      <div className="action-buttons grid grid-cols-3 gap-3">
+      <div className="action-buttons grid gap-4 mt-6 grid-cols-3">
         <button
           onClick={handleLocationShare}
-          className="action-btn location-btn h-[120px] bg-white dark:bg-gray-800 rounded-2xl p-3 text-center hover:scale-[1.02] hover:shadow-2xl transition-all duration-300 group shadow-md border border-gray-100 dark:border-gray-700"
+          className="action-btn location-btn h-[120px] bg-white dark:bg-gray-800 rounded-2xl p-3 text-center hover:scale-[1.03] hover:shadow-lg transition-all duration-300 group shadow-sm hover:shadow-indigo-200/50 dark:hover:shadow-indigo-900/30 border border-gray-200/50 dark:border-gray-700/50 hover:border-green-300/50 dark:hover:border-green-600/50"
         >
-          <div className="flex flex-col items-center justify-center space-y-2 h-full">
-            <div className="btn-icon p-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl group-hover:shadow-lg transition-all duration-300">
+          <div className="flex flex-col items-center justify-center space-y-3 h-full pt-5 pb-3">
+            <div className="btn-icon p-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl group-hover:shadow-lg group-hover:shadow-green-500/25 transition-all duration-300 group-hover:scale-110">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </div>
             <div className="btn-content text-center">
-              <span className="btn-title block text-sm font-semibold text-gray-900 dark:text-white">
+              <span className="btn-title block text-sm font-semibold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300">
                 Location
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-green-500 dark:group-hover:text-green-300 transition-colors duration-300">
+                Share Found
               </span>
             </div>
           </div>
         </button>
 
-        {petInfo.emergency_contact?.phone && (
+        {(petInfo.emergency_contact?.phone || true) && (
           <button
             onClick={handlePhoneCall}
-            className="action-btn phone-btn h-[120px] bg-white dark:bg-gray-800 rounded-2xl p-3 text-center hover:scale-[1.02] hover:shadow-2xl transition-all duration-300 group shadow-md border border-gray-100 dark:border-gray-700"
+            className="action-btn phone-btn h-[120px] bg-white dark:bg-gray-800 rounded-2xl p-3 text-center hover:scale-[1.03] hover:shadow-lg transition-all duration-300 group shadow-sm hover:shadow-indigo-200/50 dark:hover:shadow-indigo-900/30 border border-gray-200/50 dark:border-gray-700/50 hover:border-blue-300/50 dark:hover:border-blue-600/50"
           >
-            <div className="flex flex-col items-center justify-center space-y-2 h-full">
-              <div className="btn-icon p-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl group-hover:shadow-lg transition-all duration-300">
+            <div className="flex flex-col items-center justify-center space-y-3 h-full pt-5 pb-3">
+              <div className="btn-icon p-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl group-hover:shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300 group-hover:scale-110">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
               </div>
               <div className="btn-content text-center">
-                <span className="btn-title block text-sm font-semibold text-gray-900 dark:text-white">
-                  Call
+                <span className="btn-title block text-sm font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">
+                  Call Owner
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-300 transition-colors duration-300">
+                  Emergency
                 </span>
               </div>
             </div>
@@ -647,44 +653,35 @@ const PetDisplayPage: React.FC = () => {
 
         <button
           onClick={handleStoreLink}
-          className="action-btn store-btn h-[120px] bg-white dark:bg-gray-800 rounded-2xl p-3 text-center hover:scale-[1.02] hover:shadow-2xl transition-all duration-300 group shadow-md border border-gray-100 dark:border-gray-700"
+          className="action-btn store-btn h-[120px] bg-white dark:bg-gray-800 rounded-2xl p-3 text-center hover:scale-[1.03] hover:shadow-lg transition-all duration-300 group shadow-sm hover:shadow-indigo-200/50 dark:hover:shadow-indigo-900/30 border border-gray-200/50 dark:border-gray-700/50 hover:border-purple-300/50 dark:hover:border-purple-600/50"
         >
-          <div className="flex flex-col items-center justify-center space-y-2 h-full">
-            <div className="btn-icon p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl group-hover:shadow-lg transition-all duration-300">
+          <div className="flex flex-col items-center justify-center space-y-3 h-full pt-5 pb-3">
+            <div className="btn-icon p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl group-hover:shadow-lg group-hover:shadow-purple-500/25 transition-all duration-300 group-hover:scale-110">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
             </div>
             <div className="btn-content text-center">
-              <span className="btn-title block text-sm font-semibold text-gray-900 dark:text-white">
+              <span className="btn-title block text-sm font-semibold text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-300">
                 Buy Tag
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-purple-500 dark:group-hover:text-purple-300 transition-colors duration-300">
+                Get Yours
               </span>
             </div>
           </div>
         </button>
 
-        <button
-          onClick={handleExit}
-          className="action-btn exit-btn h-[120px] bg-white dark:bg-gray-800 rounded-2xl p-3 text-center hover:scale-[1.02] hover:shadow-2xl transition-all duration-300 group shadow-md border border-gray-100 dark:border-gray-700"
-        >
-          <div className="flex flex-col items-center justify-center space-y-2 h-full">
-            <div className="btn-icon p-3 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-xl group-hover:shadow-lg transition-all duration-300">
-              <LogOut className="w-6 h-6" />
-            </div>
-            <div className="btn-content text-center">
-              <span className="btn-title block text-sm font-semibold text-gray-900 dark:text-white">
-                Exit
-              </span>
-            </div>
-          </div>
-        </button>
       </div>
 
       {/* Development Tools - Clean & Bottom */}
-      <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-          <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">Development Tools</span>
+      <div className="mt-8 p-5 bg-gradient-to-br from-gray-50/90 to-gray-100/50 dark:from-gray-800/90 dark:to-gray-700/50 rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-sm hover:shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-gradient-to-br hover:from-gray-100/90 hover:to-gray-50/70 dark:hover:from-gray-700/90 dark:hover:to-gray-600/50">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-r from-orange-500 to-red-500 rounded-full">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+          </div>
+          <span className="text-gray-700 dark:text-gray-300 text-sm font-semibold tracking-wide">Development Tools</span>
+          <div className="flex-1 h-px bg-gradient-to-r from-gray-300 to-transparent dark:from-gray-600"></div>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
