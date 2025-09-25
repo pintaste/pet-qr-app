@@ -5,7 +5,7 @@ import { useQRAccessStore } from '@/stores/qrAccessStore'
 import { useSecurityStore } from '@/stores/securityStore'
 import { useSecurityMonitorStore, SUSPICIOUS_ACTIVITY_TYPES } from '@/stores/securityMonitorStore'
 import { authService } from '@/services/authService'
-import { Heart, LogOut, Trash2, RefreshCw, Shield, Download, Globe, ChevronLeft, ChevronRight, X, Maximize2 } from 'lucide-react'
+import { Heart, LogOut, Trash2, RefreshCw, Shield, Download, Globe, ChevronLeft, ChevronRight, X, Maximize2, Phone, Mail, MessageCircle, Stethoscope, Tag, User, AlertTriangle, ChevronDown, ChevronUp, MapPin } from 'lucide-react'
 
 interface PetInfo {
   name: string
@@ -22,6 +22,27 @@ interface PetInfo {
   emergency_contact: any
   is_lost: boolean
   last_known_location?: string
+
+  // Extended Profile Information
+  markings?: string
+  owner_name?: string
+  secondary_phone?: string
+  owner_email?: string
+  location_area?: string
+  special_message?: string
+  temperament?: string
+  weight?: string
+  microchip_id?: string
+  spayed_neutered?: string
+  medical_conditions?: string
+  medications?: string
+  veterinarian?: string
+  vet_clinic?: string
+  vet_address?: string
+  emergency_vet?: string
+  birthday?: string
+  collar_description?: string
+  vaccinations?: string
 }
 
 const PetDisplayPage: React.FC = () => {
@@ -41,6 +62,11 @@ const PetDisplayPage: React.FC = () => {
   const [fullscreenImageIndex, setFullscreenImageIndex] = useState(0)
   const [showControls, setShowControls] = useState(true)
   const [controlsTimeout, setControlsTimeout] = useState<NodeJS.Timeout | null>(null)
+  const [showDetailedInfo, setShowDetailedInfo] = useState(false)
+  const [showContactModal, setShowContactModal] = useState(false)
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied'>('idle')
+  const [showLocationModal, setShowLocationModal] = useState(false)
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null)
 
   console.log('PetDisplayPage component mounted with pet ID:', petId)
 
@@ -165,7 +191,28 @@ const PetDisplayPage: React.FC = () => {
           email: 'owner@example.com'
         },
         is_lost: petData.is_lost || false,
-        last_known_location: petData.last_known_location
+        last_known_location: petData.last_known_location,
+
+        // Extended Profile Information - Mock Data
+        markings: 'White patch on chest, small scar on left ear',
+        owner_name: 'Sarah',
+        secondary_phone: '+1 (555) 987-6543',
+        owner_email: 'sarah.j@email.com',
+        location_area: 'Downtown District',
+        special_message: 'If you find Max, please call me immediately. He\'s very friendly but can get anxious without his family. Thank you for helping bring him home!',
+        temperament: 'Friendly, energetic, good with children and other dogs',
+        weight: '65 lbs (29.5 kg)',
+        microchip_id: '982000123456789',
+        spayed_neutered: 'Neutered',
+        medical_conditions: 'Mild hip dysplasia - needs daily medication',
+        medications: 'Glucosamine supplements daily',
+        veterinarian: 'Dr. Sarah Johnson',
+        vet_clinic: 'Happy Pets Clinic',
+        vet_address: '123 Main St, Downtown',
+        emergency_vet: '(555) 911-PETS - Downtown Animal Hospital',
+        birthday: 'March 15, 2021',
+        collar_description: 'Blue leather collar with silver tags',
+        vaccinations: 'DHPP (Annual), Rabies (Valid until 2026), Bordetella (Updated 2024)'
       }
 
       setPetInfo(petInfo)
@@ -359,9 +406,103 @@ const PetDisplayPage: React.FC = () => {
     )
   }
 
-  const handlePhoneCall = () => {
+  const handleContactOwner = () => {
+    setShowContactModal(true)
+  }
+
+  const handlePhoneCall = (phone: string) => {
+    if (phone) {
+      window.open(`tel:${phone}`)
+    }
+  }
+
+  const handleSMS = (phone: string) => {
+    if (phone && petInfo?.name) {
+      const message = encodeURIComponent(`Hi! I found ${petInfo.name}. Please let me know how I can help get them back to you safely.`)
+      window.open(`sms:${phone}?body=${message}`)
+    }
+  }
+
+  const handleShareLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by this browser.')
+      return
+    }
+
+    setLocationStatus('requesting')
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords
+        setLocationStatus('granted')
+        setUserLocation({ lat: latitude, lng: longitude })
+        setShowLocationModal(true)
+      },
+      (error) => {
+        console.error('Location error:', error)
+        setLocationStatus('denied')
+
+        let errorMessage = 'Unable to get your location. '
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage += 'Please allow location access to share your position.'
+            break
+          case error.POSITION_UNAVAILABLE:
+            errorMessage += 'Location information is unavailable.'
+            break
+          case error.TIMEOUT:
+            errorMessage += 'Location request timed out.'
+            break
+          default:
+            errorMessage += 'An unknown error occurred.'
+            break
+        }
+        alert(errorMessage)
+      }
+    )
+  }
+
+  const handleSendLocationViaSMS = () => {
+    if (!userLocation) return
+
+    const locationMessage = `I found ${petInfo?.name}! My current location: https://maps.google.com/maps?q=${userLocation.lat},${userLocation.lng}`
+    const encodedMessage = encodeURIComponent(locationMessage)
+
+    // Send via primary phone SMS
     if (petInfo?.emergency_contact?.phone) {
-      window.open(`tel:${petInfo.emergency_contact.phone}`)
+      window.open(`sms:${petInfo.emergency_contact.phone}?body=${encodedMessage}`)
+    } else if (petInfo?.secondary_phone) {
+      window.open(`sms:${petInfo.secondary_phone}?body=${encodedMessage}`)
+    }
+
+    setShowLocationModal(false)
+    setShowContactModal(false)
+    alert('Location sent via SMS!')
+  }
+
+  const handleSendLocationViaEmail = () => {
+    if (!userLocation || !petInfo?.owner_email) return
+
+    const locationMessage = `I found ${petInfo.name}! My current location: https://maps.google.com/maps?q=${userLocation.lat},${userLocation.lng}`
+    const subject = `Found ${petInfo.name} - Location Shared`
+
+    window.open(`mailto:${petInfo.owner_email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(locationMessage)}`)
+
+    setShowLocationModal(false)
+    setShowContactModal(false)
+    alert('Location sent via Email!')
+  }
+
+  // Additional contact functions
+  const handleCallSecondary = () => {
+    if (petInfo?.secondary_phone) {
+      window.open(`tel:${petInfo.secondary_phone}`)
+    }
+  }
+
+  const handleEmail = () => {
+    if (petInfo?.owner_email && petInfo?.name) {
+      window.open(`mailto:${petInfo.owner_email}?subject=Found ${petInfo.name}&body=Hi, I found ${petInfo.name}. Please let me know how I can help get them back to you safely.`)
     }
   }
 
@@ -574,19 +715,23 @@ const PetDisplayPage: React.FC = () => {
                 {petInfo.breed} • {Math.floor(petInfo.age / 12)} years old
               </p>
             </div>
+
             <button
-              onClick={() => navigate(`/profile/${qrCode}`)}
-              className="profile-btn-subtle relative p-2.5 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all duration-300 hover:scale-110 group flex-shrink-0 border border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md"
-              id="profileBtn"
-              title="View detailed profile"
+              onClick={() => setShowDetailedInfo(!showDetailedInfo)}
+              className="profile-toggle-btn relative p-2.5 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all duration-300 hover:scale-110 group flex-shrink-0 border border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md"
+              title={showDetailedInfo ? "Hide detailed information" : "Show detailed information"}
             >
               {/* Animated background glow */}
               <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-all duration-300 animate-pulse"></div>
 
-              {/* Info icon with animation */}
-              <svg className="w-5 h-5 relative z-10 transition-transform duration-300 group-hover:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              {/* Toggle icon with animation */}
+              <div className="relative z-10 transition-transform duration-300">
+                {showDetailedInfo ? (
+                  <ChevronUp className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
+                )}
+              </div>
 
               {/* Subtle pulse effect */}
               <div className="absolute inset-0 rounded-xl border-2 border-indigo-400/20 opacity-0 group-hover:opacity-100 animate-ping"></div>
@@ -594,9 +739,161 @@ const PetDisplayPage: React.FC = () => {
           </div>
 
           {petInfo.description && (
-            <p className="pet-description text-gray-700 dark:text-gray-300 leading-relaxed text-base mt-3">
-              {petInfo.description}
-            </p>
+            <>
+              <div className="divider my-5 h-px bg-gray-100 dark:bg-gray-700/50"></div>
+              <p className="pet-description text-gray-700 dark:text-gray-300 leading-relaxed text-base">
+                {petInfo.description}
+              </p>
+            </>
+          )}
+
+          {/* Detailed Information - Inside Container */}
+          {showDetailedInfo && (
+            <div className="detailed-info-sections space-y-6 mt-6 animate-in fade-in slide-in-from-top-4 duration-300">
+
+              {/* Special Message Section */}
+              {petInfo.special_message && (
+                <div className="bg-gradient-to-b from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-blue-200/50 dark:border-blue-700/50">
+                  <div className="flex items-center mb-4">
+                    <MessageCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2" />
+                    <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">Special Message from Owner</h3>
+                  </div>
+                  <p className="text-blue-800 dark:text-blue-200 leading-relaxed mb-4">"{petInfo.special_message}"</p>
+                  {petInfo.temperament && (
+                    <div className="pt-3 border-t border-blue-200 dark:border-blue-800">
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        <span className="font-medium">Temperament:</span> {petInfo.temperament}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Health Information Section */}
+              <div className="bg-gradient-to-b from-white to-gray-50/50 dark:from-gray-800 dark:to-gray-800/80 rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
+                <div className="flex items-center mb-4">
+                  <Stethoscope className="w-5 h-5 text-green-600 dark:text-green-400 mr-2" />
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Health Information</h3>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {petInfo.weight && (
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-500">Weight</p>
+                        <p className="font-medium text-gray-700 dark:text-gray-300">{petInfo.weight}</p>
+                      </div>
+                    )}
+                    {petInfo.spayed_neutered && (
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-500">Status</p>
+                        <p className="font-medium text-gray-700 dark:text-gray-300">{petInfo.spayed_neutered}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {petInfo.microchip_id && (
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-500">Microchip ID</p>
+                      <p className="font-medium text-gray-700 dark:text-gray-300 font-mono">{petInfo.microchip_id}</p>
+                    </div>
+                  )}
+
+                  {petInfo.markings && (
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-500">Distinctive Markings</p>
+                      <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{petInfo.markings}</p>
+                    </div>
+                  )}
+
+                  {(petInfo.medical_conditions || petInfo.medications) && (
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                      <div className="flex items-center mb-2">
+                        <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mr-2" />
+                        <span className="font-medium text-yellow-800 dark:text-yellow-200">Medical Alert</span>
+                      </div>
+                      {petInfo.medical_conditions && (
+                        <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                          <span className="font-medium">Conditions:</span> {petInfo.medical_conditions}
+                        </p>
+                      )}
+                      {petInfo.medications && (
+                        <p className="text-sm text-yellow-800 dark:text-yellow-200 mt-1">
+                          <span className="font-medium">Medications:</span> {petInfo.medications}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Veterinary Care Section */}
+              {(petInfo.veterinarian || petInfo.emergency_vet) && (
+                <div className="bg-gradient-to-b from-white to-gray-50/50 dark:from-gray-800 dark:to-gray-800/80 rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <Shield className="w-5 h-5 text-purple-600 dark:text-purple-400 mr-2" />
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Veterinary Care</h3>
+                  </div>
+
+                  <div className="space-y-4">
+                    {petInfo.veterinarian && (
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-500">Primary Veterinarian</p>
+                        <p className="font-medium text-gray-700 dark:text-gray-300">{petInfo.veterinarian}</p>
+                        {petInfo.vet_clinic && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{petInfo.vet_clinic}</p>
+                        )}
+                        {petInfo.vet_address && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{petInfo.vet_address}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {petInfo.emergency_vet && (
+                      <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-500 dark:text-gray-500">24/7 Emergency</p>
+                        <p className="font-medium text-purple-600 dark:text-purple-400">{petInfo.emergency_vet}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Additional Details Section */}
+              {(petInfo.birthday || petInfo.collar_description || petInfo.vaccinations) && (
+                <div className="bg-gradient-to-b from-white to-gray-50/50 dark:from-gray-800 dark:to-gray-800/80 rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <Tag className="w-5 h-5 text-indigo-600 dark:text-indigo-400 mr-2" />
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Additional Details</h3>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4">
+                      {petInfo.birthday && (
+                        <div>
+                          <p className="text-sm text-gray-500 dark:text-gray-500">Birthday</p>
+                          <p className="font-medium text-gray-700 dark:text-gray-300">{petInfo.birthday}</p>
+                        </div>
+                      )}
+
+                      {petInfo.collar_description && (
+                        <div>
+                          <p className="text-sm text-gray-500 dark:text-gray-500">Collar Description</p>
+                          <p className="font-medium text-gray-700 dark:text-gray-300">{petInfo.collar_description}</p>
+                        </div>
+                      )}
+
+                      {petInfo.vaccinations && (
+                        <div>
+                          <p className="text-sm text-gray-500 dark:text-gray-500">Vaccinations</p>
+                          <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{petInfo.vaccinations}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -604,50 +901,50 @@ const PetDisplayPage: React.FC = () => {
 
       {/* Action Buttons - Enhanced Layout */}
       <div className="action-buttons grid gap-4 mt-6 grid-cols-3">
-        <button
-          onClick={handleLocationShare}
-          className="action-btn location-btn h-[120px] bg-white dark:bg-gray-800 rounded-2xl p-3 text-center hover:scale-[1.03] hover:shadow-lg transition-all duration-300 group shadow-sm hover:shadow-indigo-200/50 dark:hover:shadow-indigo-900/30 border border-gray-200/50 dark:border-gray-700/50 hover:border-green-300/50 dark:hover:border-green-600/50"
-        >
-          <div className="flex flex-col items-center justify-center space-y-3 h-full pt-5 pb-3">
-            <div className="btn-icon p-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl group-hover:shadow-lg group-hover:shadow-green-500/25 transition-all duration-300 group-hover:scale-110">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            <div className="btn-content text-center">
-              <span className="btn-title block text-sm font-semibold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300">
-                Location
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-green-500 dark:group-hover:text-green-300 transition-colors duration-300">
-                Share Found
-              </span>
-            </div>
-          </div>
-        </button>
-
         {(petInfo.emergency_contact?.phone || true) && (
           <button
-            onClick={handlePhoneCall}
-            className="action-btn phone-btn h-[120px] bg-white dark:bg-gray-800 rounded-2xl p-3 text-center hover:scale-[1.03] hover:shadow-lg transition-all duration-300 group shadow-sm hover:shadow-indigo-200/50 dark:hover:shadow-indigo-900/30 border border-gray-200/50 dark:border-gray-700/50 hover:border-blue-300/50 dark:hover:border-blue-600/50"
+            onClick={handleContactOwner}
+            className="action-btn phone-btn h-[120px] bg-white dark:bg-gray-800 rounded-2xl p-3 text-center hover:scale-[1.03] hover:shadow-lg transition-all duration-300 group shadow-sm hover:shadow-green-200/50 dark:hover:shadow-green-900/30 border border-gray-200/50 dark:border-gray-700/50 hover:border-green-300/50 dark:hover:border-green-600/50"
           >
             <div className="flex flex-col items-center justify-center space-y-3 h-full pt-5 pb-3">
-              <div className="btn-icon p-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl group-hover:shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300 group-hover:scale-110">
+              <div className="btn-icon p-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl group-hover:shadow-lg group-hover:shadow-green-500/25 transition-all duration-300 group-hover:scale-110">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
               </div>
               <div className="btn-content text-center">
-                <span className="btn-title block text-sm font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">
-                  Call Owner
+                <span className="btn-title block text-sm font-semibold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300">
+                  Contact Owner
                 </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-300 transition-colors duration-300">
+                <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-green-500 dark:group-hover:text-green-300 transition-colors duration-300">
                   Emergency
                 </span>
               </div>
             </div>
           </button>
         )}
+
+        <button
+          onClick={handleLocationShare}
+          className="action-btn location-btn h-[120px] bg-white dark:bg-gray-800 rounded-2xl p-3 text-center hover:scale-[1.03] hover:shadow-lg transition-all duration-300 group shadow-sm hover:shadow-indigo-200/50 dark:hover:shadow-indigo-900/30 border border-gray-200/50 dark:border-gray-700/50 hover:border-blue-300/50 dark:hover:border-blue-600/50"
+        >
+          <div className="flex flex-col items-center justify-center space-y-3 h-full pt-5 pb-3">
+            <div className="btn-icon p-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl group-hover:shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300 group-hover:scale-110">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div className="btn-content text-center">
+              <span className="btn-title block text-sm font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">
+                Location
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-300 transition-colors duration-300">
+                Share Found
+              </span>
+            </div>
+          </div>
+        </button>
 
         <button
           onClick={handleStoreLink}
@@ -833,6 +1130,330 @@ const PetDisplayPage: React.FC = () => {
                 // Optional: Add loading state management here
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Contact Owner Modal */}
+      {showContactModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-[9998] flex items-center justify-center p-4"
+          onClick={() => setShowContactModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-200 dark:border-gray-700"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-xl">
+                  <Phone className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">Contact Owner</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Reach out to {petInfo?.owner_name || 'the owner'}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowContactModal(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            {/* Owner Information */}
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 mb-6">
+              <div className="flex items-center space-x-3 mb-2">
+                <User className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {petInfo?.owner_name || 'Pet Owner'}
+                </span>
+              </div>
+              {petInfo?.location_area && (
+                <div className="flex items-center space-x-3 mt-2">
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {petInfo.location_area}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Contact Options */}
+            <div className="space-y-4">
+              {/* Primary Phone */}
+              {(petInfo?.emergency_contact?.phone || petInfo?.emergency_contact) && (
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-green-200/50 dark:border-green-700/50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-sm text-green-700 dark:text-green-300 font-medium">Primary Phone</p>
+                      <p className="text-green-900 dark:text-green-100 font-bold">{petInfo?.emergency_contact?.phone || '+1 (555) 123-4567'}</p>
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => {
+                        handlePhoneCall(petInfo?.emergency_contact?.phone || '+1 (555) 123-4567')
+                        setShowContactModal(false)
+                      }}
+                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                    >
+                      <Phone className="w-4 h-4" />
+                      <span>Call</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleSMS(petInfo?.emergency_contact?.phone || '+1 (555) 123-4567')
+                        setShowContactModal(false)
+                      }}
+                      className="flex-1 px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors font-medium flex items-center justify-center space-x-2"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>SMS</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Secondary Phone */}
+              {petInfo?.secondary_phone && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200/50 dark:border-blue-700/50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">Backup Phone</p>
+                      <p className="text-blue-900 dark:text-blue-100 font-bold">{petInfo.secondary_phone}</p>
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => {
+                        handlePhoneCall(petInfo.secondary_phone || '')
+                        setShowContactModal(false)
+                      }}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                    >
+                      <Phone className="w-4 h-4" />
+                      <span>Call</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleSMS(petInfo.secondary_phone || '')
+                        setShowContactModal(false)
+                      }}
+                      className="flex-1 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors font-medium flex items-center justify-center space-x-2"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>SMS</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Email */}
+              {petInfo?.owner_email && (
+                <div className="bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/50 dark:to-slate-800/50 rounded-xl p-4 border border-gray-200/30 dark:border-gray-700/30">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Email</p>
+                      <p className="text-gray-700 dark:text-gray-300 font-bold">{petInfo.owner_email}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      handleEmail()
+                      setShowContactModal(false)
+                    }}
+                    className="w-full px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span>Send Email</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Location Sharing Section */}
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl p-4 border border-amber-200/50 dark:border-amber-700/50">
+                <div className="flex items-center mb-3">
+                  <MapPin className="w-5 h-5 text-amber-600 dark:text-amber-400 mr-2" />
+                  <p className="text-sm text-amber-700 dark:text-amber-300 font-medium">Share Your Location</p>
+                </div>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mb-3">
+                  Help the owner know where you found {petInfo?.name}
+                </p>
+                <button
+                  onClick={handleShareLocation}
+                  disabled={locationStatus === 'requesting'}
+                  className={`w-full px-4 py-2 rounded-lg font-medium flex items-center justify-center space-x-2 transition-colors ${
+                    locationStatus === 'requesting'
+                      ? 'bg-amber-400 cursor-not-allowed opacity-70'
+                      : 'bg-amber-600 hover:bg-amber-700'
+                  } text-white`}
+                >
+                  {locationStatus === 'requesting' ? (
+                    <>
+                      <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                      <span>Getting Location...</span>
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="w-4 h-4" />
+                      <span>Send My Location</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Footer Note */}
+            <div className="mt-6 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+              <div className="flex items-start space-x-2">
+                <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <span className="font-medium">Emergency:</span> If this is an urgent situation, please call immediately. For non-urgent matters, SMS or email may be more convenient.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Location Confirmation Modal */}
+      {showLocationModal && userLocation && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4"
+          onClick={() => setShowLocationModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-amber-100 dark:bg-amber-900/20 rounded-xl">
+                  <MapPin className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">Confirm Your Location</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Share where you found {petInfo?.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowLocationModal(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            {/* Map Display */}
+            <div className="p-6">
+              <div className="bg-gray-100 dark:bg-gray-700 rounded-xl h-64 flex items-center justify-center mb-4 relative overflow-hidden">
+                {/* Using Google Maps Static API as a simple map display */}
+                <iframe
+                  src={`https://maps.google.com/maps?q=${userLocation.lat},${userLocation.lng}&t=m&z=15&output=embed&iwloc=addr`}
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  className="rounded-lg"
+                ></iframe>
+
+                {/* Location marker overlay */}
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                  <div className="bg-red-500 text-white p-2 rounded-full shadow-lg animate-bounce">
+                    <MapPin className="w-6 h-6" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Location Details */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 mb-6">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-500 dark:text-gray-400">Latitude</p>
+                    <p className="font-mono text-gray-700 dark:text-gray-300">{userLocation.lat.toFixed(6)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 dark:text-gray-400">Longitude</p>
+                    <p className="font-mono text-gray-700 dark:text-gray-300">{userLocation.lng.toFixed(6)}</p>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    This location will be shared with {petInfo?.owner_name} to help them find their pet.
+                  </p>
+                </div>
+              </div>
+
+              {/* Send Options */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-gray-900 dark:text-white">Choose how to send:</h4>
+                </div>
+
+                {/* SMS Option */}
+                {(petInfo?.emergency_contact?.phone || petInfo?.secondary_phone) && (
+                  <button
+                    onClick={handleSendLocationViaSMS}
+                    className="w-full flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-700/50 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors group"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <MessageCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      <div className="text-left">
+                        <p className="font-medium text-green-900 dark:text-green-100">Send via SMS</p>
+                        <p className="text-xs text-green-600 dark:text-green-400">
+                          {petInfo?.emergency_contact?.phone || petInfo?.secondary_phone}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-green-600 dark:text-green-400 group-hover:translate-x-1 transition-transform">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </button>
+                )}
+
+                {/* Email Option */}
+                {petInfo?.owner_email && (
+                  <button
+                    onClick={handleSendLocationViaEmail}
+                    className="w-full flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-700/50 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors group"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      <div className="text-left">
+                        <p className="font-medium text-blue-900 dark:text-blue-100">Send via Email</p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400">
+                          {petInfo.owner_email}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition-transform">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </button>
+                )}
+              </div>
+
+              {/* Cancel Button */}
+              <button
+                onClick={() => setShowLocationModal(false)}
+                className="w-full mt-4 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
