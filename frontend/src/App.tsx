@@ -1,9 +1,11 @@
+import React, { useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { useTheme } from '@/hooks/useTheme'
 import { useLanguage } from '@/hooks/useLanguage'
 
 // Layout Components
 import Layout from '@/components/Layout'
+import AuthModal from '@/components/AuthModal'
 
 // Pages
 import LandingPage from '@/pages/LandingPage'
@@ -14,6 +16,24 @@ import ProfilePage from '@/pages/ProfilePage'
 import DashboardPage from '@/pages/DashboardPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import QRStatusCheckPage from '@/pages/QRStatusCheckPage'
+
+// Wrapper component for PetDisplayPage that handles AuthModal
+const PetDisplayPageWithLayout: React.FC = () => {
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+
+  return (
+    <>
+      <Layout onOpenAuthModal={() => setIsAuthModalOpen(true)}>
+        <PetDisplayPage />
+      </Layout>
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialMode="login"
+      />
+    </>
+  )
+}
 
 function App() {
   const { theme } = useTheme()
@@ -48,11 +68,7 @@ function App() {
             <PINVerificationPage />
           </Layout>
         } />
-        <Route path="/pet/:petId" element={
-          <Layout>
-            <PetDisplayPage />
-          </Layout>
-        } />
+        <Route path="/pet/:petId" element={<PetDisplayPageWithLayout />} />
         <Route path="/profile/:qrCode" element={
           <Layout>
             <ProfilePage />

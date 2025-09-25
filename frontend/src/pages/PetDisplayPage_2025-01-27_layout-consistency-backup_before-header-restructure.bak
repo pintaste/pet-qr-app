@@ -2,10 +2,14 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLanguage } from '@/hooks/useLanguage'
 import { useQRAccessStore } from '@/stores/qrAccessStore'
+import { useAuthStore } from '@/stores/authStore'
 import { useSecurityStore } from '@/stores/securityStore'
 import { useSecurityMonitorStore, SUSPICIOUS_ACTIVITY_TYPES } from '@/stores/securityMonitorStore'
+import { useTheme } from '@/hooks/useTheme'
+import { qrService } from '@/services/qrService'
 import { authService } from '@/services/authService'
-import { Heart, LogOut, Trash2, RefreshCw, Shield, Download, Globe, ChevronLeft, ChevronRight, X, Maximize2 } from 'lucide-react'
+import AuthModal from '@/components/AuthModal'
+import { Heart, LogOut, Globe, Sun, Moon, User, Menu, LayoutDashboard, Trash2, RefreshCw, Shield, Download } from 'lucide-react'
 
 interface PetInfo {
   name: string
@@ -27,51 +31,32 @@ interface PetInfo {
 const PetDisplayPage: React.FC = () => {
   const { petId } = useParams<{ petId: string }>()
   const navigate = useNavigate()
-  const { t, clearLanguagePreference } = useLanguage()
-  const { clearVerification, isPetAccessible, getQRCodeForPetId } = useQRAccessStore()
+  const { t, clearLanguagePreference, language, setLanguage } = useLanguage()
+  const { theme, toggleTheme } = useTheme()
+  const { isQRVerified, clearVerification, isPetAccessible, getQRCodeForPetId } = useQRAccessStore()
   const { clearSecurityData } = useSecurityStore()
+  const { isAuthenticated } = useAuthStore()
   const { logSuspiciousActivity, getSuspiciousActivities, exportSecurityLog } = useSecurityMonitorStore()
 
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+
+  // Language options
+  const languages = [
+    { code: 'en', flag: '🇺🇸', name: 'English' },
+    { code: 'zh', flag: '🇨🇳', name: '中文' },
+    { code: 'es', flag: '🇪🇸', name: 'Español' },
+    { code: 'fr', flag: '🇫🇷', name: 'Français' }
+  ]
+
+  const currentLang = languages.find(lang => lang.code === language) || languages[0]
 
   const [petInfo, setPetInfo] = useState<PetInfo | null>(null)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
-  const [isFullscreenOpen, setIsFullscreenOpen] = useState(false)
-  const [fullscreenImageIndex, setFullscreenImageIndex] = useState(0)
-  const [showControls, setShowControls] = useState(true)
-  const [controlsTimeout, setControlsTimeout] = useState<NodeJS.Timeout | null>(null)
 
   console.log('PetDisplayPage component mounted with pet ID:', petId)
-
-  // Keyboard navigation for fullscreen gallery
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!isFullscreenOpen) return
-
-      switch (event.key) {
-        case 'Escape':
-          closeFullscreenGallery()
-          break
-        case 'ArrowLeft':
-          handleFullscreenPrevious()
-          break
-        case 'ArrowRight':
-          handleFullscreenNext()
-          break
-        default:
-          break
-      }
-    }
-
-    if (isFullscreenOpen) {
-      document.addEventListener('keydown', handleKeyDown)
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isFullscreenOpen, fullscreenImageIndex, petInfo?.photo_urls?.length])
 
   useEffect(() => {
     if (!petId) {
@@ -174,157 +159,8 @@ const PetDisplayPage: React.FC = () => {
     }
   }
 
-
-  const handlePreviousImage = () => {
-    const photoUrls = petInfo?.photo_urls || []
-    if (!petInfo || photoUrls.length <= 1) return
-    setCurrentImageIndex(prev => prev === 0 ? photoUrls.length - 1 : prev - 1)
-  }
-
-  const handleNextImage = () => {
-    const photoUrls = petInfo?.photo_urls || []
-    if (!petInfo || photoUrls.length <= 1) return
-    setCurrentImageIndex(prev => prev === photoUrls.length - 1 ? 0 : prev + 1)
-  }
-
-  // Controls auto-hide functionality
-  const resetControlsTimeout = () => {
-    if (controlsTimeout) {
-      clearTimeout(controlsTimeout)
-    }
-    setShowControls(true)
-    const timeout = setTimeout(() => {
-      setShowControls(false)
-    }, 3000) // Hide after 3 seconds of inactivity
-    setControlsTimeout(timeout)
-  }
-
-  const handleGalleryMouseEnter = () => {
-    setShowControls(true)
-    if (controlsTimeout) {
-      clearTimeout(controlsTimeout)
-      setControlsTimeout(null)
-    }
-  }
-
-  const handleGalleryMouseLeave = () => {
-    setShowControls(false)
-    if (controlsTimeout) {
-      clearTimeout(controlsTimeout)
-      setControlsTimeout(null)
-    }
-  }
-
-  const handleMouseMove = () => {
-    if (isFullscreenOpen) {
-      resetControlsTimeout()
-    }
-  }
-
-  // Fullscreen gallery functions
-  const openFullscreenGallery = (index: number) => {
-    setFullscreenImageIndex(index)
-    setIsFullscreenOpen(true)
-    setShowControls(true)
-    resetControlsTimeout()
-    // Prevent body scroll when modal is open
-    document.body.style.overflow = 'hidden'
-  }
-
-  const closeFullscreenGallery = () => {
-    setIsFullscreenOpen(false)
-    setShowControls(true)
-    if (controlsTimeout) {
-      clearTimeout(controlsTimeout)
-      setControlsTimeout(null)
-    }
-    // Restore body scroll
-    document.body.style.overflow = 'unset'
-  }
-
-  const handleFullscreenPrevious = () => {
-    const photoUrls = petInfo?.photo_urls || []
-    if (!petInfo || photoUrls.length <= 1) return
-    setFullscreenImageIndex(prev => prev === 0 ? photoUrls.length - 1 : prev - 1)
-  }
-
-  const handleFullscreenNext = () => {
-    const photoUrls = petInfo?.photo_urls || []
-    if (!petInfo || photoUrls.length <= 1) return
-    setFullscreenImageIndex(prev => prev === photoUrls.length - 1 ? 0 : prev + 1)
-  }
-
-  // Download image with watermark
-  const downloadImageWithWatermark = async (imageUrl: string, imageIndex: number) => {
-    try {
-      // Create canvas for adding watermark
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return
-
-      // Load the image
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-
-      await new Promise((resolve, reject) => {
-        img.onload = resolve
-        img.onerror = reject
-        img.src = imageUrl
-      })
-
-      // Set canvas size to match image
-      canvas.width = img.width
-      canvas.height = img.height
-
-      // Draw the original image
-      ctx.drawImage(img, 0, 0)
-
-      // Add watermark
-      const watermarkText = `${petInfo?.name || 'Pet'} - PetID System`
-      const fontSize = Math.max(20, Math.min(img.width / 20, img.height / 20))
-
-      ctx.font = `${fontSize}px Arial`
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)'
-      ctx.lineWidth = 2
-
-      // Position watermark at bottom right
-      const textWidth = ctx.measureText(watermarkText).width
-      const x = img.width - textWidth - 20
-      const y = img.height - 20
-
-      // Draw watermark with stroke and fill
-      ctx.strokeText(watermarkText, x, y)
-      ctx.fillText(watermarkText, x, y)
-
-      // Add QR code info as secondary watermark
-      const qrText = `QR: ${qrCode || 'Unknown'}`
-      ctx.font = `${fontSize * 0.7}px Arial`
-      const qrTextWidth = ctx.measureText(qrText).width
-      const qrX = img.width - qrTextWidth - 20
-      const qrY = y - fontSize - 5
-
-      ctx.strokeText(qrText, qrX, qrY)
-      ctx.fillText(qrText, qrX, qrY)
-
-      // Convert to blob and download
-      canvas.toBlob((blob) => {
-        if (!blob) return
-
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `${petInfo?.name || 'pet'}-photo-${imageIndex + 1}.jpg`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        URL.revokeObjectURL(url)
-      }, 'image/jpeg', 0.9)
-
-    } catch (error) {
-      console.error('Error downloading image:', error)
-      alert('Failed to download image. Please try again.')
-    }
+  const handleImageChange = (index: number) => {
+    setCurrentImageIndex(index)
   }
 
   const handleLocationShare = () => {
@@ -496,61 +332,106 @@ const PetDisplayPage: React.FC = () => {
   const photos = petInfo.photo_urls || []
   const currentPhoto = photos[currentImageIndex] || 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=400&h=250&fit=crop'
 
-  // Get the QR code for this pet
-  const qrCode = getQRCodeForPetId(parseInt(petId!, 10))
-
   return (
-    <>
-      {/* Pet Card - Enhanced Design */}
+    <div className="min-h-screen bg-white dark:bg-gray-900">
+      {/* Header Icons - Floating Position */}
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        {/* Theme Toggle - Shows CURRENT theme */}
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg"
+          title={theme === 'dark' ? 'Currently dark mode - click for light' : 'Currently light mode - click for dark'}
+        >
+          {theme === 'dark' ? (
+            <Moon className="w-4 h-4" />
+          ) : (
+            <Sun className="w-4 h-4" />
+          )}
+        </button>
+
+        {/* Language Switcher - Shows CURRENT language */}
+        <div className="relative">
+          <button
+            onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+            className="flex items-center gap-1 p-2 rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg"
+            title={`Current language: ${currentLang.name}`}
+          >
+            <Globe className="w-4 h-4" />
+            <span className="text-xs font-medium uppercase">
+              {currentLang.code}
+            </span>
+          </button>
+
+          {showLanguageDropdown && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowLanguageDropdown(false)}
+              />
+              <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 z-20 min-w-[140px]">
+                {languages.map((lang, index) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => {
+                      setLanguage(lang.code)
+                      setShowLanguageDropdown(false)
+                    }}
+                    className={`flex items-center gap-2 w-full px-3 py-3 text-left transition-all duration-200 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                      lang.code === language ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300'
+                    } ${
+                      index === 0 ? 'rounded-t-xl' : ''
+                    } ${
+                      index === languages.length - 1 ? 'rounded-b-xl' : ''
+                    }`}
+                  >
+                    <span>{lang.flag}</span>
+                    <span>{lang.name}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Auth Button */}
+        {!isAuthenticated ? (
+          <button
+            onClick={() => setIsAuthModalOpen(true)}
+            className="p-2 rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg"
+            title="Login"
+          >
+            <User className="w-4 h-4" />
+          </button>
+        ) : (
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="p-2 rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800 text-blue-600 dark:text-blue-400 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg"
+            title="Dashboard"
+          >
+            <LayoutDashboard className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Main Content - Clean Layout */}
+      <div className="container mx-auto max-w-md px-4 pb-6 pt-4">
+
+
+        {/* Pet Card - Enhanced Design */}
       <div className="bg-white dark:bg-gray-800 rounded-3xl overflow-hidden shadow-xl border border-gray-100 dark:border-gray-700 mb-8 backdrop-blur-sm">
         {/* Pet Gallery */}
-        <div className="pet-gallery relative" onMouseEnter={handleGalleryMouseEnter} onMouseLeave={handleGalleryMouseLeave}>
+        <div className="pet-gallery relative">
           <div className="gallery-main relative w-full h-[250px] overflow-hidden rounded-t-3xl">
             <img
               src={currentPhoto}
               alt={`${petInfo.name} main photo`}
-              className="gallery-main-image w-full h-full object-cover transition-opacity duration-300 cursor-pointer"
+              className="gallery-main-image w-full h-full object-cover transition-opacity duration-300"
               id="mainImage"
-              onClick={() => openFullscreenGallery(currentImageIndex)}
             />
-            {/* Expand icon hint - moved to bottom right with visibility control */}
-            <button
-              onClick={() => openFullscreenGallery(currentImageIndex)}
-              className={`absolute bottom-3 right-3 bg-black bg-opacity-30 hover:bg-opacity-60 text-white p-2 rounded-full transition-all duration-300 hover:scale-110 backdrop-blur-sm z-10 ${
-                showControls ? 'opacity-70 hover:opacity-100' : 'opacity-0'
-              }`}
-              title="View fullscreen"
-            >
-              <Maximize2 className="w-4 h-4" />
-            </button>
             {photos.length > 1 && (
-              <>
-                {/* Navigation Arrows - improved styling */}
-                <button
-                  onClick={handlePreviousImage}
-                  className={`absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-30 hover:bg-opacity-60 text-white p-2 rounded-full transition-all duration-300 hover:scale-110 backdrop-blur-sm z-10 ${
-                    showControls ? 'opacity-60 hover:opacity-100' : 'opacity-0'
-                  }`}
-                  title="Previous image"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={handleNextImage}
-                  className={`absolute right-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-30 hover:bg-opacity-60 text-white p-2 rounded-full transition-all duration-300 hover:scale-110 backdrop-blur-sm z-10 ${
-                    showControls ? 'opacity-60 hover:opacity-100' : 'opacity-0'
-                  }`}
-                  title="Next image"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-                {/* Image Counter - improved styling with visibility control */}
-                <div className={`gallery-counter absolute top-3 right-3 bg-black bg-opacity-40 text-white px-2 py-1 rounded-xl text-xs font-medium backdrop-blur-sm z-10 transition-all duration-300 ${
-                  showControls ? 'opacity-70 hover:opacity-100' : 'opacity-0'
-                }`}>
-                  <span id="currentImage">{currentImageIndex + 1}</span> / <span id="totalImages">{photos.length}</span>
-                </div>
-              </>
+              <div className="gallery-counter absolute top-4 right-4 bg-black bg-opacity-70 text-white px-3 py-1 rounded-2xl text-sm font-medium backdrop-blur-md">
+                <span id="currentImage">{currentImageIndex + 1}</span> / <span id="totalImages">{photos.length}</span>
+              </div>
             )}
           </div>
 
@@ -566,7 +447,7 @@ const PetDisplayPage: React.FC = () => {
                       ? 'border-indigo-500 scale-105'
                       : 'border-transparent hover:scale-105'
                   }`}
-                  onClick={() => setCurrentImageIndex(index)}
+                  onClick={() => handleImageChange(index)}
                 />
               ))}
             </div>
@@ -746,103 +627,15 @@ const PetDisplayPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Fullscreen Image Gallery Modal */}
-      {isFullscreenOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-95 z-[9999] flex items-center justify-center"
-          onClick={closeFullscreenGallery}
-          onMouseMove={handleMouseMove}
-        >
-          <div className="relative w-full h-full flex items-center justify-center p-4">
-            {/* Close button - with auto-hide */}
-            <button
-              onClick={closeFullscreenGallery}
-              className={`absolute top-4 right-4 bg-black bg-opacity-40 hover:bg-opacity-70 text-white p-2.5 rounded-full transition-all duration-300 hover:scale-110 backdrop-blur-sm z-10 ${
-                showControls ? 'opacity-80 hover:opacity-100' : 'opacity-0'
-              }`}
-              title="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      </div>
 
-            {/* Download button - with auto-hide */}
-            <button
-              onClick={() => downloadImageWithWatermark(photos[fullscreenImageIndex], fullscreenImageIndex)}
-              className={`absolute top-4 right-16 bg-black bg-opacity-40 hover:bg-opacity-70 text-white p-2.5 rounded-full transition-all duration-300 hover:scale-110 backdrop-blur-sm z-10 ${
-                showControls ? 'opacity-80 hover:opacity-100' : 'opacity-0'
-              }`}
-              title="Download with watermark"
-            >
-              <Download className="w-5 h-5" />
-            </button>
-
-            {/* Navigation arrows for fullscreen - with auto-hide */}
-            {photos.length > 1 && (
-              <>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleFullscreenPrevious()
-                    resetControlsTimeout()
-                  }}
-                  className={`absolute left-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-40 hover:bg-opacity-70 text-white p-3 rounded-full transition-all duration-300 hover:scale-110 backdrop-blur-sm z-10 ${
-                    showControls ? 'opacity-70 hover:opacity-100' : 'opacity-0'
-                  }`}
-                  title="Previous image"
-                >
-                  <ChevronLeft className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleFullscreenNext()
-                    resetControlsTimeout()
-                  }}
-                  className={`absolute right-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-40 hover:bg-opacity-70 text-white p-3 rounded-full transition-all duration-300 hover:scale-110 backdrop-blur-sm z-10 ${
-                    showControls ? 'opacity-70 hover:opacity-100' : 'opacity-0'
-                  }`}
-                  title="Next image"
-                >
-                  <ChevronRight className="w-6 h-6" />
-                </button>
-              </>
-            )}
-
-            {/* Image counter - with auto-hide */}
-            {photos.length > 1 && (
-              <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 bg-black bg-opacity-50 text-white px-3 py-1.5 rounded-xl text-sm font-medium backdrop-blur-sm z-10 transition-all duration-300 ${
-                showControls ? 'opacity-80' : 'opacity-0'
-              }`}>
-                <span>{fullscreenImageIndex + 1}</span> / <span>{photos.length}</span>
-              </div>
-            )}
-
-            {/* Pet info overlay - with auto-hide */}
-            <div className={`absolute bottom-4 left-4 bg-black bg-opacity-50 text-white p-3 rounded-xl backdrop-blur-sm z-10 max-w-xs transition-all duration-300 ${
-              showControls ? 'opacity-80' : 'opacity-0'
-            }`}>
-              <h3 className="text-lg font-bold mb-1">{petInfo?.name}</h3>
-              <p className="text-gray-300 text-xs">{petInfo?.breed} • {Math.floor((petInfo?.age || 0) / 12)} years old</p>
-              {petInfo?.description && (
-                <p className="text-gray-400 text-xs mt-1 line-clamp-2">{petInfo.description}</p>
-              )}
-            </div>
-
-            {/* Main fullscreen image */}
-            <img
-              src={photos[fullscreenImageIndex]}
-              alt={`${petInfo?.name} photo ${fullscreenImageIndex + 1}`}
-              className="max-w-full max-h-full object-contain"
-              onClick={(e) => e.stopPropagation()}
-              onLoad={() => {
-                // Optional: Add loading state management here
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-    </>
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialMode="login"
+      />
+    </div>
   )
 }
 

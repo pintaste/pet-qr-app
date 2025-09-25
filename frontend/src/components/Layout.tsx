@@ -10,6 +10,7 @@ interface LayoutProps {
   showAuthButton?: boolean
   showFooter?: boolean
   footerVariant?: 'default' | 'minimal'
+  onOpenAuthModal?: () => void
 }
 
 const Layout: React.FC<LayoutProps> = ({
@@ -18,7 +19,8 @@ const Layout: React.FC<LayoutProps> = ({
   headerVariant = 'default',
   showAuthButton = true,
   showFooter = true,
-  footerVariant = 'default'
+  footerVariant = 'default',
+  onOpenAuthModal
 }) => {
   const isMinimal = headerVariant === 'minimal'
   const location = useLocation()
@@ -42,6 +44,7 @@ const Layout: React.FC<LayoutProps> = ({
               <Header
                 variant={headerVariant}
                 showAuthButton={showAuthButton}
+                onOpenAuthModal={onOpenAuthModal}
               />
             </div>
           )}

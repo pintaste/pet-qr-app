@@ -5,16 +5,20 @@ import { useLanguage } from '@/hooks/useLanguage'
 import { useHeader } from '@/hooks/useHeader'
 import { authService } from '@/services/authService'
 import { useAuthStore } from '@/stores/authStore'
+import AuthModal from '@/components/AuthModal'
 import { Heart, Globe, Sun, Moon, User, LogOut, Menu, X } from 'lucide-react'
+import type { Language } from '@/types'
 
 interface HeaderProps {
   showAuthButton?: boolean
   variant?: 'default' | 'minimal'
+  onOpenAuthModal?: () => void
 }
 
 const Header: React.FC<HeaderProps> = ({
   showAuthButton = true,
-  variant = 'default'
+  variant = 'default',
+  onOpenAuthModal
 }) => {
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
@@ -23,6 +27,7 @@ const Header: React.FC<HeaderProps> = ({
   const { isAuthenticated, user } = useAuthStore()
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
+  const [showAuthModal, setShowAuthModal] = useState(false)
   const [showUserModal, setShowUserModal] = useState(false)
 
   const handleLogout = async () => {
@@ -34,9 +39,19 @@ const Header: React.FC<HeaderProps> = ({
     }
   }
 
-  const handleLogin = () => {
+  const handleUserIconClick = () => {
+    if (isAuthenticated) {
+      setShowUserModal(true)
+    } else if (onOpenAuthModal) {
+      onOpenAuthModal()
+    } else {
+      setShowAuthModal(true)
+    }
+  }
+
+  const handleDashboard = () => {
     setShowUserModal(false)
-    navigate('/')
+    navigate('/dashboard')
   }
 
   const handleLogoClick = () => {
@@ -139,7 +154,7 @@ const Header: React.FC<HeaderProps> = ({
                     <button
                       key={lang.code}
                       onClick={() => {
-                        setLanguage(lang.code)
+                        setLanguage(lang.code as Language)
                         setShowLanguageDropdown(false)
                       }}
                       className={`flex items-center gap-2 w-full px-3 py-3 text-left transition-all duration-200 text-sm font-medium ${
@@ -177,7 +192,7 @@ const Header: React.FC<HeaderProps> = ({
 
           {showAuthButton && (
             <button
-              onClick={() => setShowUserModal(true)}
+              onClick={handleUserIconClick}
               className="p-2 rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg glass-button"
               style={{ color: 'var(--text-primary)' }}
               title={isAuthenticated ? 'User Account' : 'Login'}
@@ -302,7 +317,7 @@ const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* User Modal */}
+      {/* User Modal for Authenticated Users */}
       {showUserModal && (
         <>
           <div
@@ -318,7 +333,7 @@ const Header: React.FC<HeaderProps> = ({
           >
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-                {isAuthenticated ? 'Account' : 'Login'}
+                Account
               </h3>
               <button
                 onClick={() => setShowUserModal(false)}
@@ -331,19 +346,32 @@ const Header: React.FC<HeaderProps> = ({
               </button>
             </div>
 
-            {isAuthenticated && user ? (
-              <div className="space-y-4">
-                <div className="text-center py-4">
-                  <div
-                    className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3"
-                    style={{ backgroundColor: 'var(--primary-color)', opacity: 0.1 }}
-                  >
-                    <User className="w-8 h-8" style={{ color: 'var(--primary-color)' }} />
-                  </div>
-                  <h4 className="font-medium" style={{ color: 'var(--text-primary)' }}>{user.email}</h4>
-                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Logged in</p>
+            <div className="space-y-4">
+              <div className="text-center py-4">
+                <div
+                  className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3"
+                  style={{ backgroundColor: 'var(--primary-color)', opacity: 0.1 }}
+                >
+                  <User className="w-8 h-8" style={{ color: 'var(--primary-color)' }} />
                 </div>
-                <div className="border-t pt-4" style={{ borderTopColor: 'var(--border-color)' }}>
+                <h4 className="font-medium" style={{ color: 'var(--text-primary)' }}>{user?.email}</h4>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Logged in</p>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={handleDashboard}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg transition-colors font-medium hover:opacity-90"
+                  style={{
+                    backgroundColor: 'var(--primary-color)',
+                    color: 'white'
+                  }}
+                >
+                  <User className="w-5 h-5" />
+                  <span>Go to Dashboard</span>
+                </button>
+
+                <div className="border-t pt-3" style={{ borderTopColor: 'var(--border-color)' }}>
                   <button
                     onClick={() => {
                       handleLogout()
@@ -356,39 +384,18 @@ const Header: React.FC<HeaderProps> = ({
                   </button>
                 </div>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="text-center py-4">
-                  <div
-                    className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3"
-                    style={{ backgroundColor: 'var(--bg-secondary)' }}
-                  >
-                    <User className="w-8 h-8" style={{ color: 'var(--text-secondary)' }} />
-                  </div>
-                  <h4 className="font-medium" style={{ color: 'var(--text-primary)' }}>Welcome</h4>
-                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Please log in to continue</p>
-                </div>
-                <button
-                  onClick={handleLogin}
-                  className="w-full py-3 px-4 text-white rounded-lg transition-colors font-medium hover:opacity-90"
-                  style={{ backgroundColor: 'var(--primary-color)' }}
-                >
-                  Login
-                </button>
-                <div className="text-center">
-                  <a
-                    href="/"
-                    className="text-sm transition-colors hover:opacity-80"
-                    style={{ color: 'var(--primary-color)' }}
-                    onClick={() => setShowUserModal(false)}
-                  >
-                    Don't have an account? Sign up
-                  </a>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </>
+      )}
+
+      {/* Auth Modal - Only show if no external handler is provided */}
+      {!onOpenAuthModal && (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          initialMode="login"
+        />
       )}
     </div>
   )
