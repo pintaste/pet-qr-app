@@ -12,7 +12,6 @@ import LandingPage from '@/pages/LandingPage'
 import LanguageSelectionPage from '@/pages/LanguageSelectionPage'
 import PINVerificationPage from '@/pages/PINVerificationPage'
 import PetDisplayPage from '@/pages/PetDisplayPage'
-import ProfilePage from '@/pages/ProfilePage'
 import DashboardPage from '@/pages/DashboardPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import QRStatusCheckPage from '@/pages/QRStatusCheckPage'
@@ -69,13 +68,6 @@ function App() {
           </Layout>
         } />
         <Route path="/pet/:petId" element={<PetDisplayPageWithLayout />} />
-        <Route path="/profile/:qrCode" element={
-          <Layout>
-            <ProfilePage />
-          </Layout>
-        } />
-
-
 
         {/* Protected Routes (full header with logout) */}
         <Route path="/dashboard/*" element={

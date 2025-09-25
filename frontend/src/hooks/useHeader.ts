@@ -15,14 +15,13 @@ export const useHeader = () => {
     const isQRRoute = location.pathname.startsWith('/qr/')
     const isLanguageRoute = location.pathname === '/language'
     const isPetDisplayRoute = location.pathname.startsWith('/pet/')
-    const isProfileRoute = location.pathname.startsWith('/profile/')
 
     // Hide header on initial QR and language routes
     if (isQRRoute || isLanguageRoute) {
       setIsHeaderVisible(false)
     }
-    // Show header on pet display and profile routes (after PIN verification)
-    else if (isPetDisplayRoute || isProfileRoute) {
+    // Show header on pet display route (after PIN verification)
+    else if (isPetDisplayRoute) {
       setIsHeaderVisible(true)
     }
     // Show by default on other routes
