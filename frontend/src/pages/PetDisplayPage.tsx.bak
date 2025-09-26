@@ -1649,7 +1649,6 @@ const PetDisplayPage: React.FC = () => {
                   )
                 })}
                 </div>
-              </div>
 
                 {/* Send Buttons - Only show when location is selected */}
                 {selectedLocation && (

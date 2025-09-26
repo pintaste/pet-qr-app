@@ -121,6 +121,41 @@ Layout Component (max-w-[420px])
 - **Icons**: Lucide React icons with consistent sizing
 - **Backgrounds**: Semi-transparent with blur effects
 
+### Modal Design System
+
+#### Responsive Modal Approach
+- **Desktop/Tablet**: Centered modal with backdrop (`md:items-center`)
+- **Mobile**: Bottom drawer slide-up animation (`items-end`)
+- **Container**: `max-w-[420px]` mobile, `md:max-w-2xl` desktop
+- **Rounded Corners**: `rounded-t-2xl md:rounded-3xl`
+
+#### Contact Owner Modal
+- **Bottom Drawer Pattern**: Slides from bottom on all devices initially
+- **Content Sections**: Profile, Communication options, Additional info
+- **Linear Design**: Clean sections with minimal decoration
+- **Touch-Friendly**: Large buttons with clear actions
+
+#### Location Share Modal
+- **Full-Screen Map View**: Mobile-optimized map interface
+- **Map Integration**: Leaflet/React-Leaflet with custom markers
+- **Linear Layout**: Map top, location list bottom
+- **No Emoji Design**: Clean text-only location entries
+- **Privacy-First**: User selects public meeting places, not home address
+
+#### API Integration Pattern
+- **Real-Time Data**: OpenStreetMap Overpass API for nearby places
+- **Place Types**: Schools, malls, cafes, parks, transit stations
+- **Distance Sorting**: Haversine formula implementation
+- **Fallback Handling**: Graceful degradation for API failures
+- **Loading States**: Visual feedback during data fetch
+
+#### Location Selection UX
+- **Test Mode**: Burnaby, BC coordinates for development
+- **Place Categories**: Public venues only (no residential)
+- **Selection Feedback**: Visual confirmation of selected location
+- **Send Options**: SMS and Email integration
+- **Safety Messaging**: Prominent safety reminders
+
 ## Technical Implementation
 
 ### CSS Framework
@@ -132,11 +167,20 @@ Layout Component (max-w-[420px])
 - **Theme**: Zustand-based theme store
 - **UI States**: Local component state for interactions
 - **Animations**: CSS transitions with JavaScript triggers
+- **Location Data**: useState for selected locations and nearby places
+- **Modal States**: Individual boolean states for each modal type
 
 ### File Structure
 - **Components**: Modular React components
 - **Layout**: Consistent wrapper components
 - **Hooks**: Custom hooks for theme and state management
+- **Pages**: PetDisplayPage.tsx as main implementation
+
+### Dependencies
+- **Map**: Leaflet, React-Leaflet for map functionality
+- **Icons**: Lucide React for consistent iconography
+- **HTTP**: Fetch API for OpenStreetMap integration
+- **Routing**: React Router for navigation
 
 ## Content Guidelines
 
@@ -163,9 +207,30 @@ Layout Component (max-w-[420px])
 - **Bundle Size**: Component tree shaking
 - **Animations**: Hardware acceleration
 
+## Recent Implementations (2025-09-26)
+
+### Modal System Evolution
+- **Unified Approach**: Standardized responsive modal pattern across all modals
+- **Mobile-First**: Bottom drawer pattern for mobile, centered for desktop/tablet
+- **Privacy Enhancement**: Location sharing redesigned for safety and privacy
+- **API Integration**: Real-time nearby places from OpenStreetMap Overpass API
+
+### Location Sharing Feature
+- **Security Focus**: Prevents home address exposure
+- **Public Venues Only**: Schools, malls, cafes, parks, transit hubs
+- **Distance-Based Sorting**: Closest venues first (Haversine formula)
+- **Test Location**: Burnaby, BC (8888 University Dr W) for development
+- **Dual Communication**: SMS and Email sending options
+
+### Technical Achievements
+- **Map Integration**: Full Leaflet implementation with custom markers
+- **API Resilience**: Fallback handling for service interruptions
+- **Performance**: Efficient state management and rendering
+- **Responsive Design**: Seamless mobile-to-desktop scaling
+
 ---
 
-*Last Updated: 2025-01-25*
-*Version: 1.0*
+*Last Updated: 2025-09-26*
+*Version: 2.0*
 
-This design language serves as the foundation for maintaining visual consistency and user experience quality throughout the PetID System.
+This design language serves as the foundation for maintaining visual consistency and user experience quality throughout the PetID System. The recent modal system enhancements and location sharing features demonstrate the evolution toward a more privacy-conscious, user-friendly, and technically robust platform.
