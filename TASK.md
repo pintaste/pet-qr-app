@@ -122,6 +122,35 @@
 
 ## 📊 Development Logs
 
+### 2025-10-02 - Location Modal Enhancement & UI Improvements
+**Major Achievements:**
+- ✅ Fixed location modal interaction bugs and improved user experience
+- ✅ Added deselection functionality for location selection (click to deselect)
+- ✅ Implemented "load more locations" feature with pagination
+- ✅ Enhanced UI feedback with "点击取消选择" hints
+- ✅ Fixed auto-collapse behavior when selecting current location
+- ✅ Improved modal width for PC display (md:max-w-md for contact, md:max-w-lg for location)
+- ✅ Added logic: clicking '查看其他地点选项' deselects current location when selected
+
+**Bug Fixes:**
+- ✅ Fixed JSX adjacent elements error (line 1722)
+- ✅ Fixed location list scroll issues in modal
+- ✅ Fixed share buttons visibility and positioning
+- ✅ Fixed "获取我的位置" button response and address display
+- ✅ Ensured selected location remains visible when list is collapsed
+
+**UI/UX Improvements:**
+- ✅ Refactored contact owner modal to linear design (removed colorful backgrounds)
+- ✅ Added reverse geocoding for current location address display
+- ✅ Implemented three UI modes for share buttons (toggle-view, fixed-bottom, combined)
+- ✅ Simplified UI by removing mode selector tabs, keeping best experience mode
+- ✅ Added visual indicators for clickable deselection actions
+
+**Files Modified:**
+- `frontend/src/pages/PetDisplayPage.tsx` (location modal enhancements)
+- `frontend/vite.config.ts` (proxy configuration fixes)
+- `TASK.md` (development logs update)
+
 ### 2025-09-26 - UI/UX Enhancement & Privacy Features
 **Major Achievements:**
 - ✅ Removed ProfilePage and integrated functionality into PetDisplayPage
@@ -139,8 +168,8 @@
 - ✅ Fixed frontend/backend connectivity issues (proxy configuration)
 
 **Technical Details:**
-- **Frontend**: http://localhost:3001/ (Vite with updated proxy)
-- **Backend**: http://localhost:8001/ (FastAPI with proper CORS)
+- **Frontend**: http://localhost:3000/ (Vite with updated proxy)
+- **Backend**: http://localhost:8000/ (FastAPI with proper CORS)
 - **Map Library**: Leaflet with React-Leaflet integration
 - **API**: OpenStreetMap Overpass for real-time venue data
 - **Privacy**: Public venues only (schools, malls, cafes, parks, transit)
@@ -153,5 +182,5 @@
 
 ---
 
-*Last updated: 2025-09-26*
+*Last updated: 2025-10-02*
 *Next review: Production readiness phase*
