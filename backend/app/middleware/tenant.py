@@ -155,7 +155,9 @@ class TenantMiddleware(BaseHTTPMiddleware):
             "/static/",
             "/assets/",
             "/api/auth/",  # Some auth endpoints might not need tenant context
+            "/api/v1/auth/",  # Auth endpoints with v1 prefix
             "/api/admin/",  # Admin endpoints use shared schema
+            "/api/v1/admin/",  # Admin endpoints with v1 prefix
         ]
 
         # Check exact paths

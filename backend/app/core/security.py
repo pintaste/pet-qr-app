@@ -12,7 +12,13 @@ from .config import settings
 
 
 # Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Note: bcrypt has a 72 byte limit, passwords are truncated automatically
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__ident="2b",  # Use bcrypt 2b variant which is more compatible
+    bcrypt__rounds=12  # Secure default rounds
+)
 
 
 def create_access_token(

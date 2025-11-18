@@ -19,7 +19,6 @@ interface LoginResponse {
 interface RegisterRequest {
   email: string
   password: string
-  name: string
 }
 
 interface RegisterResponse {

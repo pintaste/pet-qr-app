@@ -14,7 +14,6 @@ interface FormData {
   email: string
   password: string
   confirmPassword: string
-  fullName: string
   captchaAnswer: string
 }
 
@@ -22,7 +21,6 @@ interface FormErrors {
   email?: string
   password?: string
   confirmPassword?: string
-  fullName?: string
   captchaAnswer?: string
   general?: string
 }
@@ -43,7 +41,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
     email: '',
     password: '',
     confirmPassword: '',
-    fullName: '',
     captchaAnswer: ''
   })
 
@@ -81,16 +78,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
     // Password validation
     if (!formData.password) {
       newErrors.password = t('auth.error.password_required')
-    } else if (formData.password.length < 6) {
+    } else if (formData.password.length < 8) {
       newErrors.password = t('auth.error.password_min_length')
     }
 
     // Register-specific validation
     if (mode === 'register') {
-      if (!formData.fullName.trim()) {
-        newErrors.fullName = t('auth.error.name_required')
-      }
-
       if (!formData.confirmPassword) {
         newErrors.confirmPassword = t('auth.error.password_required')
       } else if (formData.password !== formData.confirmPassword) {
@@ -134,8 +127,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
       } else {
         await authService.register({
           email: formData.email,
-          password: formData.password,
-          name: formData.fullName
+          password: formData.password
         })
 
         // Auto login after registration
@@ -170,12 +162,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
 
   const toggleMode = () => {
     setMode(mode === 'login' ? 'register' : 'login')
-    setFormData({ email: '', password: '', confirmPassword: '', fullName: '', captchaAnswer: '' })
+    setFormData({ email: '', password: '', confirmPassword: '', captchaAnswer: '' })
     setErrors({})
   }
 
   const handleClose = () => {
-    setFormData({ email: '', password: '', confirmPassword: '', fullName: '', captchaAnswer: '' })
+    setFormData({ email: '', password: '', confirmPassword: '', captchaAnswer: '' })
     setErrors({})
     setMode(initialMode)
     onClose()
@@ -258,32 +250,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
               {errors.general && (
                 <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-red-700 dark:text-red-300 text-sm">
                   {errors.general}
-                </div>
-              )}
-
-              {/* Full Name (Register only) */}
-              {mode === 'register' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Name
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <User className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="text"
-                      value={formData.fullName}
-                      onChange={(e) => handleInputChange('fullName', e.target.value)}
-                      className={`w-full pl-10 pr-4 py-4 border-2 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 dark:bg-gray-700 dark:text-white transition-all duration-300 ${
-                        errors.fullName ? 'border-red-400 dark:border-red-600' : 'border-transparent focus:bg-white dark:focus:bg-gray-600'
-                      }`}
-                      placeholder="Enter your name"
-                    />
-                  </div>
-                  {errors.fullName && (
-                    <p className="mt-2 text-sm text-red-600 dark:text-red-400">{errors.fullName}</p>
-                  )}
                 </div>
               )}
 
