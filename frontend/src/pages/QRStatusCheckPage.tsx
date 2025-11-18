@@ -114,7 +114,7 @@ const QRStatusCheckPage: React.FC = () => {
           <span className="text-sm font-medium hidden sm:block">{t('common.back')}</span>
         </button>
 
-        <div className="container mx-auto max-w-md min-h-screen flex flex-col justify-center p-8">
+        <div className="w-full max-w-md mx-auto px-4 min-h-screen flex flex-col justify-center py-8">
           <div className="text-center">
             <div className="mb-8">
               <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -151,7 +151,7 @@ const QRStatusCheckPage: React.FC = () => {
           <span className="text-sm font-medium hidden sm:block">{t('common.back')}</span>
         </button>
 
-        <div className="container mx-auto max-w-md min-h-screen flex flex-col justify-center p-8">
+        <div className="w-full max-w-md mx-auto px-4 min-h-screen flex flex-col justify-center py-8">
           <div className="text-center">
             <div className="mb-8">
               <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
@@ -200,7 +200,7 @@ const QRStatusCheckPage: React.FC = () => {
   if (qrStatus.is_active && qrStatus.is_assigned) {
     return (
       <div className="min-h-screen bg-white dark:bg-gray-900 relative">
-        <div className="container mx-auto max-w-md min-h-screen flex flex-col justify-center p-8">
+        <div className="w-full max-w-md mx-auto px-4 min-h-screen flex flex-col justify-center py-8">
           <div className="text-center">
             <div className="mb-8">
               <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
@@ -231,7 +231,7 @@ const QRStatusCheckPage: React.FC = () => {
           <span className="text-sm font-medium hidden sm:block">{t('common.back')}</span>
         </button>
 
-        <div className="container mx-auto max-w-md min-h-screen flex flex-col justify-center p-8">
+        <div className="w-full max-w-md mx-auto px-4 min-h-screen flex flex-col justify-center py-8">
           <div className="text-center">
             <div className="mb-8">
               <UserPlus className="w-16 h-16 text-blue-500 mx-auto mb-4" />
@@ -282,7 +282,7 @@ const QRStatusCheckPage: React.FC = () => {
         <span className="text-sm font-medium hidden sm:block">{t('common.back')}</span>
       </button>
 
-      <div className="container mx-auto max-w-md min-h-screen flex flex-col justify-center p-8">
+      <div className="w-full max-w-md mx-auto px-4 min-h-screen flex flex-col justify-center py-8">
         <div className="text-center">
           <div className="mb-8">
             <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />

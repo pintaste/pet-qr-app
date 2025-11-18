@@ -448,7 +448,7 @@ const PINVerificationPage: React.FC = () => {
   if (isValidatingQR) {
     return (
       <div className="min-h-screen bg-white dark:bg-gray-900">
-        <div className="container mx-auto max-w-md min-h-screen flex flex-col justify-center p-8">
+        <div className="w-full max-w-md mx-auto px-4 min-h-screen flex flex-col justify-center py-8">
           <div className="text-center">
             <div className="mb-8">
               <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -469,7 +469,7 @@ const PINVerificationPage: React.FC = () => {
   if (!isQRValid && qrValidationError) {
     return (
       <div className="min-h-screen bg-white dark:bg-gray-900">
-        <div className="container mx-auto max-w-md min-h-screen flex flex-col justify-center p-8">
+        <div className="w-full max-w-md mx-auto px-4 min-h-screen flex flex-col justify-center py-8">
           <div className="text-center">
             <div className="mb-8">
               <div className="w-16 h-16 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -500,7 +500,7 @@ const PINVerificationPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
-      <div className="container mx-auto max-w-md min-h-screen flex flex-col justify-center p-8">
+      <div className="w-full max-w-md mx-auto px-4 min-h-screen flex flex-col justify-center py-8">
         <div className="text-center mb-12">
           <h2 className="text-2xl font-light text-gray-900 dark:text-white mb-2 tracking-wide">
             {t('pin.title', 'Enter PIN')}

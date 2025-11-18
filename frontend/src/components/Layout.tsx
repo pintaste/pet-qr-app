@@ -2,6 +2,7 @@ import React from 'react'
 import { useLocation } from 'react-router-dom'
 import Header from './Header'
 import Footer from './Footer'
+import { containerStyles, ContainerType } from '@/styles/containers'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -10,6 +11,7 @@ interface LayoutProps {
   showAuthButton?: boolean
   showFooter?: boolean
   footerVariant?: 'default' | 'minimal'
+  containerType?: ContainerType
   onOpenAuthModal?: () => void
 }
 
@@ -20,18 +22,22 @@ const Layout: React.FC<LayoutProps> = ({
   showAuthButton = true,
   showFooter = true,
   footerVariant = 'default',
+  containerType,
   onOpenAuthModal
 }) => {
   const isMinimal = headerVariant === 'minimal'
   const location = useLocation()
 
-  // Check if this is a pet display page
-  const isPetDisplayPage = location.pathname.startsWith('/pet/')
+  // Auto-detect container type based on route if not specified
+  const getContainerType = (): ContainerType => {
+    if (containerType) return containerType
 
-  // Use responsive container for pet display pages
-  const containerClass = isPetDisplayPage
-    ? 'mx-auto max-w-[420px] md:max-w-[440px] lg:max-w-[480px]'
-    : 'mx-auto max-w-[420px]'
+    if (location.pathname.startsWith('/pet/')) return 'medium'
+    if (location.pathname.startsWith('/dashboard')) return 'extraWide'
+    return 'narrow'
+  }
+
+  const containerClass = containerStyles[getContainerType()]
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">

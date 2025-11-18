@@ -1,6 +1,7 @@
 import React from 'react'
 import { PawPrint, QrCode, BarChart3, Settings, LayoutDashboard } from 'lucide-react'
 import Header from '@/components/Header'
+import { containerStyles } from '@/styles/containers'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -21,14 +22,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, activeTab, 
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Main Header with Auth */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="w-full max-w-7xl mx-auto">
+        <div className={containerStyles.extraWide}>
           <Header variant="default" showAuthButton={true} />
         </div>
       </div>
 
       {/* Dashboard Navigation */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="w-full max-w-7xl mx-auto px-4 py-4">
+        <div className={`${containerStyles.extraWide} py-4`}>
 
           {/* Desktop Navigation Tabs */}
           <div className="hidden md:flex gap-1">
@@ -81,7 +82,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, activeTab, 
       </div>
 
       {/* Main Content */}
-      <div className="w-full max-w-7xl mx-auto px-4 py-6">
+      <div className={`${containerStyles.extraWide} py-6`}>
         {children}
       </div>
     </div>

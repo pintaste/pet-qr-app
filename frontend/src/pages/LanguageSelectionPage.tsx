@@ -64,7 +64,7 @@ const LanguageSelectionPage: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto max-w-md min-h-screen flex flex-col justify-center p-8 bg-white dark:bg-gray-900">
+    <div className="w-full max-w-md mx-auto px-4 min-h-screen flex flex-col justify-center py-8 bg-white dark:bg-gray-900">
       <div className="language-selection w-full">
         <div className="text-center mb-12">
           <h1

@@ -6,6 +6,7 @@ import AuthModal from '@/components/AuthModal'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/hooks/useLanguage'
 import { useAuthStore } from '@/stores/authStore'
+import { containerStyles } from '@/styles/containers'
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate()
@@ -51,7 +52,7 @@ const LandingPage: React.FC = () => {
       <LanguageSwitcher position="top-right" compact />
 
       {/* Main Content */}
-      <div className="container mx-auto max-w-md min-h-screen flex flex-col justify-center p-8">
+      <div className={`${containerStyles.narrow} min-h-screen flex flex-col justify-center py-8`}>
 
         {/* Logo Section */}
         <div className="text-center mb-16">
