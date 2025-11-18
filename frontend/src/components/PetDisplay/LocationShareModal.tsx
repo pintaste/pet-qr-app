@@ -44,7 +44,6 @@ interface LocationShareModalProps {
   loadingPlaces: boolean
   displayedPlacesCount: number
   loadingMorePlaces: boolean
-  fetchingAddress: boolean
   petInfo: PetInfo | null
   onClose: () => void
   onSelectLocation: (location: Location | null) => void
@@ -77,7 +76,6 @@ const LocationShareModal: React.FC<LocationShareModalProps> = ({
   loadingPlaces,
   displayedPlacesCount,
   loadingMorePlaces,
-  fetchingAddress,
   petInfo,
   onClose,
   onSelectLocation,
@@ -88,6 +86,8 @@ const LocationShareModal: React.FC<LocationShareModalProps> = ({
   onSendLocationViaEmail,
   onFetchAddress,
 }) => {
+  const [fetchingAddress, setFetchingAddress] = React.useState(false)
+
   if (!isOpen || !userCurrentLocation) return null
 
   const handleGetCurrentLocation = async (e: React.MouseEvent) => {
@@ -101,6 +101,7 @@ const LocationShareModal: React.FC<LocationShareModalProps> = ({
       return
     }
 
+    setFetchingAddress(true)
     try {
       const address = await onFetchAddress(userCurrentLocation.lat, userCurrentLocation.lng)
       const newLocation = {
@@ -121,6 +122,8 @@ const LocationShareModal: React.FC<LocationShareModalProps> = ({
       }
       onSelectLocation(newLocation)
       onToggleExpandedView(false)
+    } finally {
+      setFetchingAddress(false)
     }
   }
 

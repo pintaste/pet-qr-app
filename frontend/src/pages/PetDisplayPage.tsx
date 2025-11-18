@@ -5,7 +5,7 @@ import { useQRAccessStore } from '@/stores/qrAccessStore'
 import { useSecurityStore } from '@/stores/securityStore'
 import { useSecurityMonitorStore, SUSPICIOUS_ACTIVITY_TYPES } from '@/stores/securityMonitorStore'
 import { authService } from '@/services/authService'
-import { Heart, Trash2, RefreshCw, Shield, Download, Globe, Phone, Mail, MessageCircle, Stethoscope, Tag, AlertTriangle, ChevronDown, ChevronUp, MapPin, School, ShoppingBag, Coffee, TreePine, Building2, Cross, BookOpen } from 'lucide-react'
+import { Heart, Trash2, RefreshCw, Shield, Download, Globe, MessageCircle, Stethoscope, Tag, AlertTriangle, ChevronDown, ChevronUp, MapPin, School, ShoppingBag, Coffee, TreePine, Building2, Cross, BookOpen } from 'lucide-react'
 import L from 'leaflet'
 
 // Extracted components
@@ -83,8 +83,6 @@ const PetDisplayPage: React.FC = () => {
   const [showLocationModal, setShowLocationModal] = useState(false)
   const [userCurrentLocation, setUserCurrentLocation] = useState<{lat: number, lng: number} | null>(null)
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, name?: string, address?: string} | null>(null)
-  const [currentLocationAddress, setCurrentLocationAddress] = useState<string>('')
-  const [fetchingAddress, setFetchingAddress] = useState(false)
   const [showExpandedView, setShowExpandedView] = useState(true) // Toggle for showing/hiding unselected elements
   const [nearbyPlaces, setNearbyPlaces] = useState<any[]>([])
   const [loadingPlaces, setLoadingPlaces] = useState(false)
@@ -727,7 +725,7 @@ const PetDisplayPage: React.FC = () => {
 
         // 尝试获取更简洁的地址信息
         if (data.address) {
-          const { road, neighbourhood, suburb, city, state, country } = data.address
+          const { road, neighbourhood, suburb, city, state } = data.address
           const simplifiedParts = [road, neighbourhood || suburb, city, state]
             .filter(Boolean)
             .slice(0, 3) // 只取前3个有效部分
@@ -893,7 +891,6 @@ const PetDisplayPage: React.FC = () => {
   }
 
   const photos = petInfo.photo_urls || []
-  const currentPhoto = photos[currentImageIndex] || 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=400&h=250&fit=crop'
 
   // Get the QR code for this pet
   const qrCode = getQRCodeForPetId(parseInt(petId!, 10))
@@ -903,74 +900,18 @@ const PetDisplayPage: React.FC = () => {
       {/* Pet Card - Enhanced Design */}
       <div className="bg-white dark:bg-gray-800 rounded-3xl overflow-hidden shadow-sm hover:shadow-md border border-gray-200/50 dark:border-gray-700/50 mb-8 backdrop-blur-sm transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600">
         {/* Pet Gallery */}
-        <div className="pet-gallery relative" onMouseEnter={handleGalleryMouseEnter} onMouseLeave={handleGalleryMouseLeave}>
-          <div className="gallery-main relative w-full h-[250px] overflow-hidden rounded-t-3xl">
-            <img
-              src={currentPhoto}
-              alt={`${petInfo.name} main photo`}
-              className="gallery-main-image w-full h-full object-cover transition-opacity duration-300 cursor-pointer"
-              id="mainImage"
-              onClick={() => openFullscreenGallery(currentImageIndex)}
-            />
-            {/* Expand icon hint - moved to bottom right with visibility control */}
-            <button
-              onClick={() => openFullscreenGallery(currentImageIndex)}
-              className={`absolute bottom-3 right-3 bg-black bg-opacity-30 hover:bg-opacity-60 text-white p-2 rounded-full transition-all duration-300 hover:scale-110 backdrop-blur-sm z-10 ${
-                showControls ? 'opacity-70 hover:opacity-100' : 'opacity-0'
-              }`}
-              title="View fullscreen"
-            >
-              <Maximize2 className="w-4 h-4" />
-            </button>
-            {photos.length > 1 && (
-              <>
-                {/* Navigation Arrows - improved styling */}
-                <button
-                  onClick={handlePreviousImage}
-                  className={`absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-30 hover:bg-opacity-60 text-white p-2 rounded-full transition-all duration-300 hover:scale-110 backdrop-blur-sm z-10 ${
-                    showControls ? 'opacity-60 hover:opacity-100' : 'opacity-0'
-                  }`}
-                  title="Previous image"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={handleNextImage}
-                  className={`absolute right-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-30 hover:bg-opacity-60 text-white p-2 rounded-full transition-all duration-300 hover:scale-110 backdrop-blur-sm z-10 ${
-                    showControls ? 'opacity-60 hover:opacity-100' : 'opacity-0'
-                  }`}
-                  title="Next image"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-                {/* Image Counter - improved styling with visibility control */}
-                <div className={`gallery-counter absolute top-3 right-3 bg-black bg-opacity-40 text-white px-2 py-1 rounded-xl text-xs font-medium backdrop-blur-sm z-10 transition-all duration-300 ${
-                  showControls ? 'opacity-70 hover:opacity-100' : 'opacity-0'
-                }`}>
-                  <span id="currentImage">{currentImageIndex + 1}</span> / <span id="totalImages">{photos.length}</span>
-                </div>
-              </>
-            )}
-          </div>
-
-          {photos.length > 1 && (
-            <div className="gallery-thumbnails flex gap-2 p-4 bg-white dark:bg-gray-800 overflow-x-auto rounded-b-3xl">
-              {photos.map((photo, index) => (
-                <img
-                  key={index}
-                  src={photo}
-                  alt={`${petInfo.name} photo ${index + 1}`}
-                  className={`gallery-thumb w-[60px] h-[60px] object-cover rounded-xl cursor-pointer transition-all duration-200 border-2 flex-shrink-0 ${
-                    index === currentImageIndex
-                      ? 'border-gray-300 dark:border-gray-500 scale-105 opacity-100'
-                      : 'border-transparent hover:scale-105 opacity-70 hover:opacity-100'
-                  }`}
-                  onClick={() => setCurrentImageIndex(index)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        <PetGallery
+          photos={photos}
+          currentIndex={currentImageIndex}
+          petName={petInfo.name}
+          showControls={showControls}
+          onImageClick={setCurrentImageIndex}
+          onPrevious={handlePreviousImage}
+          onNext={handleNextImage}
+          onOpenFullscreen={openFullscreenGallery}
+          onMouseEnter={handleGalleryMouseEnter}
+          onMouseLeave={handleGalleryMouseLeave}
+        />
 
         {/* Pet Details */}
         <div className="pet-details p-6 bg-gradient-to-b from-white to-gray-50/50 dark:from-gray-800 dark:to-gray-800/80">
@@ -1307,714 +1248,57 @@ const PetDisplayPage: React.FC = () => {
       </div>
 
       {/* Fullscreen Image Gallery Modal */}
-      {isFullscreenOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-95 z-[9999] flex items-center justify-center"
-          onClick={closeFullscreenGallery}
-          onMouseMove={handleMouseMove}
-        >
-          <div className="relative w-full h-full flex items-center justify-center p-4">
-            {/* Close button - with auto-hide */}
-            <button
-              onClick={closeFullscreenGallery}
-              className={`absolute top-4 right-4 bg-black bg-opacity-40 hover:bg-opacity-70 text-white p-2.5 rounded-full transition-all duration-300 hover:scale-110 backdrop-blur-sm z-10 ${
-                showControls ? 'opacity-80 hover:opacity-100' : 'opacity-0'
-              }`}
-              title="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      <FullscreenGallery
+        isOpen={isFullscreenOpen}
+        photos={photos}
+        currentIndex={fullscreenImageIndex}
+        petInfo={petInfo}
+        showControls={showControls}
+        onClose={closeFullscreenGallery}
+        onPrevious={() => {
+          handleFullscreenPrevious()
+          resetControlsTimeout()
+        }}
+        onNext={() => {
+          handleFullscreenNext()
+          resetControlsTimeout()
+        }}
+        onDownload={downloadImageWithWatermark}
+        onMouseMove={handleMouseMove}
+      />
 
-            {/* Download button - with auto-hide */}
-            <button
-              onClick={() => downloadImageWithWatermark(photos[fullscreenImageIndex], fullscreenImageIndex)}
-              className={`absolute top-4 right-16 bg-black bg-opacity-40 hover:bg-opacity-70 text-white p-2.5 rounded-full transition-all duration-300 hover:scale-110 backdrop-blur-sm z-10 ${
-                showControls ? 'opacity-80 hover:opacity-100' : 'opacity-0'
-              }`}
-              title="Download with watermark"
-            >
-              <Download className="w-5 h-5" />
-            </button>
+      {/* Contact Owner Modal */}
+      <ContactOwnerModal
+        isOpen={showContactModal}
+        petInfo={petInfo}
+        locationStatus={locationStatus}
+        onClose={() => setShowContactModal(false)}
+        onPhoneCall={handlePhoneCall}
+        onSMS={handleSMS}
+        onEmail={handleEmail}
+        onShareLocation={handleShareLocation}
+      />
 
-            {/* Navigation arrows for fullscreen - with auto-hide */}
-            {photos.length > 1 && (
-              <>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleFullscreenPrevious()
-                    resetControlsTimeout()
-                  }}
-                  className={`absolute left-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-40 hover:bg-opacity-70 text-white p-3 rounded-full transition-all duration-300 hover:scale-110 backdrop-blur-sm z-10 ${
-                    showControls ? 'opacity-70 hover:opacity-100' : 'opacity-0'
-                  }`}
-                  title="Previous image"
-                >
-                  <ChevronLeft className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleFullscreenNext()
-                    resetControlsTimeout()
-                  }}
-                  className={`absolute right-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-40 hover:bg-opacity-70 text-white p-3 rounded-full transition-all duration-300 hover:scale-110 backdrop-blur-sm z-10 ${
-                    showControls ? 'opacity-70 hover:opacity-100' : 'opacity-0'
-                  }`}
-                  title="Next image"
-                >
-                  <ChevronRight className="w-6 h-6" />
-                </button>
-              </>
-            )}
-
-            {/* Image counter - with auto-hide */}
-            {photos.length > 1 && (
-              <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 bg-black bg-opacity-50 text-white px-3 py-1.5 rounded-xl text-sm font-medium backdrop-blur-sm z-10 transition-all duration-300 ${
-                showControls ? 'opacity-80' : 'opacity-0'
-              }`}>
-                <span>{fullscreenImageIndex + 1}</span> / <span>{photos.length}</span>
-              </div>
-            )}
-
-            {/* Pet info overlay - with auto-hide */}
-            <div className={`absolute bottom-4 left-4 bg-black bg-opacity-50 text-white p-3 rounded-xl backdrop-blur-sm z-10 max-w-xs transition-all duration-300 ${
-              showControls ? 'opacity-80' : 'opacity-0'
-            }`}>
-              <h3 className="text-lg font-bold mb-1">{petInfo?.name}</h3>
-              <p className="text-gray-300 text-xs">{petInfo?.breed} • {Math.floor((petInfo?.age || 0) / 12)} years old</p>
-              {petInfo?.description && (
-                <p className="text-gray-400 text-xs mt-1 line-clamp-2">{petInfo.description}</p>
-              )}
-            </div>
-
-            {/* Main fullscreen image */}
-            <img
-              src={photos[fullscreenImageIndex]}
-              alt={`${petInfo?.name} photo ${fullscreenImageIndex + 1}`}
-              className="max-w-full max-h-full object-contain"
-              onClick={(e) => e.stopPropagation()}
-              onLoad={() => {
-                // Optional: Add loading state management here
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Contact Owner Modal - Responsive Design */}
-      {showContactModal && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-[9998] flex items-end justify-center md:items-center"
-          onClick={() => setShowContactModal(false)}
-        >
-          <div
-            className={`bg-white dark:bg-gray-800 w-full max-w-[420px] md:max-w-md shadow-2xl border border-gray-200/50 dark:border-gray-700/50 transform transition-all duration-300 ease-out overflow-hidden
-              ${showContactModal ? 'translate-y-0 md:scale-100' : 'translate-y-full md:scale-95'}
-              rounded-t-2xl md:rounded-3xl
-              max-h-[85vh] md:max-h-[90vh]`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Drag Handle - Mobile Only */}
-            <div className="flex justify-center py-2 md:hidden">
-              <div className="w-8 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-            </div>
-
-            {/* Header */}
-            <div className="px-6 pb-3 md:pt-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent md:text-xl">
-                    联系 {petInfo?.owner_name || '主人'}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    {petInfo?.location_area && `位置: ${petInfo.location_area}`}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowContactModal(false)}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all duration-300"
-                >
-                  <X className="w-5 h-5 text-gray-400" />
-                </button>
-              </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="px-6 pb-4">
-              {/* Primary Contact Methods - Grid Layout */}
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                {/* Emergency Call */}
-                {(petInfo?.emergency_contact?.phone || petInfo?.emergency_contact) && (
-                  <button
-                    onClick={() => {
-                      handlePhoneCall(petInfo?.emergency_contact?.phone || '+1 (555) 123-4567')
-                      setShowContactModal(false)
-                    }}
-                    className="bg-white dark:bg-gray-700/30 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-2xl p-4 flex flex-col items-center space-y-3 transition-all duration-300 border border-gray-200/50 dark:border-gray-600/50 h-24"
-                  >
-                    <div className="text-red-500 dark:text-red-400">
-                      <Phone className="w-6 h-6" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">紧急呼叫</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">立即联系</p>
-                    </div>
-                  </button>
-                )}
-
-                {/* SMS */}
-                {(petInfo?.emergency_contact?.phone || petInfo?.emergency_contact) && (
-                  <button
-                    onClick={() => {
-                      handleSMS(petInfo?.emergency_contact?.phone || '+1 (555) 123-4567')
-                      setShowContactModal(false)
-                    }}
-                    className="bg-white dark:bg-gray-700/30 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-2xl p-4 flex flex-col items-center space-y-3 transition-all duration-300 border border-gray-200/50 dark:border-gray-600/50 h-24"
-                  >
-                    <div className="text-green-500 dark:text-green-400">
-                      <MessageCircle className="w-6 h-6" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">发送短信</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">文字联系</p>
-                    </div>
-                  </button>
-                )}
-
-                {/* Email */}
-                {petInfo?.owner_email && (
-                  <button
-                    onClick={() => {
-                      handleEmail()
-                      setShowContactModal(false)
-                    }}
-                    className="bg-white dark:bg-gray-700/30 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-2xl p-4 flex flex-col items-center space-y-3 transition-all duration-300 border border-gray-200/50 dark:border-gray-600/50 h-24"
-                  >
-                    <div className="text-blue-500 dark:text-blue-400">
-                      <Mail className="w-6 h-6" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">发送邮件</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">详细信息</p>
-                    </div>
-                  </button>
-                )}
-
-                {/* Share Location */}
-                <button
-                  onClick={handleShareLocation}
-                  disabled={locationStatus === 'requesting'}
-                  className={`rounded-2xl p-4 flex flex-col items-center space-y-3 transition-all duration-300 border border-gray-200/50 dark:border-gray-600/50 h-24 ${
-                    locationStatus === 'requesting'
-                      ? 'bg-gray-100 dark:bg-gray-700/30 cursor-not-allowed opacity-70'
-                      : 'bg-white dark:bg-gray-700/30 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                  }`}
-                >
-                  <div className="text-orange-500 dark:text-orange-400">
-                    {locationStatus === 'requesting' ? (
-                      <div className="animate-spin w-6 h-6 border-2 border-orange-500 dark:border-orange-400 border-t-transparent rounded-full"></div>
-                    ) : (
-                      <MapPin className="w-6 h-6" />
-                    )}
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {locationStatus === 'requesting' ? '获取位置...' : '分享位置'}
-                    </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      {locationStatus === 'requesting' ? '请稍等' : '发送位置'}
-                    </p>
-                  </div>
-                </button>
-              </div>
-
-              {/* Secondary Phone (if exists) */}
-              {petInfo?.secondary_phone && (
-                <>
-                  <div className="h-px bg-gray-100 dark:bg-gray-700/50 my-4"></div>
-                  <div className="bg-gray-50 dark:bg-gray-700/30 rounded-2xl p-4">
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">备用联系方式</p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-base font-medium text-gray-900 dark:text-white">{petInfo.secondary_phone}</p>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => {
-                            handlePhoneCall(petInfo.secondary_phone || '')
-                            setShowContactModal(false)
-                          }}
-                          className="p-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
-                        >
-                          <Phone className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            handleSMS(petInfo.secondary_phone || '')
-                            setShowContactModal(false)
-                          }}
-                          className="p-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
-                        >
-                          <MessageCircle className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Safety Note */}
-              <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl p-3 border border-amber-200/50 dark:border-amber-700/50">
-                <div className="flex items-start space-x-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-amber-800 dark:text-amber-200">
-                    <span className="font-medium">紧急情况请直接呼叫</span>，非紧急情况建议短信或邮件联系
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Location Selection Modal - Responsive Design */}
-      {showLocationModal && userCurrentLocation && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-end justify-center md:items-center"
-          onClick={() => setShowLocationModal(false)}
-        >
-          <div
-            className={`bg-white dark:bg-gray-800 w-full max-w-[420px] md:max-w-lg shadow-2xl border border-gray-200/50 dark:border-gray-700/50 transform transition-all duration-300 ease-out overflow-hidden
-              ${showLocationModal ? 'translate-y-0 md:scale-100' : 'translate-y-full md:scale-95'}
-              rounded-t-2xl md:rounded-3xl
-              max-h-[85vh] md:max-h-[90vh] flex flex-col`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Drag Handle - Mobile Only */}
-            <div className="flex justify-center py-2 md:hidden">
-              <div className="w-8 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-            </div>
-
-            {/* Header */}
-            <div className="px-6 pb-3 md:pt-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent md:text-xl">
-                    选择您要共享的位置
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    为了您的安全，建议选择公共场所
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowLocationModal(false)}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all duration-300"
-                >
-                  <X className="w-5 h-5 text-gray-400" />
-                </button>
-              </div>
-
-            </div>
-
-            {/* Map Container - Top */}
-            <div className="px-6 pb-4">
-              <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl h-48 md:h-60 relative overflow-hidden">
-                <MapContainer
-                  center={[userCurrentLocation.lat, userCurrentLocation.lng]}
-                  zoom={15}
-                  style={{ height: '100%', width: '100%' }}
-                  zoomControl={false}
-                  className="rounded-2xl"
-                >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-
-            {/* User Location Marker */}
-            <Marker position={[userCurrentLocation.lat, userCurrentLocation.lng]}>
-              <Popup>您的当前位置</Popup>
-            </Marker>
-
-            {/* Selected Current Location Marker (Red Pin) */}
-            {selectedLocation?.name === '我的当前位置' && (
-              <Marker
-                position={[selectedLocation.lat, selectedLocation.lng]}
-                icon={L.icon({
-                  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-                  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                  iconSize: [25, 41],
-                  iconAnchor: [12, 41],
-                  popupAnchor: [1, -34],
-                  shadowSize: [41, 41]
-                })}
-              >
-                <Popup>
-                  <div className="text-center">
-                    <p className="font-medium text-red-600">已选择：我的当前位置</p>
-                    {selectedLocation.address && (
-                      <p className="text-xs text-gray-700 mt-1">{selectedLocation.address}</p>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">准备分享此位置</p>
-                  </div>
-                </Popup>
-              </Marker>
-            )}
-
-            {/* Nearby Places Markers */}
-            {nearbyPlaces.map((place, index) => (
-              <Marker
-                key={index}
-                position={[place.lat, place.lng]}
-                eventHandlers={{
-                  click: () => handleSelectNearbyPlace(place),
-                }}
-              >
-                <Popup>
-                  <div className="text-center">
-                    <p className="font-medium">{place.name}</p>
-                    <p className="text-xs text-gray-500">
-                      {place.distance < 1000 ? `${place.distance}米` : `${(place.distance/1000).toFixed(1)}公里`}
-                    </p>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-                </MapContainer>
-              </div>
-
-              {/* Get Current Location Button */}
-              <button
-                onClick={async (e) => {
-                  e.preventDefault();
-                  console.log('获取我的位置 button clicked');
-
-                  // If current location is already selected, deselect it
-                  if (selectedLocation?.name === '我的当前位置') {
-                    setSelectedLocation(null);
-                    setShowExpandedView(true); // Show other options when deselecting
-                    return;
-                  }
-
-                  // 设置加载状态
-                  setFetchingAddress(true);
-
-                  try {
-                    // 获取地址信息
-                    const address = await fetchAddressFromCoordinates(
-                      userCurrentLocation.lat,
-                      userCurrentLocation.lng
-                    );
-
-                    const newLocation = {
-                      lat: userCurrentLocation.lat,
-                      lng: userCurrentLocation.lng,
-                      name: '我的当前位置',
-                      address: address
-                    };
-                    console.log('Setting selected location with address:', newLocation);
-                    setSelectedLocation(newLocation);
-                    setCurrentLocationAddress(address);
-                    // Auto-hide other elements when location selected
-                    setShowExpandedView(false);
-                  } catch (error) {
-                    console.error('Error fetching address:', error);
-                    // 即使地址获取失败，也设置位置
-                    const newLocation = {
-                      lat: userCurrentLocation.lat,
-                      lng: userCurrentLocation.lng,
-                      name: '我的当前位置'
-                    };
-                    setSelectedLocation(newLocation);
-                    // Auto-hide other elements when location selected
-                    setShowExpandedView(false);
-                  } finally {
-                    setFetchingAddress(false);
-                  }
-                }}
-                className={`w-full mt-3 rounded-xl p-3 flex items-center justify-center space-x-2 transition-all duration-300 border ${
-                  selectedLocation?.name === '我的当前位置'
-                    ? 'bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 border-green-300 dark:border-green-600'
-                    : 'bg-white dark:bg-gray-700/30 hover:bg-gray-50 dark:hover:bg-gray-700/50 border-gray-200/50 dark:border-gray-600/50'
-                }`}
-              >
-                <div className={selectedLocation?.name === '我的当前位置'
-                  ? "text-green-600 dark:text-green-400"
-                  : "text-blue-500 dark:text-blue-400"}>
-                  <MapPin className="w-5 h-5" />
-                </div>
-                <div className="flex-1 text-left">
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {fetchingAddress ? '获取地址中...' :
-                     selectedLocation?.name === '我的当前位置' ? '我的当前位置' : '获取我的位置'}
-                  </span>
-                  {selectedLocation?.name === '我的当前位置' && selectedLocation.address && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {selectedLocation.address} • 点击取消选择
-                    </p>
-                  )}
-                  {selectedLocation?.name === '我的当前位置' && !selectedLocation.address && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      点击取消选择
-                    </p>
-                  )}
-                </div>
-                {fetchingAddress && (
-                  <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                )}
-                {selectedLocation?.name === '我的当前位置' && !fetchingAddress && (
-                  <div className="text-green-600 dark:text-green-400">
-                    ✓
-                  </div>
-                )}
-              </button>
-            </div>
-
-            {/* Content Below Map - Scrollable */}
-            <div className="flex-1 overflow-y-auto">
-              {/* Selected Location Display - Show when collapsed and location is selected */}
-              {selectedLocation && !showExpandedView && selectedLocation.name !== '我的当前位置' && (
-                <div className="px-6 pb-3">
-                  <button
-                    onClick={() => {
-                      setSelectedLocation(null);
-                      setShowExpandedView(true);
-                    }}
-                    className="w-full bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 border border-green-300 dark:border-green-600 rounded-xl p-3 mb-3 hover:from-green-200 hover:to-emerald-200 dark:hover:from-green-900/40 dark:hover:to-emerald-900/40 transition-all duration-300"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="text-green-600 dark:text-green-400">
-                        {(() => {
-                          const nearbyPlace = nearbyPlaces.find(p => p.name === selectedLocation.name);
-                          if (nearbyPlace && nearbyPlace.icon) {
-                            const IconComponent = nearbyPlace.icon;
-                            return <IconComponent className="w-5 h-5" />;
-                          }
-                          return <MapPin className="w-5 h-5" />;
-                        })()}
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="font-medium text-gray-900 dark:text-white">已选择：{selectedLocation.name}</p>
-                        {(() => {
-                          const nearbyPlace = nearbyPlaces.find(p => p.name === selectedLocation.name);
-                          if (nearbyPlace) {
-                            return (
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
-                                距离约 {nearbyPlace.distance < 1000 ? `${nearbyPlace.distance}米` : `${(nearbyPlace.distance/1000).toFixed(1)}公里`} • 点击取消选择
-                              </p>
-                            );
-                          }
-                          return (
-                            <p className="text-xs text-gray-600 dark:text-gray-400">点击取消选择</p>
-                          );
-                        })()}
-                      </div>
-                      <div className="text-green-600 dark:text-green-400">
-                        ✓
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              )}
-
-              {/* Toggle Button for expanding/collapsing other options */}
-              {selectedLocation && !showExpandedView && (
-                <div className="px-6 pb-3">
-                  <button
-                    onClick={() => {
-                      // If current location is selected, deselect it when viewing other options
-                      if (selectedLocation?.name === '我的当前位置') {
-                        setSelectedLocation(null);
-                      }
-                      setShowExpandedView(true);
-                    }}
-                    className="w-full bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-xl p-3 flex items-center justify-center space-x-2 transition-all duration-300 border border-gray-200/50 dark:border-gray-600/50"
-                  >
-                    <span className="text-sm text-gray-600 dark:text-gray-400">查看其他地点选项</span>
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
-                  </button>
-                </div>
-              )}
-
-              {/* Collapsible content - Safety Warning and Places List */}
-              {showExpandedView && (
-                <>
-                  {/* Safety Warning */}
-                  <div className="px-6 pb-3">
-                    <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl p-3 border border-amber-200/50 dark:border-amber-700/50">
-                      <div className="flex items-start space-x-2">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                        <p className="text-xs text-amber-800 dark:text-amber-200">
-                          建议选择有监控、人流量大的公共场所，避免暴露住址
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Places List */}
-                  <div className="px-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">附近安全地点</h4>
-                      <div className="flex items-center space-x-2">
-                        {loadingPlaces && (
-                          <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
-                            <div className="animate-spin w-3 h-3 border border-gray-400 border-t-transparent rounded-full"></div>
-                            <span>搜索中...</span>
-                          </div>
-                        )}
-                        {selectedLocation && (
-                          <button
-                            onClick={() => setShowExpandedView(false)}
-                            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                          >
-                            <ChevronUp className="w-4 h-4 text-gray-500" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {!loadingPlaces && nearbyPlaces.length === 0 && (
-                      <div className="text-center py-6">
-                        <MapPin className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                        <p className="text-sm text-gray-500 dark:text-gray-400">未找到附近的公共场所</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">请稍后重试或手动选择地点</p>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-1 gap-2 mb-4">
-                      {nearbyPlaces.slice(0, displayedPlacesCount).map((place, index) => {
-                        const IconComponent = place.icon
-                        return (
-                          <button
-                            key={index}
-                            onClick={() => handleSelectNearbyPlace(place)}
-                            className={`flex items-center space-x-3 p-3 rounded-xl transition-all duration-300 text-left ${
-                              selectedLocation?.name === place.name
-                                ? 'bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 border border-green-300 dark:border-green-600'
-                                : 'bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50'
-                            }`}
-                          >
-                            <div className={`p-2 rounded-lg ${
-                              selectedLocation?.name === place.name
-                                ? 'text-green-600 dark:text-green-400'
-                                : 'text-gray-600 dark:text-gray-400'
-                            }`}>
-                              <IconComponent className="w-4 h-4" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-medium text-gray-900 dark:text-white">{place.name}</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                距离约 {place.distance < 1000 ? `${place.distance}米` : `${(place.distance/1000).toFixed(1)}公里`}
-                              </p>
-                            </div>
-                            {selectedLocation?.name === place.name && (
-                              <div className="text-green-600 dark:text-green-400">
-                                ✓
-                              </div>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
-
-                    {/* Load More Button */}
-                    {nearbyPlaces.length > displayedPlacesCount && (
-                      <div className="flex justify-center mb-4">
-                        <button
-                          onClick={handleLoadMorePlaces}
-                          disabled={loadingMorePlaces}
-                          className="px-4 py-2 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium transition-all duration-300 border border-gray-200/50 dark:border-gray-600/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                        >
-                          {loadingMorePlaces ? (
-                            <>
-                              <div className="animate-spin w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full"></div>
-                              <span>加载中...</span>
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="w-4 h-4" />
-                              <span>加载更多地点 ({nearbyPlaces.length - displayedPlacesCount}+)</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Show all locations message */}
-                    {nearbyPlaces.length > 0 && nearbyPlaces.length <= displayedPlacesCount && displayedPlacesCount > 6 && (
-                      <div className="text-center mb-4">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          已显示全部 {nearbyPlaces.length} 个地点
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                </>
-              )}
-
-              {/* Gradient hint for scroll content */}
-              {selectedLocation && (
-                <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white dark:from-gray-800 to-transparent pointer-events-none"></div>
-              )}
-            </div>
-
-            {/* Fixed Bottom Share Buttons - Show when location is selected */}
-            {selectedLocation && (
-              <div className="border-t border-gray-200/50 dark:border-gray-700/50 bg-white dark:bg-gray-800 px-6 py-4">
-                <div className="grid grid-cols-1 gap-3 mb-3">
-                  {/* SMS Option */}
-                  {(petInfo?.emergency_contact?.phone || petInfo?.secondary_phone) && (
-                    <button
-                      onClick={handleSendLocationViaSMS}
-                      className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-2xl p-4 flex items-center space-x-4 hover:scale-[1.03] hover:shadow-lg transition-all duration-300 shadow-sm"
-                    >
-                      <div className="p-2.5 bg-white/20 rounded-xl">
-                        <MessageCircle className="w-5 h-5" />
-                      </div>
-                      <div className="text-left flex-1">
-                        <p className="font-semibold">发送交易地点</p>
-                        <p className="text-xs opacity-90">
-                          通过短信发送给 {petInfo?.emergency_contact?.phone || petInfo?.secondary_phone}
-                        </p>
-                      </div>
-                    </button>
-                  )}
-
-                  {/* Email Option */}
-                  {petInfo?.owner_email && (
-                    <button
-                      onClick={handleSendLocationViaEmail}
-                      className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-2xl p-4 flex items-center space-x-4 hover:scale-[1.03] hover:shadow-lg transition-all duration-300 shadow-sm"
-                    >
-                      <div className="p-2.5 bg-white/20 rounded-xl">
-                        <Mail className="w-5 h-5" />
-                      </div>
-                      <div className="text-left flex-1">
-                        <p className="font-semibold">发送交易地点</p>
-                        <p className="text-xs opacity-90">
-                          通过邮件发送给 {petInfo.owner_email}
-                        </p>
-                      </div>
-                    </button>
-                  )}
-                </div>
-
-                {/* Final Safety Note */}
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-3 border border-green-200/50 dark:border-green-700/50 text-center">
-                  <p className="text-xs text-green-800 dark:text-green-200">
-                    <span className="font-medium">即将发送安全交易地点：{selectedLocation.name}</span>
-                    {selectedLocation.address && (
-                      <span className="block mt-1 text-green-700 dark:text-green-300">
-                        {selectedLocation.address}
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Location Selection Modal */}
+      <LocationShareModal
+        isOpen={showLocationModal}
+        userCurrentLocation={userCurrentLocation}
+        selectedLocation={selectedLocation}
+        nearbyPlaces={nearbyPlaces}
+        showExpandedView={showExpandedView}
+        loadingPlaces={loadingPlaces}
+        displayedPlacesCount={displayedPlacesCount}
+        loadingMorePlaces={loadingMorePlaces}
+        petInfo={petInfo}
+        onClose={() => setShowLocationModal(false)}
+        onSelectLocation={setSelectedLocation}
+        onSelectNearbyPlace={handleSelectNearbyPlace}
+        onToggleExpandedView={setShowExpandedView}
+        onLoadMorePlaces={handleLoadMorePlaces}
+        onSendLocationViaSMS={handleSendLocationViaSMS}
+        onSendLocationViaEmail={handleSendLocationViaEmail}
+        onFetchAddress={fetchAddressFromCoordinates}
+      />
     </div>
   )
 }
