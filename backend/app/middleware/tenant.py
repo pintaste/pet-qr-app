@@ -3,7 +3,7 @@ Tenant identification and routing middleware with database integration.
 """
 
 from typing import Optional
-from fastapi import Request, Response
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlmodel import Session
 from app.core.database import AsyncSessionLocal
@@ -124,6 +124,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
         """
         try:
             from sqlmodel import select
+
             demo_tenant = db.exec(
                 select(Tenant).where(Tenant.subdomain == "demo")
             ).first()

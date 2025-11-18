@@ -3,19 +3,22 @@ Authentication routes with JWT token management.
 """
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Form
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session
 from app.database import get_db
 from app.services.auth import AuthService
 from app.models.shared import User
+
 # Note: Using Pydantic models directly until shared package is properly configured
 from pydantic import BaseModel
 from typing import Optional
 
+
 class LoginRequest(BaseModel):
     email: str
     password: str
+
 
 class LoginResponse(BaseModel):
     access_token: str
@@ -26,21 +29,26 @@ class LoginResponse(BaseModel):
     role: str
     tenant_id: Optional[int] = None
 
+
 class RegisterRequest(BaseModel):
     email: str
     password: str
+
 
 class RegisterResponse(BaseModel):
     message: str
     user_id: int
     email: str
 
+
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+
 
 class RefreshTokenResponse(BaseModel):
     access_token: str
     token_type: str
+
 
 router = APIRouter()
 security = HTTPBearer()
@@ -48,7 +56,7 @@ security = HTTPBearer()
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> User:
     """
     Get current authenticated user from JWT token.
@@ -64,6 +72,7 @@ async def get_current_user(
         HTTPException: If authentication fails.
     """
     from app.core.dependencies import get_current_user as get_user_dep
+
     # Use the dependency function we created
     return await get_user_dep(credentials, db)
 
@@ -72,7 +81,7 @@ async def get_current_user(
 async def register(
     request: RegisterRequest,
     db: Session = Depends(get_db),
-    tenant_id: Optional[int] = None
+    tenant_id: Optional[int] = None,
 ):
     """
     User registration endpoint.
@@ -91,17 +100,12 @@ async def register(
     from app.schemas.auth import UserRegister
 
     auth_service = AuthService(db)
-    user_data = UserRegister(
-        email=request.email,
-        password=request.password
-    )
+    user_data = UserRegister(email=request.email, password=request.password)
 
     user = auth_service.create_user(user_data)
 
     return RegisterResponse(
-        message="User registered successfully",
-        user_id=user.id,
-        email=user.email
+        message="User registered successfully", user_id=user.id, email=user.email
     )
 
 
@@ -109,7 +113,7 @@ async def register(
 async def login(
     request: LoginRequest,
     db: Session = Depends(get_db),
-    tenant_id: Optional[int] = None
+    tenant_id: Optional[int] = None,
 ):
     """
     User login endpoint.
@@ -128,10 +132,7 @@ async def login(
     from app.schemas.auth import UserLogin
 
     auth_service = AuthService(db)
-    login_data = UserLogin(
-        email=request.email,
-        password=request.password
-    )
+    login_data = UserLogin(email=request.email, password=request.password)
 
     token_response = auth_service.login_user(login_data)
 
@@ -145,17 +146,18 @@ async def login(
         user_id=user.id,
         email=user.email,
         role="user",  # Default role for now
-        tenant_id=user.tenant_id
+        tenant_id=user.tenant_id,
     )
 
 
 @router.post("/refresh", response_model=RefreshTokenResponse)
-async def refresh_token(request: RefreshTokenRequest):
+async def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
     """
     Refresh JWT token endpoint.
 
     Args:
         request: Refresh token request.
+        db: Database session.
 
     Returns:
         RefreshTokenResponse: New access token.
@@ -164,17 +166,14 @@ async def refresh_token(request: RefreshTokenRequest):
         HTTPException: If refresh token is invalid.
     """
     try:
+        auth_service = AuthService(db)
         new_access_token = auth_service.refresh_access_token(request.refresh_token)
-        return RefreshTokenResponse(
-            access_token=new_access_token,
-            token_type="bearer"
-        )
+        return RefreshTokenResponse(access_token=new_access_token, token_type="bearer")
     except HTTPException:
         raise
     except Exception:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
         )
 
 
@@ -194,9 +193,7 @@ async def logout():
 
 
 @router.get("/me")
-async def get_current_user_info(
-    current_user: User = Depends(get_current_user)
-):
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """
     Get current user information.
 
@@ -209,34 +206,39 @@ async def get_current_user_info(
     return {
         "id": current_user.id,
         "email": current_user.email,
-        "role": current_user.role.value if hasattr(current_user.role, 'value') else current_user.role,
+        "role": current_user.role.value
+        if hasattr(current_user.role, "value")
+        else current_user.role,
         "tenant_id": current_user.tenant_id,
         "is_active": current_user.is_active,
-        "created_at": current_user.created_at
+        "created_at": current_user.created_at,
     }
 
 
 @router.post("/verify-token")
 async def verify_token(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
 ):
     """
     Verify JWT token endpoint.
 
     Args:
         credentials: HTTP authorization credentials.
+        db: Database session.
 
     Returns:
         dict: Token verification result.
     """
     try:
+        auth_service = AuthService(db)
         payload = auth_service.verify_token(credentials.credentials)
         return {
             "valid": True,
             "user_id": payload.get("user_id"),
             "email": payload.get("sub"),
             "role": payload.get("role"),
-            "tenant_id": payload.get("tenant_id")
+            "tenant_id": payload.get("tenant_id"),
         }
     except HTTPException:
         return {"valid": False}

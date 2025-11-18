@@ -3,7 +3,7 @@ Application configuration settings.
 """
 
 from typing import List, Optional
-from pydantic import Field, validator
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -34,12 +34,18 @@ class Settings(BaseSettings):
     # JWT Configuration
     SECRET_KEY: str = Field(..., description="JWT secret key")
     ALGORITHM: str = Field(default="HS256", description="JWT algorithm")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, description="Access token expiry")
-    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=30, description="Refresh token expiry")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=30, description="Access token expiry"
+    )
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
+        default=30, description="Refresh token expiry"
+    )
 
     # AWS Configuration
     AWS_ACCESS_KEY_ID: Optional[str] = Field(default=None, description="AWS access key")
-    AWS_SECRET_ACCESS_KEY: Optional[str] = Field(default=None, description="AWS secret key")
+    AWS_SECRET_ACCESS_KEY: Optional[str] = Field(
+        default=None, description="AWS secret key"
+    )
     AWS_REGION: str = Field(default="us-east-1", description="AWS region")
 
     # S3 Configuration
@@ -47,16 +53,20 @@ class Settings(BaseSettings):
     S3_ENDPOINT_URL: Optional[str] = Field(default=None, description="S3 endpoint URL")
 
     # CloudFront Configuration
-    CLOUDFRONT_DOMAIN: Optional[str] = Field(default=None, description="CloudFront domain")
+    CLOUDFRONT_DOMAIN: Optional[str] = Field(
+        default=None, description="CloudFront domain"
+    )
 
     # SES Configuration
-    SES_FROM_EMAIL: str = Field(default="noreply@petqr.com", description="SES from email")
+    SES_FROM_EMAIL: str = Field(
+        default="noreply@petqr.com", description="SES from email"
+    )
     SES_REGION: str = Field(default="us-east-1", description="SES region")
 
     # CORS Configuration
     CORS_ORIGINS: str = Field(
         default="http://localhost:3000,http://127.0.0.1:3000",
-        description="CORS allowed origins (comma-separated)"
+        description="CORS allowed origins (comma-separated)",
     )
 
     def get_cors_origins(self) -> List[str]:
@@ -65,17 +75,20 @@ class Settings(BaseSettings):
 
     # QR Code Configuration
     QR_CODE_BASE_URL: str = Field(
-        default="https://petqr.com/qr",
-        description="Base URL for QR codes"
+        default="https://petqr.com/qr", description="Base URL for QR codes"
     )
     DEFAULT_QR_SIZE: int = Field(default=200, description="Default QR code size")
 
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = Field(default=60, description="Rate limit per minute")
-    SCAN_RATE_LIMIT_PER_HOUR: int = Field(default=100, description="Scan rate limit per hour")
+    SCAN_RATE_LIMIT_PER_HOUR: int = Field(
+        default=100, description="Scan rate limit per hour"
+    )
 
     # Super Admin
-    SUPER_ADMIN_EMAIL: str = Field(default="admin@petqr.com", description="Super admin email")
+    SUPER_ADMIN_EMAIL: str = Field(
+        default="admin@petqr.com", description="Super admin email"
+    )
     SUPER_ADMIN_PASSWORD: str = Field(..., description="Super admin password")
 
     # Development Tools

@@ -2,9 +2,8 @@
 Pet management API endpoints.
 """
 
-from typing import List, Optional
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
 
 from ...core.dependencies import get_current_user
 from ...models.shared import User
@@ -25,7 +24,7 @@ def get_pet_service() -> PetService:
 async def create_pet(
     pet_data: PetCreate,
     current_user: User = Depends(get_current_user),
-    pet_service: PetService = Depends(get_pet_service)
+    pet_service: PetService = Depends(get_pet_service),
 ):
     """
     Create a new pet.
@@ -51,9 +50,11 @@ async def create_pet(
 @router.get("/", response_model=List[PetResponse])
 async def get_pets(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
+    limit: int = Query(
+        100, ge=1, le=1000, description="Maximum number of records to return"
+    ),
     current_user: User = Depends(get_current_user),
-    pet_service: PetService = Depends(get_pet_service)
+    pet_service: PetService = Depends(get_pet_service),
 ):
     """
     Get pets for the current user.
@@ -68,9 +69,7 @@ async def get_pets(
         List[PetResponse]: List of pets
     """
     pets = pet_service.get_pets_by_owner(
-        owner_id=current_user.id,
-        skip=skip,
-        limit=limit
+        owner_id=current_user.id, skip=skip, limit=limit
     )
     return [PetResponse.from_orm(pet) for pet in pets]
 
@@ -79,9 +78,11 @@ async def get_pets(
 async def search_pets(
     q: str = Query(..., min_length=1, description="Search query"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
+    limit: int = Query(
+        100, ge=1, le=1000, description="Maximum number of records to return"
+    ),
     current_user: User = Depends(get_current_user),
-    pet_service: PetService = Depends(get_pet_service)
+    pet_service: PetService = Depends(get_pet_service),
 ):
     """
     Search pets by name, breed, or description.
@@ -104,7 +105,7 @@ async def search_pets(
 async def get_pet(
     pet_id: int,
     current_user: User = Depends(get_current_user),
-    pet_service: PetService = Depends(get_pet_service)
+    pet_service: PetService = Depends(get_pet_service),
 ):
     """
     Get a specific pet by ID.
@@ -136,7 +137,7 @@ async def update_pet(
     pet_id: int,
     pet_data: PetUpdate,
     current_user: User = Depends(get_current_user),
-    pet_service: PetService = Depends(get_pet_service)
+    pet_service: PetService = Depends(get_pet_service),
 ):
     """
     Update a pet.
@@ -164,7 +165,7 @@ async def update_pet(
 async def delete_pet(
     pet_id: int,
     current_user: User = Depends(get_current_user),
-    pet_service: PetService = Depends(get_pet_service)
+    pet_service: PetService = Depends(get_pet_service),
 ):
     """
     Delete a pet (soft delete).
@@ -189,8 +190,7 @@ async def delete_pet(
 
 @router.get("/public/{pet_id}", response_model=PetPublicResponse)
 async def get_public_pet_info(
-    pet_id: int,
-    pet_service: PetService = Depends(get_pet_service)
+    pet_id: int, pet_service: PetService = Depends(get_pet_service)
 ):
     """
     Get public pet information (no authentication required).
@@ -225,9 +225,11 @@ async def get_public_pet_info(
         profile_photo_url=pet.photos[0] if pet.photos else None,
         photo_urls=pet.photos,
         basic_medical_info=pet.medical_info,
-        emergency_contact=pet.medical_info.get("emergency_contact", {}) if pet.medical_info else {},
+        emergency_contact=pet.medical_info.get("emergency_contact", {})
+        if pet.medical_info
+        else {},
         is_lost=False,  # TODO: Add lost status to Pet model
-        last_known_location=None
+        last_known_location=None,
     )
 
 

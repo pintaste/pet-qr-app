@@ -34,11 +34,11 @@ class QRCodeService:
         """Generate a unique QR code."""
         # Generate a 12-character alphanumeric code
         alphabet = string.ascii_uppercase + string.digits
-        return ''.join(secrets.choice(alphabet) for _ in range(12))
+        return "".join(secrets.choice(alphabet) for _ in range(12))
 
     def _generate_pin(self) -> str:
         """Generate a 4-digit PIN."""
-        return ''.join(secrets.choice(string.digits) for _ in range(4))
+        return "".join(secrets.choice(string.digits) for _ in range(4))
 
     def create_qr_code(self, qr_data: QRCodeCreate, owner_id: int) -> QRCode:
         """
@@ -73,7 +73,7 @@ class QRCodeService:
                 status=QRCodeStatus.INACTIVE,
                 batch_id=qr_data.batch_id,
                 print_data={"physical_format": qr_data.physical_format or "sticker"},
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
 
             session.add(qr_code)
@@ -130,11 +130,7 @@ class QRCodeService:
         session = self._get_session()
         try:
             self._set_search_path(session)
-            return (
-                session.query(QRCode)
-                .filter(QRCode.pet_id == pet_id)
-                .all()
-            )
+            return session.query(QRCode).filter(QRCode.pet_id == pet_id).all()
         finally:
             session.close()
 
@@ -273,7 +269,9 @@ class QRCodeService:
         finally:
             session.close()
 
-    def generate_batch_qr_codes(self, quantity: int, batch_id: str = None, physical_format: str = "sticker") -> List[QRCode]:
+    def generate_batch_qr_codes(
+        self, quantity: int, batch_id: str = None, physical_format: str = "sticker"
+    ) -> List[QRCode]:
         """
         Generate a batch of QR codes.
 
@@ -293,7 +291,9 @@ class QRCodeService:
             self._set_search_path(session)
 
             generated_codes = []
-            batch_identifier = batch_id or f"BATCH_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            batch_identifier = (
+                batch_id or f"BATCH_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            )
 
             for _ in range(quantity):
                 # Generate unique code
@@ -307,7 +307,7 @@ class QRCodeService:
                     status=QRCodeStatus.INACTIVE,
                     batch_id=batch_identifier,
                     print_data={"physical_format": physical_format},
-                    created_at=datetime.utcnow()
+                    created_at=datetime.utcnow(),
                 )
 
                 session.add(qr_code)

@@ -74,5 +74,7 @@ class UserProfile(BaseModel):
 class UserUpdate(BaseModel):
     """Schema for updating user profile."""
 
-    full_name: Optional[str] = Field(None, min_length=2, max_length=100, description="User full name")
+    full_name: Optional[str] = Field(
+        None, min_length=2, max_length=100, description="User full name"
+    )
     phone: Optional[str] = Field(None, description="User phone number")
