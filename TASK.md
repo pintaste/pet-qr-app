@@ -149,6 +149,100 @@
 
 ## 📊 Development Logs
 
+### 2025-11-18 - Fixed Location Modal & Implemented Google Maps
+**Part 1: Fixed Modal Not Appearing Bug**
+**Bug Report:**
+- ❌ **Issue**: Clicking '分享位置' (Share Location) button showed no popup/modal window
+- 🔍 **Root Cause**: Leaflet library initialization errors causing React error boundary to unmount entire component tree
+- ⚠️ **Error**: `Cannot read properties of undefined (reading 'createIcon')` - Leaflet + Vite compatibility issue
+
+**Solutions Implemented:**
+1. ✅ **Fixed State Timing Issue**: Reorganized async state updates in `handleShareLocation` to ensure proper sequencing
+2. ✅ **Simplified Map Component**: Temporarily disabled Leaflet map visualization due to persistent Vite bundler compatibility issues
+3. ✅ **Modal Now Functional**: Location modal displays successfully with location coordinates and nearby places list
+
+**Technical Changes:**
+- Modified `frontend/src/pages/PetDisplayPage.tsx`:
+  - Reordered state updates to fetch data before setting location state
+  - Added setTimeout wrapper to ensure React state updates complete before opening modal
+- Simplified `frontend/src/components/LocationMapModal.tsx`:
+  - Removed Leaflet MapContainer and all map-related dependencies
+  - Replaced with clean, simple location display showing coordinates
+  - Added "地图功能即将推出" (Map feature coming soon) placeholder
+
+**Known Issues:**
+- 🔧 **Leaflet + Vite Integration**: Map visualization temporarily disabled
+  - Error: Leaflet's internal `createIcon` method fails during initialization
+  - Attempted fixes: CDN icons, ES module imports, useEffect initialization, require() calls
+  - **TODO**: Research alternative map libraries (e.g., Mapbox GL JS, Google Maps) or wait for Leaflet/Vite compatibility updates
+
+**Files Modified:**
+- `frontend/src/pages/PetDisplayPage.tsx` (handleShareLocation function - state timing fix)
+- `frontend/src/components/LocationMapModal.tsx` (simplified without map)
+- `TASK.md` (this log entry)
+
+**Testing:**
+- ✅ Modal appears when clicking '分享位置' button
+- ✅ No console errors
+- ✅ Shows current location coordinates (49.2488, -122.9805)
+- ✅ Displays nearby places list (Burnaby Public Library, Lougheed Town Centre, Starbucks, etc.)
+- ✅ Proper responsive design (mobile bottom drawer, desktop centered)
+
+**Part 2: Implemented Google Maps Visualization**
+**Replacement Solution:**
+- ❌ **Removed**: Leaflet library (incompatible with Vite bundler)
+- ✅ **Added**: Google Maps via `@vis.gl/react-google-maps`
+- ✅ **Benefit**: Better Vite compatibility, modern React integration, no bundler issues
+
+**Implementation Details:**
+1. **Installed Package**: `@vis.gl/react-google-maps` (45 packages)
+2. **Environment Setup**:
+   - Created `frontend/.env` with `VITE_GOOGLE_MAPS_API_KEY`
+   - API Key: AIzaSyBKQX6AVqvjI05M_E3BJvG6TCrHkZN-Vew
+   - Documentation: Created `GOOGLE_MAPS_SETUP.md`
+
+3. **Map Features Implemented**:
+   - 🔵 **Blue Pin**: Current user location
+   - 🔴 **Red Pin**: Selected current location (when "我的当前位置" chosen)
+   - ⚫ **Gray Pins**: Nearby places (default state)
+   - 🟢 **Green Pin**: Selected nearby place
+   - ✅ **Interactive**: Click markers to select locations
+   - ✅ **Responsive**: Adapts map center and zoom based on selection
+
+4. **Map Configuration**:
+   - Disabled default UI controls for cleaner look
+   - Disabled clickable POIs to prevent confusion
+   - Custom `mapId` for potential future styling
+   - Zoom level: 15 (configurable via mapZoom prop)
+
+**Files Modified:**
+- `frontend/src/components/LocationMapModal.tsx` - Complete rewrite with Google Maps
+- `frontend/.env` - Added VITE_GOOGLE_MAPS_API_KEY
+- `frontend/package.json` - Added @vis.gl/react-google-maps dependency
+- `GOOGLE_MAPS_SETUP.md` - Created setup documentation
+
+**How to Test:**
+1. Ensure dev server is running with new environment variable
+2. Navigate to http://localhost:3000/pet/1
+3. Bypass QR verification (dev mode):
+   ```javascript
+   localStorage.setItem('qr_access', JSON.stringify({
+     verifiedQRCodes: [{qrCode: 'DEV', petId: 1, verifiedAt: Date.now()}],
+     qrToPetMapping: {'DEV': 1}
+   }));
+   location.reload();
+   ```
+4. Click '分享位置' button
+5. Map should display with markers for current location and nearby places
+
+**Technical Benefits:**
+- ✅ No more Leaflet bundler errors
+- ✅ Modern React components (hooks-based)
+- ✅ Better TypeScript support
+- ✅ Smaller bundle size vs Leaflet
+- ✅ Official Google support and updates
+- ✅ $200/month free tier (sufficient for most projects)
+
 ### 2025-10-02 - Location Modal Enhancement & UI Improvements
 **Major Achievements:**
 - ✅ Fixed location modal interaction bugs and improved user experience

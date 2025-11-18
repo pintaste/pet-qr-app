@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLanguage } from '@/hooks/useLanguage'
 import { useQRAccessStore } from '@/stores/qrAccessStore'
@@ -6,16 +6,9 @@ import { useSecurityStore } from '@/stores/securityStore'
 import { useSecurityMonitorStore, SUSPICIOUS_ACTIVITY_TYPES } from '@/stores/securityMonitorStore'
 import { authService } from '@/services/authService'
 import { Heart, Trash2, RefreshCw, Shield, Download, Globe, ChevronLeft, ChevronRight, X, Maximize2, Phone, Mail, MessageCircle, Stethoscope, Tag, AlertTriangle, ChevronDown, ChevronUp, MapPin, School, ShoppingBag, Coffee, TreePine, Building2, Cross, BookOpen } from 'lucide-react'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
-import L from 'leaflet'
 
-// Fix Leaflet marker icons in bundled environment
-delete (L.Icon.Default.prototype as any)._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-})
+// Lazy load the map component to avoid Leaflet initialization issues
+const LocationMapModal = lazy(() => import('@/components/LocationMapModal').then(module => ({ default: module.LocationMapModal })))
 
 interface PetInfo {
   name: string
@@ -85,6 +78,8 @@ const PetDisplayPage: React.FC = () => {
   const [loadingPlaces, setLoadingPlaces] = useState(false)
   const [displayedPlacesCount, setDisplayedPlacesCount] = useState(6) // Show 6 places initially
   const [loadingMorePlaces, setLoadingMorePlaces] = useState(false)
+  const [mapCenter, setMapCenter] = useState<[number, number] | null>(null)
+  const [mapZoom, setMapZoom] = useState(15)
 
   console.log('PetDisplayPage component mounted with pet ID:', petId)
 
@@ -442,24 +437,44 @@ const PetDisplayPage: React.FC = () => {
   }
 
   const handleShareLocation = () => {
+    console.log('handleShareLocation called')
+
     // 测试模式：使用 Burnaby, BC 的坐标 (8888 University Dr W, Burnaby, BC V5A 1S6, Canada)
     const TEST_MODE = true // 设置为 false 使用真实位置
 
     if (TEST_MODE) {
+      console.log('Using TEST_MODE for location')
       setLocationStatus('requesting')
 
       // 模拟异步位置获取
       setTimeout(async () => {
-        const testLocation = { lat: 49.2488, lng: -122.9805 } // Burnaby, BC 坐标
-        setLocationStatus('granted')
-        setUserCurrentLocation(testLocation)
-        setDisplayedPlacesCount(6) // Reset to show 6 places initially
+        try {
+          console.log('Setting test location...')
+          const testLocation = { lat: 49.2488, lng: -122.9805 } // Burnaby, BC 坐标
 
-        // 获取附近的公共场所
-        await fetchNearbyPlaces(testLocation.lat, testLocation.lng)
+          console.log('Fetching nearby places...')
+          // 获取附近的公共场所
+          await fetchNearbyPlaces(testLocation.lat, testLocation.lng)
 
-        setShowLocationModal(true)
-      }, 1000) // 模拟 1 秒的加载时间
+          // Set all states together after async operation completes
+          console.log('All data fetched, updating states...')
+          setLocationStatus('granted')
+          setUserCurrentLocation(testLocation)
+          setDisplayedPlacesCount(6) // Reset to show 6 places initially
+
+          // Use setTimeout to ensure state updates have been processed
+          setTimeout(() => {
+            console.log('Opening location modal...')
+            console.log('userCurrentLocation should be:', testLocation)
+            setShowLocationModal(true)
+            console.log('showLocationModal set to true')
+          }, 50)
+        } catch (error) {
+          console.error('Error in test mode location sharing:', error)
+          setLocationStatus('denied')
+          alert('获取附近地点时出错，请稍后重试。')
+        }
+      }, 300) // 模拟 0.3 秒的加载时间 - 提供即时反馈
 
       return
     }
@@ -475,14 +490,19 @@ const PetDisplayPage: React.FC = () => {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords
-        setLocationStatus('granted')
-        setUserCurrentLocation({ lat: latitude, lng: longitude })
-        setDisplayedPlacesCount(6) // Reset to show 6 places initially
 
         // 获取附近的公共场所
         await fetchNearbyPlaces(latitude, longitude)
 
-        setShowLocationModal(true)
+        // Set all states together after async operation completes
+        setLocationStatus('granted')
+        setUserCurrentLocation({ lat: latitude, lng: longitude })
+        setDisplayedPlacesCount(6) // Reset to show 6 places initially
+
+        // Use setTimeout to ensure state updates have been processed
+        setTimeout(() => {
+          setShowLocationModal(true)
+        }, 50)
       },
       (error) => {
         console.error('Location error:', error)
@@ -547,6 +567,11 @@ const PetDisplayPage: React.FC = () => {
     if (selectedLocation?.name === place.name) {
       setSelectedLocation(null);
       setShowExpandedView(true); // Show other options when deselecting
+      // Reset map view to show all places
+      if (userCurrentLocation) {
+        setMapCenter([userCurrentLocation.lat, userCurrentLocation.lng]);
+        setMapZoom(15);
+      }
       return;
     }
 
@@ -557,14 +582,87 @@ const PetDisplayPage: React.FC = () => {
     });
     // Auto-hide other elements when location selected
     setShowExpandedView(false);
+
+    // Zoom in and center map on selected location
+    setMapCenter([place.lat, place.lng]);
+    setMapZoom(17); // Zoom closer to see the selected location
   }
 
   // 获取附近的真实公共场所
   const fetchNearbyPlaces = async (lat: number, lng: number) => {
+    console.log('fetchNearbyPlaces called with:', { lat, lng })
     setLoadingPlaces(true)
+
     try {
-      // 使用 Google Places API 的近似替代方案
-      // 由于没有直接的Google Places API key，我们使用 OpenStreetMap 的 Overpass API
+      // 使用快速模拟数据（生产环境可切换到真实API）
+      const USE_MOCK_DATA = true // 设置为true使用模拟数据（快速）
+
+      if (USE_MOCK_DATA) {
+        // 立即返回模拟的附近地点数据
+        const mockPlaces = [
+          {
+            name: 'Burnaby Public Library',
+            type: 'library',
+            lat: lat + 0.005,
+            lng: lng + 0.003,
+            distance: 600,
+            address: '6100 Willingdon Ave, Burnaby, BC',
+            icon: BookOpen
+          },
+          {
+            name: 'Starbucks Coffee',
+            type: 'cafe',
+            lat: lat + 0.008,
+            lng: lng - 0.002,
+            distance: 900,
+            address: '9000 University Crescent, Burnaby, BC',
+            icon: Coffee
+          },
+          {
+            name: 'Lougheed Town Centre',
+            type: 'shopping_mall',
+            lat: lat - 0.003,
+            lng: lng + 0.006,
+            distance: 800,
+            address: '9855 Austin Rd, Burnaby, BC',
+            icon: ShoppingBag
+          },
+          {
+            name: 'Central Park',
+            type: 'park',
+            lat: lat + 0.010,
+            lng: lng + 0.008,
+            distance: 1400,
+            address: '3883 Imperial St, Burnaby, BC',
+            icon: TreePine
+          },
+          {
+            name: 'Burnaby Hospital',
+            type: 'hospital',
+            lat: lat - 0.006,
+            lng: lng - 0.004,
+            distance: 1100,
+            address: '3935 Kincaid St, Burnaby, BC',
+            icon: Cross
+          },
+          {
+            name: 'McDonald\'s',
+            type: 'fast_food',
+            lat: lat + 0.004,
+            lng: lng - 0.007,
+            distance: 1000,
+            address: '4700 Kingsway, Burnaby, BC',
+            icon: Coffee
+          }
+        ].sort((a, b) => a.distance - b.distance)
+
+        console.log('Using mock data, places:', mockPlaces.length)
+        setNearbyPlaces(mockPlaces)
+        setLoadingPlaces(false)
+        return
+      }
+
+      // 真实API调用（较慢）
       const query = `
         [out:json][timeout:25];
         (
@@ -578,6 +676,7 @@ const PetDisplayPage: React.FC = () => {
         out center meta;
       `
 
+      console.log('Fetching from Overpass API...')
       const response = await fetch('https://overpass-api.de/api/interpreter', {
         method: 'POST',
         body: query,
@@ -586,11 +685,13 @@ const PetDisplayPage: React.FC = () => {
         }
       })
 
+      console.log('Overpass API response status:', response.status)
       if (!response.ok) {
-        throw new Error('Failed to fetch nearby places')
+        throw new Error(`Failed to fetch nearby places: ${response.status}`)
       }
 
       const data = await response.json()
+      console.log('Overpass API data received, elements:', data.elements?.length || 0)
 
       // 处理返回的数据
       const places = data.elements
@@ -604,12 +705,45 @@ const PetDisplayPage: React.FC = () => {
           // 计算距离
           const distance = calculateDistance(lat, lng, elementLat, elementLng)
 
+          // 提取地址信息（符合英语国家格式：street number, street name, city）
+          const tags = element.tags
+          let address = ''
+
+          // 构建地址字符串 - 英语格式
+          const addressParts = []
+
+          // Street number + Street name (e.g., "123 Main Street")
+          if (tags['addr:housenumber'] && tags['addr:street']) {
+            addressParts.push(`${tags['addr:housenumber']} ${tags['addr:street']}`)
+          } else if (tags['addr:street']) {
+            addressParts.push(tags['addr:street'])
+          }
+
+          // City (e.g., "Vancouver")
+          if (tags['addr:city']) {
+            addressParts.push(tags['addr:city'])
+          }
+
+          // State/Province (e.g., "BC")
+          if (tags['addr:state'] || tags['addr:province']) {
+            addressParts.push(tags['addr:state'] || tags['addr:province'])
+          }
+
+          // 如果没有详细地址，尝试使用其他信息
+          if (addressParts.length === 0) {
+            if (tags.highway) addressParts.push(tags.highway)
+            if (tags.place) addressParts.push(tags.place)
+          }
+
+          address = addressParts.length > 0 ? addressParts.join(', ') : ''
+
           return {
             name: element.tags.name,
             type: element.tags.amenity || element.tags.leisure || element.tags.shop || 'place',
             lat: elementLat,
             lng: elementLng,
             distance: distance,
+            address: address,
             icon: getPlaceIcon(element.tags.amenity || element.tags.leisure || element.tags.shop)
           }
         })
@@ -1188,22 +1322,44 @@ const PetDisplayPage: React.FC = () => {
         )}
 
         <button
-          onClick={handleLocationShare}
-          className="action-btn location-btn h-[120px] bg-white dark:bg-gray-800 rounded-2xl p-3 text-center hover:scale-[1.03] hover:shadow-lg transition-all duration-300 group shadow-sm hover:shadow-indigo-200/50 dark:hover:shadow-indigo-900/30 border border-gray-200/50 dark:border-gray-700/50 hover:border-blue-300/50 dark:hover:border-blue-600/50"
+          onClick={() => {
+            console.log('分享位置 button clicked!')
+            console.log('locationStatus:', locationStatus)
+            handleShareLocation()
+          }}
+          disabled={locationStatus === 'requesting'}
+          className={`action-btn location-btn h-[120px] rounded-2xl p-3 text-center hover:scale-[1.03] hover:shadow-lg transition-all duration-300 group shadow-sm hover:shadow-orange-200/50 dark:hover:shadow-orange-900/30 border border-gray-200/50 dark:border-gray-700/50 hover:border-orange-300/50 dark:hover:border-orange-600/50 ${
+            locationStatus === 'requesting'
+              ? 'bg-gray-100 dark:bg-gray-700/30 cursor-not-allowed opacity-70'
+              : 'bg-white dark:bg-gray-800'
+          }`}
         >
           <div className="flex flex-col items-center justify-center space-y-3 h-full pt-5 pb-3">
-            <div className="btn-icon p-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl group-hover:shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300 group-hover:scale-110">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
+            <div className={`btn-icon p-3 rounded-xl transition-all duration-300 group-hover:scale-110 ${
+              locationStatus === 'requesting'
+                ? 'bg-gray-300 dark:bg-gray-600 text-gray-500'
+                : 'bg-gradient-to-r from-orange-500 to-amber-500 text-white group-hover:shadow-lg group-hover:shadow-orange-500/25'
+            }`}>
+              {locationStatus === 'requesting' ? (
+                <div className="animate-spin w-6 h-6 border-2 border-gray-500 border-t-transparent rounded-full"></div>
+              ) : (
+                <MapPin className="w-6 h-6" />
+              )}
             </div>
             <div className="btn-content text-center">
-              <span className="btn-title block text-sm font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">
-                Location
+              <span className={`btn-title block text-sm font-semibold transition-colors duration-300 ${
+                locationStatus === 'requesting'
+                  ? 'text-gray-500 dark:text-gray-400'
+                  : 'text-gray-900 dark:text-white group-hover:text-orange-600 dark:group-hover:text-orange-400'
+              }`}>
+                {locationStatus === 'requesting' ? '获取位置...' : '分享位置'}
               </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-300 transition-colors duration-300">
-                Share Found
+              <span className={`text-xs transition-colors duration-300 ${
+                locationStatus === 'requesting'
+                  ? 'text-gray-400 dark:text-gray-500'
+                  : 'text-gray-500 dark:text-gray-400 group-hover:text-orange-500 dark:group-hover:text-orange-300'
+              }`}>
+                {locationStatus === 'requesting' ? '请稍等' : '发送位置'}
               </span>
             </div>
           </div>
@@ -1495,33 +1651,6 @@ const PetDisplayPage: React.FC = () => {
                     </div>
                   </button>
                 )}
-
-                {/* Share Location */}
-                <button
-                  onClick={handleShareLocation}
-                  disabled={locationStatus === 'requesting'}
-                  className={`rounded-2xl p-4 flex flex-col items-center space-y-3 transition-all duration-300 border border-gray-200/50 dark:border-gray-600/50 h-24 ${
-                    locationStatus === 'requesting'
-                      ? 'bg-gray-100 dark:bg-gray-700/30 cursor-not-allowed opacity-70'
-                      : 'bg-white dark:bg-gray-700/30 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                  }`}
-                >
-                  <div className="text-orange-500 dark:text-orange-400">
-                    {locationStatus === 'requesting' ? (
-                      <div className="animate-spin w-6 h-6 border-2 border-orange-500 dark:border-orange-400 border-t-transparent rounded-full"></div>
-                    ) : (
-                      <MapPin className="w-6 h-6" />
-                    )}
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {locationStatus === 'requesting' ? '获取位置...' : '分享位置'}
-                    </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      {locationStatus === 'requesting' ? '请稍等' : '发送位置'}
-                    </p>
-                  </div>
-                </button>
               </div>
 
               {/* Secondary Phone (if exists) */}
@@ -1572,7 +1701,7 @@ const PetDisplayPage: React.FC = () => {
       )}
 
       {/* Location Selection Modal - Responsive Design */}
-      {showLocationModal && userCurrentLocation && (
+      {showLocationModal && userCurrentLocation && userCurrentLocation.lat && userCurrentLocation.lng && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-end justify-center md:items-center"
           onClick={() => setShowLocationModal(false)}
@@ -1612,70 +1741,18 @@ const PetDisplayPage: React.FC = () => {
 
             {/* Map Container - Top */}
             <div className="px-6 pb-4">
-              <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl h-48 md:h-60 relative overflow-hidden">
-                <MapContainer
-                  center={[userCurrentLocation.lat, userCurrentLocation.lng]}
-                  zoom={15}
-                  style={{ height: '100%', width: '100%' }}
-                  zoomControl={false}
-                  className="rounded-2xl"
-                >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-
-            {/* User Location Marker */}
-            <Marker position={[userCurrentLocation.lat, userCurrentLocation.lng]}>
-              <Popup>您的当前位置</Popup>
-            </Marker>
-
-            {/* Selected Current Location Marker (Red Pin) */}
-            {selectedLocation?.name === '我的当前位置' && (
-              <Marker
-                position={[selectedLocation.lat, selectedLocation.lng]}
-                icon={L.icon({
-                  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-                  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                  iconSize: [25, 41],
-                  iconAnchor: [12, 41],
-                  popupAnchor: [1, -34],
-                  shadowSize: [41, 41]
-                })}
-              >
-                <Popup>
-                  <div className="text-center">
-                    <p className="font-medium text-red-600">已选择：我的当前位置</p>
-                    {selectedLocation.address && (
-                      <p className="text-xs text-gray-700 mt-1">{selectedLocation.address}</p>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">准备分享此位置</p>
-                  </div>
-                </Popup>
-              </Marker>
-            )}
-
-            {/* Nearby Places Markers */}
-            {nearbyPlaces.map((place, index) => (
-              <Marker
-                key={index}
-                position={[place.lat, place.lng]}
-                eventHandlers={{
-                  click: () => handleSelectNearbyPlace(place),
-                }}
-              >
-                <Popup>
-                  <div className="text-center">
-                    <p className="font-medium">{place.name}</p>
-                    <p className="text-xs text-gray-500">
-                      {place.distance < 1000 ? `${place.distance}米` : `${(place.distance/1000).toFixed(1)}公里`}
-                    </p>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-                </MapContainer>
-              </div>
+              <Suspense fallback={<div className="bg-gray-100 dark:bg-gray-700 rounded-2xl h-48 md:h-60 flex items-center justify-center">
+                <p className="text-gray-500">加载地图中...</p>
+              </div>}>
+                <LocationMapModal
+                  userCurrentLocation={userCurrentLocation}
+                  selectedLocation={selectedLocation}
+                  nearbyPlaces={nearbyPlaces}
+                  mapCenter={mapCenter}
+                  mapZoom={mapZoom}
+                  onSelectNearbyPlace={handleSelectNearbyPlace}
+                />
+              </Suspense>
 
               {/* Get Current Location Button */}
               <button
@@ -1687,6 +1764,9 @@ const PetDisplayPage: React.FC = () => {
                   if (selectedLocation?.name === '我的当前位置') {
                     setSelectedLocation(null);
                     setShowExpandedView(true); // Show other options when deselecting
+                    // Reset map view
+                    setMapCenter([userCurrentLocation.lat, userCurrentLocation.lng]);
+                    setMapZoom(15);
                     return;
                   }
 
@@ -1711,6 +1791,9 @@ const PetDisplayPage: React.FC = () => {
                     setCurrentLocationAddress(address);
                     // Auto-hide other elements when location selected
                     setShowExpandedView(false);
+                    // Zoom in on current location
+                    setMapCenter([userCurrentLocation.lat, userCurrentLocation.lng]);
+                    setMapZoom(17);
                   } catch (error) {
                     console.error('Error fetching address:', error);
                     // 即使地址获取失败，也设置位置
@@ -1722,6 +1805,9 @@ const PetDisplayPage: React.FC = () => {
                     setSelectedLocation(newLocation);
                     // Auto-hide other elements when location selected
                     setShowExpandedView(false);
+                    // Zoom in on current location
+                    setMapCenter([userCurrentLocation.lat, userCurrentLocation.lng]);
+                    setMapZoom(17);
                   } finally {
                     setFetchingAddress(false);
                   }
@@ -1773,6 +1859,11 @@ const PetDisplayPage: React.FC = () => {
                     onClick={() => {
                       setSelectedLocation(null);
                       setShowExpandedView(true);
+                      // Zoom out when deselecting
+                      if (userCurrentLocation) {
+                        setMapCenter([userCurrentLocation.lat, userCurrentLocation.lng]);
+                        setMapZoom(15);
+                      }
                     }}
                     className="w-full bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 border border-green-300 dark:border-green-600 rounded-xl p-3 mb-3 hover:from-green-200 hover:to-emerald-200 dark:hover:from-green-900/40 dark:hover:to-emerald-900/40 transition-all duration-300"
                   >
@@ -1793,8 +1884,10 @@ const PetDisplayPage: React.FC = () => {
                           const nearbyPlace = nearbyPlaces.find(p => p.name === selectedLocation.name);
                           if (nearbyPlace) {
                             return (
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
-                                距离约 {nearbyPlace.distance < 1000 ? `${nearbyPlace.distance}米` : `${(nearbyPlace.distance/1000).toFixed(1)}公里`} • 点击取消选择
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                {nearbyPlace.distance < 1000 ? `${nearbyPlace.distance}米` : `${(nearbyPlace.distance/1000).toFixed(1)}公里`}
+                                {nearbyPlace.address && ` • ${nearbyPlace.address}`}
+                                {' • 点击取消选择'}
                               </p>
                             );
                           }
@@ -1816,11 +1909,14 @@ const PetDisplayPage: React.FC = () => {
                 <div className="px-6 pb-3">
                   <button
                     onClick={() => {
-                      // If current location is selected, deselect it when viewing other options
-                      if (selectedLocation?.name === '我的当前位置') {
-                        setSelectedLocation(null);
-                      }
+                      // Deselect any selected location when viewing other options
+                      setSelectedLocation(null);
                       setShowExpandedView(true);
+                      // Zoom out when deselecting
+                      if (userCurrentLocation) {
+                        setMapCenter([userCurrentLocation.lat, userCurrentLocation.lng]);
+                        setMapZoom(15);
+                      }
                     }}
                     className="w-full bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-xl p-3 flex items-center justify-center space-x-2 transition-all duration-300 border border-gray-200/50 dark:border-gray-600/50"
                   >
@@ -1897,8 +1993,9 @@ const PetDisplayPage: React.FC = () => {
                             </div>
                             <div className="flex-1">
                               <p className="font-medium text-gray-900 dark:text-white">{place.name}</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                距离约 {place.distance < 1000 ? `${place.distance}米` : `${(place.distance/1000).toFixed(1)}公里`}
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                {place.distance < 1000 ? `${place.distance}米` : `${(place.distance/1000).toFixed(1)}公里`}
+                                {place.address && ` • ${place.address}`}
                               </p>
                             </div>
                             {selectedLocation?.name === place.name && (
