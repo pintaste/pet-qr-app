@@ -63,7 +63,9 @@ $RECYCLE.BIN/
 *.sqlite3
 
 # Logs
-logs
+logs/*.log
+logs/*.pid
+backend/logs/*.log
 *.log
 
 # Uploads and generated files

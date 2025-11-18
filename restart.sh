@@ -1,13 +1,18 @@
 #!/bin/bash
 
-# Pet QR System - Restart All Services Script
-# This script restarts all project services including Docker containers and development servers
+# Pet QR System - Unified Restart Script
+# Usage: ./restart.sh [dev|full]
+#   dev  - Restart development servers only (default)
+#   full - Restart Docker services + development servers
 
 set -e  # Exit on any error
 
 PROJECT_ROOT="/Users/pin/Desktop/Pet QR App"
 FRONTEND_DIR="${PROJECT_ROOT}/frontend"
 BACKEND_DIR="${PROJECT_ROOT}/backend"
+
+# Parse mode argument
+MODE="${1:-dev}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -68,51 +73,20 @@ clean_vite_cache() {
     fi
 }
 
-# Main restart function
-main() {
-    print_header "🔄 Pet QR System - Restarting All Services"
-
-    # Change to project root
-    cd "$PROJECT_ROOT" || {
-        print_error "Failed to change to project directory: $PROJECT_ROOT"
-        exit 1
-    }
-
-    print_header "📦 Step 1: Stopping Docker Services"
-
-    # Stop Docker containers
+# Function to stop Docker services
+stop_docker_services() {
+    print_header "📦 Stopping Docker Services"
     print_status "Stopping Docker Compose services..."
     docker-compose down 2>/dev/null || print_warning "Docker Compose not running or failed to stop"
+}
 
-    print_header "⚡ Step 2: Killing Development Servers"
+# Function to start Docker services
+start_docker_services() {
+    print_header "🐳 Starting Docker Services"
 
-    # Kill processes on common development ports
-    kill_port 3000 "React Dev Server"
-    kill_port 3001 "Alternative React Dev Server"
-    kill_port 8000 "FastAPI Backend"
-    kill_port 8001 "Alternative Backend"
-    kill_port 5173 "Vite Dev Server"
-    kill_port 5174 "Alternative Vite Dev Server"
-
-    print_header "🧹 Step 3: Cleaning Cache and Temporary Files"
-
-    # Clean Vite cache
-    clean_vite_cache
-
-    # Clean Python cache if backend exists
-    if [ -d "$BACKEND_DIR" ]; then
-        print_status "Cleaning Python cache..."
-        find "$BACKEND_DIR" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-        find "$BACKEND_DIR" -name "*.pyc" -delete 2>/dev/null || true
-    fi
-
-    print_header "🐳 Step 4: Starting Docker Services"
-
-    # Start Docker containers
     print_status "Starting PostgreSQL and Redis..."
     docker-compose up -d postgres redis
 
-    # Wait for services to be ready
     print_status "Waiting for database to be ready..."
     sleep 5
 
@@ -128,84 +102,186 @@ main() {
         fi
         sleep 1
     done
+}
 
-    print_header "🚀 Step 5: Starting Development Servers"
+# Function to stop development servers
+stop_dev_servers() {
+    print_header "⚡ Stopping Development Servers"
 
-    # Start Backend (if exists and not commented in docker-compose)
+    # Kill processes on common development ports
+    kill_port 3000 "React Dev Server"
+    kill_port 3001 "Alternative React Dev Server"
+    kill_port 8000 "FastAPI Backend"
+    kill_port 8001 "Alternative Backend"
+    kill_port 5173 "Vite Dev Server"
+    kill_port 5174 "Alternative Vite Dev Server"
+
+    # Kill by process name
+    print_status "Killing development processes by name..."
+    pkill -f "uvicorn.*app.main:app" 2>/dev/null || true
+    pkill -f "npm.*dev" 2>/dev/null || true
+    pkill -f "vite" 2>/dev/null || true
+}
+
+# Function to clean caches
+clean_caches() {
+    print_header "🧹 Cleaning Cache and Temporary Files"
+
+    # Clean Vite cache
+    clean_vite_cache
+
+    # Clean Python cache if backend exists
+    if [ -d "$BACKEND_DIR" ]; then
+        print_status "Cleaning Python cache..."
+        find "$BACKEND_DIR" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+        find "$BACKEND_DIR" -name "*.pyc" -delete 2>/dev/null || true
+    fi
+}
+
+# Function to start development servers
+start_dev_servers() {
+    print_header "🚀 Starting Development Servers"
+
+    # Create logs directory
+    mkdir -p "$PROJECT_ROOT/logs"
+
+    # Start Backend
     if [ -d "$BACKEND_DIR" ] && [ -f "${BACKEND_DIR}/requirements.txt" ]; then
-        print_status "Starting FastAPI backend in background..."
+        print_status "Starting FastAPI backend..."
         cd "$BACKEND_DIR"
 
         # Check if virtual environment exists
         if [ -d "../venv_linux" ]; then
             nohup ../venv_linux/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 > ../logs/backend.log 2>&1 &
             echo $! > ../logs/backend.pid
-            print_status "Backend started (PID saved to logs/backend.pid)"
+            print_status "✅ Backend started on http://localhost:8000 (PID: $(cat ../logs/backend.pid))"
         else
-            print_warning "Virtual environment not found, skipping backend startup"
+            print_warning "Virtual environment not found at ../venv_linux, skipping backend startup"
         fi
         cd "$PROJECT_ROOT"
+    else
+        print_warning "Backend directory or requirements.txt not found, skipping backend startup"
     fi
 
     # Start Frontend
     if [ -d "$FRONTEND_DIR" ] && [ -f "${FRONTEND_DIR}/package.json" ]; then
-        print_status "Starting React/Vite frontend in background..."
+        print_status "Starting React/Vite frontend..."
         cd "$FRONTEND_DIR"
-        nohup npm run dev > ../logs/frontend.log 2>&1 &
-        echo $! > ../logs/frontend.pid
-        print_status "Frontend started (PID saved to logs/frontend.pid)"
+
+        # Check if node_modules exists
+        if [ -d "node_modules" ]; then
+            nohup npm run dev > ../logs/frontend.log 2>&1 &
+            echo $! > ../logs/frontend.pid
+            print_status "✅ Frontend started (PID: $(cat ../logs/frontend.pid))"
+        else
+            print_warning "node_modules not found, please run 'npm install' in frontend directory first"
+        fi
         cd "$PROJECT_ROOT"
+    else
+        print_warning "Frontend directory or package.json not found, skipping frontend startup"
     fi
+}
 
-    print_header "✅ Step 6: Service Status Check"
+# Function to show service status
+show_status() {
+    print_header "📋 Service Status"
 
-    # Wait a bit for services to start
+    # Wait for services to initialize
+    print_status "Waiting 3 seconds for services to initialize..."
     sleep 3
 
-    # Show service status
-    print_status "Checking service status..."
-    echo
-    echo "Docker Services:"
-    docker-compose ps 2>/dev/null || echo "  Docker Compose not available"
-    echo
+    if [ "$MODE" = "full" ]; then
+        echo "Docker Services:"
+        docker-compose ps 2>/dev/null || echo "  Docker Compose not available"
+        echo
+    fi
 
     echo "Development Servers:"
     if pgrep -f "uvicorn.*app.main:app" >/dev/null; then
         echo "  ✅ Backend (FastAPI): Running on http://localhost:8000"
+        echo "     📊 API Documentation: http://localhost:8000/docs"
     else
         echo "  ❌ Backend (FastAPI): Not running"
     fi
 
     if pgrep -f "vite|npm.*dev" >/dev/null; then
-        echo "  ✅ Frontend (React/Vite): Running (check logs/frontend.log for port)"
+        # Try to get the actual port from the log
+        if [ -f "logs/frontend.log" ]; then
+            sleep 1
+            PORT=$(grep -o "http://localhost:[0-9]*" logs/frontend.log | head -1 | cut -d: -f3 || echo "3000")
+            echo "  ✅ Frontend (React/Vite): Running on http://localhost:${PORT}"
+        else
+            echo "  ✅ Frontend (React/Vite): Running (check logs/frontend.log for port)"
+        fi
     else
         echo "  ❌ Frontend (React/Vite): Not running"
     fi
 
-    echo
-    print_status "Database: PostgreSQL should be available on localhost:5432"
-    print_status "Redis: Available on localhost:6379"
-    echo
+    if [ "$MODE" = "full" ]; then
+        echo
+        print_status "Database: PostgreSQL available on localhost:5432"
+        print_status "Redis: Available on localhost:6379"
+    fi
 
+    echo
     print_header "📋 Useful Commands"
     echo "  View Frontend Logs:  tail -f logs/frontend.log"
     echo "  View Backend Logs:   tail -f logs/backend.log"
-    echo "  Stop All Services:   ./stop.sh  (if you create one)"
-    echo "  Check Docker Status: docker-compose ps"
+    echo "  Stop Frontend:       kill \$(cat logs/frontend.pid 2>/dev/null) 2>/dev/null"
+    echo "  Stop Backend:        kill \$(cat logs/backend.pid 2>/dev/null) 2>/dev/null"
+    if [ "$MODE" = "full" ]; then
+        echo "  Stop Docker:         docker-compose down"
+        echo "  Dev Mode Restart:    ./restart.sh dev"
+    else
+        echo "  Full Restart:        ./restart.sh full"
+    fi
     echo
 
-    print_header "🎉 All Services Restarted Successfully!"
-    print_status "You can now access:"
-    print_status "  🌐 Frontend: http://localhost:3001 (or check frontend log for actual port)"
-    print_status "  🔗 Backend API: http://localhost:8000"
-    print_status "  📊 API Docs: http://localhost:8000/docs"
+    print_header "🎉 Services Restarted Successfully!"
+
+    # Show final URLs
+    if [ -f "logs/frontend.log" ]; then
+        sleep 1
+        FRONTEND_URL=$(grep -o "http://localhost:[0-9]*" logs/frontend.log | head -1 || echo "http://localhost:3000")
+        print_status "🌐 Frontend: $FRONTEND_URL"
+    fi
+    print_status "🔗 Backend API: http://localhost:8000"
+    echo
 }
 
-# Create logs directory if it doesn't exist
-mkdir -p "$PROJECT_ROOT/logs"
+# Main function
+main() {
+    # Validate mode
+    if [ "$MODE" != "dev" ] && [ "$MODE" != "full" ]; then
+        print_error "Invalid mode: $MODE"
+        echo "Usage: $0 [dev|full]"
+        echo "  dev  - Restart development servers only (default)"
+        echo "  full - Restart Docker services + development servers"
+        exit 1
+    fi
+
+    # Change to project root
+    cd "$PROJECT_ROOT" || {
+        print_error "Failed to change to project directory: $PROJECT_ROOT"
+        exit 1
+    }
+
+    if [ "$MODE" = "full" ]; then
+        print_header "🔄 Pet QR System - Full Restart (Docker + Dev Servers)"
+        stop_docker_services
+        stop_dev_servers
+        clean_caches
+        start_docker_services
+        start_dev_servers
+        show_status
+    else
+        print_header "🔄 Pet QR System - Dev Mode Restart (Servers Only)"
+        stop_dev_servers
+        clean_caches
+        start_dev_servers
+        show_status
+    fi
+}
 
 # Run main function
 main
-
-# Optional: Open frontend in browser (uncomment if desired)
-# sleep 2 && open "http://localhost:3001" &
