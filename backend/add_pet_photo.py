@@ -84,7 +84,7 @@ try:
 
         conn.commit()
 
-        print(f"\n✅ Successfully updated pet photos!")
+        print("\n✅ Successfully updated pet photos!")
         print(f"Total photos now: {len(updated_photos)}")
 
     else:

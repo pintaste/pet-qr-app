@@ -91,7 +91,7 @@ async def create_demo_user():
             text("UPDATE pets SET owner_id = :owner_id WHERE id = :pet_id"),
             {"owner_id": user_id, "pet_id": pet_id}
         )
-        print(f"Linked pet '00' to demo user")
+        print("Linked pet '00' to demo user")
 
         # Verify the connection (cross-schema query)
         result = await conn.execute(

@@ -132,7 +132,7 @@ class PetService:
             self._set_search_path(session)
             return (
                 session.query(Pet)
-                .filter(Pet.id == pet_id, Pet.is_active == True)
+                .filter(Pet.id == pet_id, Pet.is_active.is_(True))
                 .first()
             )
         finally:
@@ -161,7 +161,7 @@ class PetService:
 
             return (
                 session.query(Pet)
-                .filter(Pet.owner_id == tenant_user_id, Pet.is_active == True)
+                .filter(Pet.owner_id == tenant_user_id, Pet.is_active.is_(True))
                 .offset(skip)
                 .limit(limit)
                 .all()
@@ -195,7 +195,7 @@ class PetService:
                 .filter(
                     Pet.id == pet_id,
                     Pet.owner_id == tenant_user_id,
-                    Pet.is_active == True,
+                    Pet.is_active.is_(True),
                 )
                 .first()
             )
@@ -238,7 +238,7 @@ class PetService:
                 .filter(
                     Pet.id == pet_id,
                     Pet.owner_id == tenant_user_id,
-                    Pet.is_active == True,
+                    Pet.is_active.is_(True),
                 )
                 .first()
             )
@@ -272,7 +272,7 @@ class PetService:
             return (
                 session.query(Pet)
                 .filter(
-                    Pet.is_active == True,
+                    Pet.is_active.is_(True),
                     (
                         Pet.name.ilike(search_term)
                         | Pet.breed.ilike(search_term)

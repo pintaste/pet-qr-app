@@ -55,10 +55,10 @@ try:
 
         conn.commit()
 
-        print(f"✅ Successfully updated password for user@demo.com")
-        print(f"📝 New credentials:")
-        print(f"   Email: user@demo.com")
-        print(f"   Password: demo123456")
+        print("✅ Successfully updated password for user@demo.com")
+        print("📝 New credentials:")
+        print("   Email: user@demo.com")
+        print("   Password: demo123456")
 
         # Verify the update by checking the updated record
         cur.execute("""

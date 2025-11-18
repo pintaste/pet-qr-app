@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.database import get_db
-from app.core.config import settings
 
 
 @pytest.fixture(name="engine")

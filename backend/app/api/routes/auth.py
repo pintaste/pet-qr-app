@@ -12,7 +12,6 @@ from app.models.shared import User
 
 # Note: Using Pydantic models directly until shared package is properly configured
 from pydantic import BaseModel
-from typing import Optional
 
 
 class LoginRequest(BaseModel):

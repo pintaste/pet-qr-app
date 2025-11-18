@@ -310,8 +310,6 @@ class TenantService:
         Returns:
             str: Database URL with schema.
         """
-        schema_name = self.get_tenant_schema_name(tenant)
-
         # For Enterprise tier, they might have their own database
         if tenant.tier == TenantTier.ENTERPRISE and tenant.settings.get("dedicated_db"):
             # Return dedicated database URL if configured

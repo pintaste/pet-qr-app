@@ -3,7 +3,6 @@ Unit tests for QR code service.
 """
 
 import pytest
-from io import BytesIO
 
 from app.services.qr_code import QRCodeService
 

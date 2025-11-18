@@ -3,13 +3,10 @@
 Script to insert demo QR code record into the database.
 """
 
-import sys
 import asyncio
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db_session
 from app.models.pet import QRCode, Pet
 from app.models.shared import User
-from app.core.config import settings
 from datetime import datetime
 
 async def insert_demo_qr():
@@ -74,9 +71,9 @@ async def insert_demo_qr():
         db.add(demo_qr)
         await db.commit()
 
-        print(f"Successfully inserted demo QR code:")
-        print(f"  Code: DEMO123")
-        print(f"  PIN: 1234")
+        print("Successfully inserted demo QR code:")
+        print("  Code: DEMO123")
+        print("  PIN: 1234")
         print(f"  Pet: {demo_pet.name} (ID: {demo_pet.id})")
         print(f"  QR ID: {demo_qr.id}")
 

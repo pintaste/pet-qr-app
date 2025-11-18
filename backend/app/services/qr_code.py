@@ -150,7 +150,7 @@ class QRCodeService:
             self._set_search_path(session)
             return (
                 session.query(QRCode)
-                .filter(QRCode.pet_id == None)
+                .filter(QRCode.pet_id.is_(None))
                 .offset(skip)
                 .limit(limit)
                 .all()
