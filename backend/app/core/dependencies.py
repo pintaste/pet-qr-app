@@ -19,7 +19,7 @@ security = HTTPBearer()
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> User:
     """
     Get the current authenticated user.
@@ -54,8 +54,7 @@ async def get_current_user(
 
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive user"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
         )
 
     return user
@@ -78,8 +77,7 @@ async def get_current_active_user(
     """
     if not current_user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive user"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
         )
     return current_user
 
@@ -100,10 +98,10 @@ async def get_current_super_user(
         HTTPException: If user is not a super user
     """
     from ..models.shared import UserRole
+
     if current_user.role != UserRole.SUPER_ADMIN:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
     return current_user
 
@@ -127,8 +125,7 @@ def get_tenant_from_request(request) -> Optional[str]:
 
 
 async def get_current_tenant(
-    request,
-    current_user: User = Depends(get_current_user)
+    request, current_user: User = Depends(get_current_user)
 ) -> Optional[str]:
     """
     Get the current tenant for the authenticated user.
@@ -146,8 +143,7 @@ async def get_current_tenant(
     # Validate user has access to this tenant
     if tenant and current_user.tenant_id != tenant:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied to this tenant"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to this tenant"
         )
 
     return tenant or current_user.tenant_id

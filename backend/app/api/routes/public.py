@@ -19,22 +19,15 @@ async def qr_scan_page():
     """
     # Get the path to the HTML file
     html_file_path = os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "..",
-        "..",
-        "qr_scan_landing.html"
+        os.path.dirname(__file__), "..", "..", "..", "qr_scan_landing.html"
     )
 
     try:
-        with open(html_file_path, 'r', encoding='utf-8') as f:
+        with open(html_file_path, "r", encoding="utf-8") as f:
             content = f.read()
         return HTMLResponse(content=content)
     except FileNotFoundError:
-        return HTMLResponse(
-            content="<h1>QR Scanner not found</h1>",
-            status_code=404
-        )
+        return HTMLResponse(content="<h1>QR Scanner not found</h1>", status_code=404)
 
 
 @router.get("/pet-info", response_class=HTMLResponse)
@@ -47,19 +40,12 @@ async def pet_info_demo():
     """
     # Get the path to the HTML file
     html_file_path = os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "..",
-        "..",
-        "pet_info_demo.html"
+        os.path.dirname(__file__), "..", "..", "..", "pet_info_demo.html"
     )
 
     try:
-        with open(html_file_path, 'r', encoding='utf-8') as f:
+        with open(html_file_path, "r", encoding="utf-8") as f:
             content = f.read()
         return HTMLResponse(content=content)
     except FileNotFoundError:
-        return HTMLResponse(
-            content="<h1>Pet info demo not found</h1>",
-            status_code=404
-        )
+        return HTMLResponse(content="<h1>Pet info demo not found</h1>", status_code=404)

@@ -4,8 +4,7 @@ Multi-tenant service for domain routing and schema management.
 
 from typing import Optional, Dict, Any
 from fastapi import HTTPException, status
-from sqlmodel import Session, select, create_engine, text
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlmodel import Session, select, text
 from app.core.config import settings
 from app.models.shared import Tenant, TenantTier
 import redis
@@ -46,9 +45,7 @@ class TenantService:
         try:
             cache_key = self._get_cache_key(domain)
             self.redis_client.setex(
-                cache_key,
-                self.cache_timeout,
-                json.dumps(tenant_data)
+                cache_key, self.cache_timeout, json.dumps(tenant_data)
             )
         except Exception:
             # Cache failure shouldn't break the application
@@ -99,43 +96,27 @@ class TenantService:
             Dict[str, str]: Tenant identification info.
         """
         # Remove port if present (localhost:8000 -> localhost)
-        domain = domain.split(':')[0]
+        domain = domain.split(":")[0]
 
         # Priority order for tenant identification:
         # 1. Custom domain (e.g., petstore.com)
         # 2. Subdomain (e.g., demo.petqr.com)
         # 3. Default to public access
 
-        if '.' in domain:
-            parts = domain.split('.')
+        if "." in domain:
+            parts = domain.split(".")
             if len(parts) >= 3:
                 # Subdomain format: demo.petqr.com
                 subdomain = parts[0]
-                return {
-                    "type": "subdomain",
-                    "identifier": subdomain,
-                    "domain": domain
-                }
+                return {"type": "subdomain", "identifier": subdomain, "domain": domain}
             else:
                 # Custom domain format: petstore.com
-                return {
-                    "type": "custom_domain",
-                    "identifier": domain,
-                    "domain": domain
-                }
+                return {"type": "custom_domain", "identifier": domain, "domain": domain}
         else:
             # localhost or single word domain
-            return {
-                "type": "default",
-                "identifier": "default",
-                "domain": domain
-            }
+            return {"type": "default", "identifier": "default", "domain": domain}
 
-    async def get_tenant_by_domain(
-        self,
-        db: Session,
-        domain: str
-    ) -> Optional[Tenant]:
+    async def get_tenant_by_domain(self, db: Session, domain: str) -> Optional[Tenant]:
         """
         Get tenant by domain with caching.
 
@@ -168,9 +149,7 @@ class TenantService:
             ).first()
         else:
             # Default tenant for localhost/development
-            tenant = db.exec(
-                select(Tenant).where(Tenant.subdomain == "demo")
-            ).first()
+            tenant = db.exec(select(Tenant).where(Tenant.subdomain == "demo")).first()
 
         # Cache the result if found
         if tenant:
@@ -179,12 +158,14 @@ class TenantService:
                 "name": tenant.name,
                 "subdomain": tenant.subdomain,
                 "custom_domain": tenant.custom_domain,
-                "tier": tenant.tier.value if hasattr(tenant.tier, 'value') else tenant.tier,
+                "tier": tenant.tier.value
+                if hasattr(tenant.tier, "value")
+                else tenant.tier,
                 "settings": tenant.settings,
                 "is_active": tenant.is_active,
                 "created_at": tenant.created_at.isoformat(),
                 "updated_at": tenant.updated_at.isoformat(),
-                "schema_name": tenant.schema_name
+                "schema_name": tenant.schema_name,
             }
             self._cache_tenant(domain, tenant_data)
 
@@ -202,11 +183,7 @@ class TenantService:
         """
         return tenant.schema_name or f"tenant_{tenant.subdomain}"
 
-    async def create_tenant_schema(
-        self,
-        schema_name: str,
-        db: Session
-    ) -> bool:
+    async def create_tenant_schema(self, schema_name: str, db: Session) -> bool:
         """
         Create database schema for tenant.
 
@@ -228,8 +205,6 @@ class TenantService:
             db.exec(text(f"SET search_path TO {schema_name}"))
 
             # Import models to ensure they're registered
-            from app.models.tenant import Pet, TenantUser, QRCode, ScanEvent, SupportTicket
-            from sqlmodel import SQLModel
 
             # This would typically be done through Alembic migrations
             # For now, we'll assume the schema structure is created via migrations
@@ -241,7 +216,7 @@ class TenantService:
             db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create tenant schema: {str(e)}"
+                detail=f"Failed to create tenant schema: {str(e)}",
             )
 
     async def create_tenant(
@@ -251,7 +226,7 @@ class TenantService:
         subdomain: str,
         custom_domain: Optional[str] = None,
         tier: TenantTier = TenantTier.STANDARD,
-        settings: Optional[Dict[str, Any]] = None
+        settings: Optional[Dict[str, Any]] = None,
     ) -> Tenant:
         """
         Create a new tenant with schema.
@@ -277,7 +252,7 @@ class TenantService:
         if existing_tenant:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Subdomain already exists"
+                detail="Subdomain already exists",
             )
 
         # Check if custom domain already exists
@@ -288,7 +263,7 @@ class TenantService:
             if existing_domain:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Custom domain already exists"
+                    detail="Custom domain already exists",
                 )
 
         try:
@@ -301,7 +276,7 @@ class TenantService:
                 tier=tier,
                 schema_name=schema_name,
                 settings=settings or {},
-                is_active=True
+                is_active=True,
             )
 
             db.add(tenant)
@@ -322,7 +297,7 @@ class TenantService:
             db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create tenant: {str(e)}"
+                detail=f"Failed to create tenant: {str(e)}",
             )
 
     def get_tenant_database_url(self, tenant: Tenant) -> str:
@@ -345,11 +320,7 @@ class TenantService:
         # For Standard tier, use shared database with schema isolation
         return settings.DATABASE_URL
 
-    async def switch_tenant_context(
-        self,
-        db: Session,
-        tenant: Tenant
-    ) -> None:
+    async def switch_tenant_context(self, db: Session, tenant: Tenant) -> None:
         """
         Switch database context to tenant schema.
 
@@ -364,13 +335,11 @@ class TenantService:
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to switch tenant context: {str(e)}"
+                detail=f"Failed to switch tenant context: {str(e)}",
             )
 
     def validate_tenant_access(
-        self,
-        tenant: Tenant,
-        user_tenant_id: Optional[int]
+        self, tenant: Tenant, user_tenant_id: Optional[int]
     ) -> bool:
         """
         Validate if user has access to tenant.

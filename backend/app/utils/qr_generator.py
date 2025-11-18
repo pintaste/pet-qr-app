@@ -23,9 +23,11 @@ def generate_qr_code_id() -> str:
     # Generate a random alphanumeric string
     alphabet = string.ascii_uppercase + string.digits
     # Exclude confusing characters
-    alphabet = alphabet.replace('0', '').replace('O', '').replace('1', '').replace('I', '')
+    alphabet = (
+        alphabet.replace("0", "").replace("O", "").replace("1", "").replace("I", "")
+    )
 
-    return ''.join(secrets.choice(alphabet) for _ in range(12))
+    return "".join(secrets.choice(alphabet) for _ in range(12))
 
 
 def generate_pin() -> str:
@@ -35,7 +37,7 @@ def generate_pin() -> str:
     Returns:
         str: 4-digit PIN
     """
-    return ''.join(secrets.choice(string.digits) for _ in range(4))
+    return "".join(secrets.choice(string.digits) for _ in range(4))
 
 
 def create_qr_code_image(qr_code_id: str, size: int = None) -> tuple[str, bytes]:
@@ -74,16 +76,18 @@ def create_qr_code_image(qr_code_id: str, size: int = None) -> tuple[str, bytes]
 
     # Convert to bytes
     img_buffer = io.BytesIO()
-    img.save(img_buffer, format='PNG')
+    img.save(img_buffer, format="PNG")
     img_bytes = img_buffer.getvalue()
 
     # Convert to base64 for storage/transmission
-    img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+    img_base64 = base64.b64encode(img_bytes).decode("utf-8")
 
     return img_base64, img_bytes
 
 
-def create_branded_qr_code(qr_code_id: str, logo_url: Optional[str] = None, size: int = None) -> tuple[str, bytes]:
+def create_branded_qr_code(
+    qr_code_id: str, logo_url: Optional[str] = None, size: int = None
+) -> tuple[str, bytes]:
     """
     Create a branded QR code with optional logo overlay.
 
@@ -111,7 +115,7 @@ def create_branded_qr_code(qr_code_id: str, logo_url: Optional[str] = None, size
     qr.make(fit=True)
 
     # Create image
-    img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
+    img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
 
     # Add logo if provided
     if logo_url:
@@ -129,11 +133,11 @@ def create_branded_qr_code(qr_code_id: str, logo_url: Optional[str] = None, size
 
     # Convert to bytes
     img_buffer = io.BytesIO()
-    img.save(img_buffer, format='PNG')
+    img.save(img_buffer, format="PNG")
     img_bytes = img_buffer.getvalue()
 
     # Convert to base64
-    img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+    img_base64 = base64.b64encode(img_bytes).decode("utf-8")
 
     return img_base64, img_bytes
 
@@ -157,15 +161,17 @@ def validate_qr_code_format(qr_code_id: str) -> bool:
 
     # Check characters (alphanumeric, excluding confusing ones)
     allowed_chars = set(string.ascii_uppercase + string.digits)
-    allowed_chars.discard('0')
-    allowed_chars.discard('O')
-    allowed_chars.discard('1')
-    allowed_chars.discard('I')
+    allowed_chars.discard("0")
+    allowed_chars.discard("O")
+    allowed_chars.discard("1")
+    allowed_chars.discard("I")
 
     return all(c in allowed_chars for c in qr_code_id)
 
 
-def generate_batch_qr_codes(quantity: int, batch_id: Optional[str] = None) -> list[dict]:
+def generate_batch_qr_codes(
+    quantity: int, batch_id: Optional[str] = None
+) -> list[dict]:
     """
     Generate a batch of QR codes.
 
@@ -194,7 +200,7 @@ def generate_batch_qr_codes(quantity: int, batch_id: Optional[str] = None) -> li
             "qr_data": f"{settings.QR_CODE_BASE_URL}/{qr_code_id}",
             "qr_image_base64": img_base64,
             "batch_id": batch_id,
-            "sequence_number": i + 1
+            "sequence_number": i + 1,
         }
 
         qr_codes.append(qr_data)
@@ -224,5 +230,5 @@ def get_qr_code_stats(qr_codes: list) -> dict:
         "unassigned": total - assigned,
         "inactive": total - active,
         "total_scans": total_scans,
-        "average_scans": total_scans / total if total > 0 else 0
+        "average_scans": total_scans / total if total > 0 else 0,
     }

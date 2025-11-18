@@ -7,7 +7,11 @@ import base64
 from typing import Optional
 import qrcode
 from qrcode.image.styledpil import StyledPilImage
-from qrcode.image.styles.moduledrawers import RoundedModuleDrawer, CircleModuleDrawer, SquareModuleDrawer
+from qrcode.image.styles.moduledrawers import (
+    RoundedModuleDrawer,
+    CircleModuleDrawer,
+    SquareModuleDrawer,
+)
 from PIL import Image, ImageDraw, ImageFont
 
 
@@ -25,7 +29,7 @@ class QRImageService:
         border: int = 4,
         fill_color: str = "black",
         back_color: str = "white",
-        style: str = "square"
+        style: str = "square",
     ) -> bytes:
         """
         Generate QR code image as bytes.
@@ -64,12 +68,12 @@ class QRImageService:
             image_factory=StyledPilImage,
             module_drawer=module_drawer,
             fill_color=fill_color,
-            back_color=back_color
+            back_color=back_color,
         )
 
         # Convert to bytes
         img_bytes = io.BytesIO()
-        img.save(img_bytes, format='PNG')
+        img.save(img_bytes, format="PNG")
         img_bytes.seek(0)
 
         return img_bytes.getvalue()
@@ -80,7 +84,7 @@ class QRImageService:
         landing_url: str,
         pin: str,
         pet_name: Optional[str] = None,
-        size: int = 300
+        size: int = 300,
     ) -> bytes:
         """
         Generate a pet QR code image with branding and PIN.
@@ -113,11 +117,11 @@ class QRImageService:
             image_factory=StyledPilImage,
             module_drawer=RoundedModuleDrawer(),
             fill_color="#007cba",
-            back_color="white"
+            back_color="white",
         )
 
         # Create final image with branding
-        final_img = Image.new('RGB', (size, size + 120), 'white')
+        final_img = Image.new("RGB", (size, size + 120), "white")
 
         # Resize QR code to fit
         qr_size = size - 40
@@ -147,14 +151,18 @@ class QRImageService:
         title_bbox = draw.textbbox((0, 0), title, font=title_font)
         title_width = title_bbox[2] - title_bbox[0]
         title_x = (size - title_width) // 2
-        draw.text((title_x, qr_y + qr_size + 10), title, fill="#2c3e50", font=title_font)
+        draw.text(
+            (title_x, qr_y + qr_size + 10), title, fill="#2c3e50", font=title_font
+        )
 
         # Add QR code
         code_text = f"Code: {qr_code}"
         code_bbox = draw.textbbox((0, 0), code_text, font=text_font)
         code_width = code_bbox[2] - code_bbox[0]
         code_x = (size - code_width) // 2
-        draw.text((code_x, qr_y + qr_size + 40), code_text, fill="#7f8c8d", font=text_font)
+        draw.text(
+            (code_x, qr_y + qr_size + 40), code_text, fill="#7f8c8d", font=text_font
+        )
 
         # Add PIN with background
         pin_text = f"PIN: {pin}"
@@ -167,10 +175,15 @@ class QRImageService:
         # Draw PIN background
         padding = 8
         draw.rounded_rectangle(
-            [pin_x - padding, pin_y - padding, pin_x + pin_width + padding, pin_y + pin_height + padding],
+            [
+                pin_x - padding,
+                pin_y - padding,
+                pin_x + pin_width + padding,
+                pin_y + pin_height + padding,
+            ],
             radius=8,
             fill="#e74c3c",
-            outline=None
+            outline=None,
         )
 
         # Draw PIN text
@@ -178,7 +191,7 @@ class QRImageService:
 
         # Convert to bytes
         img_bytes = io.BytesIO()
-        final_img.save(img_bytes, format='PNG', quality=95)
+        final_img.save(img_bytes, format="PNG", quality=95)
         img_bytes.seek(0)
 
         return img_bytes.getvalue()
@@ -205,7 +218,7 @@ class QRImageService:
         Returns:
             str: Base64 encoded image data
         """
-        return base64.b64encode(image_bytes).decode('utf-8')
+        return base64.b64encode(image_bytes).decode("utf-8")
 
     def get_data_url(self, image_bytes: bytes, mime_type: str = "image/png") -> str:
         """

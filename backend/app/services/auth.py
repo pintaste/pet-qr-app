@@ -2,7 +2,6 @@
 Authentication service layer.
 """
 
-from datetime import timedelta
 from typing import Optional
 
 from fastapi import HTTPException, status
@@ -83,7 +82,7 @@ class AuthService:
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail="Email already registered",
             )
 
         # Create new user
@@ -123,8 +122,7 @@ class AuthService:
 
         if not user.is_active:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Inactive user"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
             )
 
         # Create tokens
@@ -155,8 +153,7 @@ class AuthService:
 
         if user_id is None:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid refresh token"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
             )
 
         # Verify user exists and is active
@@ -166,7 +163,7 @@ class AuthService:
         if not user or not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found or inactive"
+                detail="User not found or inactive",
             )
 
         # Create new tokens
@@ -200,7 +197,7 @@ class AuthService:
             # For security, don't reveal if email exists
             raise HTTPException(
                 status_code=status.HTTP_200_OK,
-                detail="If the email exists, a reset link will be sent"
+                detail="If the email exists, a reset link will be sent",
             )
 
         reset_token = generate_password_reset_token(user.email)
@@ -228,7 +225,7 @@ class AuthService:
         if email is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid or expired reset token"
+                detail="Invalid or expired reset token",
             )
 
         statement = select(User).where(User.email == email)
@@ -236,8 +233,7 @@ class AuthService:
 
         if not user:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
             )
 
         # Update password
@@ -264,7 +260,7 @@ class AuthService:
         if not verify_password(change_data.current_password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Incorrect current password"
+                detail="Incorrect current password",
             )
 
         # Update password

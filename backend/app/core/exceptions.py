@@ -73,14 +73,18 @@ class QRCodeAlreadyActivatedError(PetQRException):
     """QR code already activated error."""
 
     def __init__(self, detail: str = "QR code is already activated"):
-        super().__init__(detail=detail, status_code=400, error_code="QR_CODE_ALREADY_ACTIVATED")
+        super().__init__(
+            detail=detail, status_code=400, error_code="QR_CODE_ALREADY_ACTIVATED"
+        )
 
 
 class RateLimitExceededError(PetQRException):
     """Rate limit exceeded error."""
 
     def __init__(self, detail: str = "Rate limit exceeded"):
-        super().__init__(detail=detail, status_code=429, error_code="RATE_LIMIT_EXCEEDED")
+        super().__init__(
+            detail=detail, status_code=429, error_code="RATE_LIMIT_EXCEEDED"
+        )
 
 
 class ValidationError(PetQRException):

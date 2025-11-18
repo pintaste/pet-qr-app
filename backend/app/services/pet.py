@@ -37,7 +37,7 @@ class PetService:
             # Get the user email from shared schema
             shared_user = session.execute(
                 text("SELECT email FROM shared.users WHERE id = :user_id"),
-                {"user_id": shared_user_id}
+                {"user_id": shared_user_id},
             ).fetchone()
 
             if not shared_user:
@@ -46,20 +46,22 @@ class PetService:
             # Find or create corresponding tenant user
             tenant_user = session.execute(
                 text("SELECT id FROM tenant_users WHERE email = :email"),
-                {"email": shared_user[0]}
+                {"email": shared_user[0]},
             ).fetchone()
 
             if not tenant_user:
                 # Create tenant user record
                 result = session.execute(
-                    text("""
+                    text(
+                        """
                         INSERT INTO tenant_users (email, password_hash, first_name, last_name,
                                                    language, privacy_settings, is_active, created_at, updated_at)
                         VALUES (:email, 'shared_auth', 'User', 'User', 'en',
                                 '{"show_email": false, "show_phone": true}', true, NOW(), NOW())
                         RETURNING id
-                    """),
-                    {"email": shared_user[0]}
+                    """
+                    ),
+                    {"email": shared_user[0]},
                 )
                 tenant_user_id = result.fetchone()[0]
                 session.commit()
@@ -105,7 +107,7 @@ class PetService:
                 owner_id=tenant_user_id,  # Use tenant user ID
                 is_active=True,
                 created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                updated_at=datetime.utcnow(),
             )
 
             session.add(pet)
@@ -128,11 +130,17 @@ class PetService:
         session = self._get_session()
         try:
             self._set_search_path(session)
-            return session.query(Pet).filter(Pet.id == pet_id, Pet.is_active == True).first()
+            return (
+                session.query(Pet)
+                .filter(Pet.id == pet_id, Pet.is_active == True)
+                .first()
+            )
         finally:
             session.close()
 
-    def get_pets_by_owner(self, owner_id: int, skip: int = 0, limit: int = 100) -> List[Pet]:
+    def get_pets_by_owner(
+        self, owner_id: int, skip: int = 0, limit: int = 100
+    ) -> List[Pet]:
         """
         Get pets by owner ID.
 
@@ -161,7 +169,9 @@ class PetService:
         finally:
             session.close()
 
-    def update_pet(self, pet_id: int, pet_data: PetUpdate, owner_id: int) -> Optional[Pet]:
+    def update_pet(
+        self, pet_id: int, pet_data: PetUpdate, owner_id: int
+    ) -> Optional[Pet]:
         """
         Update a pet.
 
@@ -180,11 +190,15 @@ class PetService:
             # Map shared user ID to tenant user ID
             tenant_user_id = self._get_tenant_user_id(owner_id)
 
-            pet = session.query(Pet).filter(
-                Pet.id == pet_id,
-                Pet.owner_id == tenant_user_id,
-                Pet.is_active == True
-            ).first()
+            pet = (
+                session.query(Pet)
+                .filter(
+                    Pet.id == pet_id,
+                    Pet.owner_id == tenant_user_id,
+                    Pet.is_active == True,
+                )
+                .first()
+            )
 
             if not pet:
                 return None
@@ -219,11 +233,15 @@ class PetService:
             # Map shared user ID to tenant user ID
             tenant_user_id = self._get_tenant_user_id(owner_id)
 
-            pet = session.query(Pet).filter(
-                Pet.id == pet_id,
-                Pet.owner_id == tenant_user_id,
-                Pet.is_active == True
-            ).first()
+            pet = (
+                session.query(Pet)
+                .filter(
+                    Pet.id == pet_id,
+                    Pet.owner_id == tenant_user_id,
+                    Pet.is_active == True,
+                )
+                .first()
+            )
 
             if not pet:
                 return False
@@ -256,10 +274,10 @@ class PetService:
                 .filter(
                     Pet.is_active == True,
                     (
-                        Pet.name.ilike(search_term) |
-                        Pet.breed.ilike(search_term) |
-                        Pet.description.ilike(search_term)
-                    )
+                        Pet.name.ilike(search_term)
+                        | Pet.breed.ilike(search_term)
+                        | Pet.description.ilike(search_term)
+                    ),
                 )
                 .offset(skip)
                 .limit(limit)
