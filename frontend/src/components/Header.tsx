@@ -113,7 +113,7 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <div className={headerClasses} style={headerStyle}>
-      <header className="flex justify-between items-center p-4 transition-all duration-300 border-b border-white/10 dark:border-gray-700/20">
+      <header className="flex justify-between items-center p-4 transition-all duration-300">
         <button
           onClick={handleLogoClick}
           className="flex items-center gap-2 text-2xl font-bold transition-all duration-200 hover:scale-105 text-gradient"

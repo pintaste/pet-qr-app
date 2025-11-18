@@ -41,32 +41,32 @@ const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
+      {/* Full-width Header */}
+      {showHeader && (
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <div className={containerStyles[getContainerType()]}>
+            <Header
+              variant={headerVariant}
+              showAuthButton={showAuthButton}
+              onOpenAuthModal={onOpenAuthModal}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Main Container */}
       <div className={containerClass}>
-        <div className="min-h-screen bg-white dark:bg-gray-900 overflow-hidden">
+        <main className={`relative flex-1 ${showHeader ? 'pt-4' : 'pt-0'}`}>
+          <div className={`${
+            isMinimal ? 'pb-4' : 'pb-4 sm:pb-6'
+          } transition-all duration-300`}>
+            {children}
+          </div>
+        </main>
 
-          {showHeader && (
-            <div className="w-full">
-              <Header
-                variant={headerVariant}
-                showAuthButton={showAuthButton}
-                onOpenAuthModal={onOpenAuthModal}
-              />
-            </div>
-          )}
-
-          <main className={`relative flex-1 ${showHeader ? 'pt-4' : 'pt-0'}`}>
-            <div className={`${
-              isMinimal ? 'px-4 pb-4' : 'px-4 pb-4 sm:px-6 sm:pb-6'
-            } transition-all duration-300`}>
-              {children}
-            </div>
-          </main>
-
-          {showFooter && (
-            <Footer variant={footerVariant} />
-          )}
-        </div>
+        {showFooter && (
+          <Footer variant={footerVariant} />
+        )}
       </div>
     </div>
   )
