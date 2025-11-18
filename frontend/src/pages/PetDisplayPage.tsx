@@ -5,9 +5,14 @@ import { useQRAccessStore } from '@/stores/qrAccessStore'
 import { useSecurityStore } from '@/stores/securityStore'
 import { useSecurityMonitorStore, SUSPICIOUS_ACTIVITY_TYPES } from '@/stores/securityMonitorStore'
 import { authService } from '@/services/authService'
-import { Heart, Trash2, RefreshCw, Shield, Download, Globe, ChevronLeft, ChevronRight, X, Maximize2, Phone, Mail, MessageCircle, Stethoscope, Tag, AlertTriangle, ChevronDown, ChevronUp, MapPin, School, ShoppingBag, Coffee, TreePine, Building2, Cross, BookOpen } from 'lucide-react'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { Heart, Trash2, RefreshCw, Shield, Download, Globe, Phone, Mail, MessageCircle, Stethoscope, Tag, AlertTriangle, ChevronDown, ChevronUp, MapPin, School, ShoppingBag, Coffee, TreePine, Building2, Cross, BookOpen } from 'lucide-react'
 import L from 'leaflet'
+
+// Extracted components
+import FullscreenGallery from '@/components/PetDisplay/FullscreenGallery'
+import ContactOwnerModal from '@/components/PetDisplay/ContactOwnerModal'
+import LocationShareModal from '@/components/PetDisplay/LocationShareModal'
+import PetGallery from '@/components/PetDisplay/PetGallery'
 
 // Fix Leaflet marker icons in bundled environment
 delete (L.Icon.Default.prototype as any)._getIconUrl
