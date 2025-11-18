@@ -69,12 +69,8 @@ function App() {
         } />
         <Route path="/pet/:petId" element={<PetDisplayPageWithLayout />} />
 
-        {/* Protected Routes (full header with logout) */}
-        <Route path="/dashboard/*" element={
-          <Layout>
-            <DashboardPage />
-          </Layout>
-        } />
+        {/* Protected Routes - Dashboard has its own layout */}
+        <Route path="/dashboard/*" element={<DashboardPage />} />
 
         {/* 404 */}
         <Route path="*" element={
