@@ -5,7 +5,7 @@ import { useQRAccessStore } from '@/stores/qrAccessStore'
 import { useSecurityStore } from '@/stores/securityStore'
 import { useSecurityMonitorStore, SUSPICIOUS_ACTIVITY_TYPES } from '@/stores/securityMonitorStore'
 import { authService } from '@/services/authService'
-import { Heart, Trash2, RefreshCw, Shield, Download, Globe, MapPin, School, ShoppingBag, Coffee, TreePine, Building2, Cross, BookOpen } from 'lucide-react'
+import { Heart, MapPin, School, ShoppingBag, Coffee, TreePine, Building2, Cross, BookOpen } from 'lucide-react'
 import L from 'leaflet'
 
 // Extracted components
@@ -14,6 +14,8 @@ import ContactOwnerModal from '@/components/PetDisplay/ContactOwnerModal'
 import LocationShareModal from '@/components/PetDisplay/LocationShareModal'
 import PetGallery from '@/components/PetDisplay/PetGallery'
 import PetInfoCard from '@/components/PetDisplay/PetInfoCard'
+import ActionButtons from '@/components/PetDisplay/ActionButtons'
+import DevTools from '@/components/PetDisplay/DevTools'
 
 // Fix Leaflet marker icons in bundled environment
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -923,144 +925,24 @@ const PetDisplayPage: React.FC = () => {
       </div>
 
 
-      {/* Action Buttons - Enhanced Layout */}
-      <div className="action-buttons grid gap-4 mt-6 grid-cols-3">
-        {(petInfo.emergency_contact?.phone || true) && (
-          <button
-            onClick={handleContactOwner}
-            className="action-btn phone-btn h-[120px] bg-white dark:bg-gray-800 rounded-2xl p-3 text-center hover:scale-[1.03] hover:shadow-lg transition-all duration-300 group shadow-sm hover:shadow-green-200/50 dark:hover:shadow-green-900/30 border border-gray-200/50 dark:border-gray-700/50 hover:border-green-300/50 dark:hover:border-green-600/50"
-          >
-            <div className="flex flex-col items-center justify-center space-y-3 h-full pt-5 pb-3">
-              <div className="btn-icon p-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl group-hover:shadow-lg group-hover:shadow-green-500/25 transition-all duration-300 group-hover:scale-110">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-              </div>
-              <div className="btn-content text-center">
-                <span className="btn-title block text-sm font-semibold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300">
-                  Contact Owner
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-green-500 dark:group-hover:text-green-300 transition-colors duration-300">
-                  Emergency
-                </span>
-              </div>
-            </div>
-          </button>
-        )}
+      {/* Action Buttons */}
+      <ActionButtons
+        petInfo={petInfo}
+        onContactOwner={handleContactOwner}
+        onLocationShare={handleLocationShare}
+        onStoreLink={handleStoreLink}
+      />
 
-        <button
-          onClick={handleLocationShare}
-          className="action-btn location-btn h-[120px] bg-white dark:bg-gray-800 rounded-2xl p-3 text-center hover:scale-[1.03] hover:shadow-lg transition-all duration-300 group shadow-sm hover:shadow-indigo-200/50 dark:hover:shadow-indigo-900/30 border border-gray-200/50 dark:border-gray-700/50 hover:border-blue-300/50 dark:hover:border-blue-600/50"
-        >
-          <div className="flex flex-col items-center justify-center space-y-3 h-full pt-5 pb-3">
-            <div className="btn-icon p-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl group-hover:shadow-lg group-hover:shadow-blue-500/25 transition-all duration-300 group-hover:scale-110">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            <div className="btn-content text-center">
-              <span className="btn-title block text-sm font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">
-                Location
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-300 transition-colors duration-300">
-                Share Found
-              </span>
-            </div>
-          </div>
-        </button>
-
-        <button
-          onClick={handleStoreLink}
-          className="action-btn store-btn h-[120px] bg-white dark:bg-gray-800 rounded-2xl p-3 text-center hover:scale-[1.03] hover:shadow-lg transition-all duration-300 group shadow-sm hover:shadow-indigo-200/50 dark:hover:shadow-indigo-900/30 border border-gray-200/50 dark:border-gray-700/50 hover:border-purple-300/50 dark:hover:border-purple-600/50"
-        >
-          <div className="flex flex-col items-center justify-center space-y-3 h-full pt-5 pb-3">
-            <div className="btn-icon p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl group-hover:shadow-lg group-hover:shadow-purple-500/25 transition-all duration-300 group-hover:scale-110">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
-            </div>
-            <div className="btn-content text-center">
-              <span className="btn-title block text-sm font-semibold text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-300">
-                Buy Tag
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-purple-500 dark:group-hover:text-purple-300 transition-colors duration-300">
-                Get Yours
-              </span>
-            </div>
-          </div>
-        </button>
-
-      </div>
-
-      {/* Development Tools - Clean & Bottom */}
-      <div className="mt-8 p-5 bg-gradient-to-br from-gray-50/90 to-gray-100/50 dark:from-gray-800/90 dark:to-gray-700/50 rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-sm hover:shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-gradient-to-br hover:from-gray-100/90 hover:to-gray-50/70 dark:hover:from-gray-700/90 dark:hover:to-gray-600/50">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-r from-orange-500 to-red-500 rounded-full">
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-          </div>
-          <span className="text-gray-700 dark:text-gray-300 text-sm font-semibold tracking-wide">Development Tools</span>
-          <div className="flex-1 h-px bg-gradient-to-r from-gray-300 to-transparent dark:from-gray-600"></div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleClearPinCache}
-            className="flex items-center gap-2 px-3 py-2 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900 dark:hover:bg-orange-800 text-orange-800 dark:text-orange-200 text-sm rounded-md transition-colors"
-            title="Clear PIN verification cache"
-          >
-            <Trash2 className="w-3 h-3" />
-            Clear PIN
-          </button>
-          <button
-            onClick={handleClearSecurityData}
-            className="flex items-center gap-2 px-3 py-2 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900 dark:hover:bg-yellow-800 text-yellow-800 dark:text-yellow-200 text-sm rounded-md transition-colors"
-            title="Clear security data (attempts, cooldowns, blocks)"
-          >
-            <Trash2 className="w-3 h-3" />
-            Clear Security
-          </button>
-          <button
-            onClick={handleClearLanguageCache}
-            className="flex items-center gap-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-800 dark:text-blue-200 text-sm rounded-md transition-colors"
-            title="Clear language preference"
-          >
-            <Globe className="w-3 h-3" />
-            Clear Lang
-          </button>
-          <button
-            onClick={handleClearAllCache}
-            className="flex items-center gap-2 px-3 py-2 bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 text-red-800 dark:text-red-200 text-sm rounded-md transition-colors"
-            title="Clear all caches"
-          >
-            <Trash2 className="w-3 h-3" />
-            Clear All
-          </button>
-          <button
-            onClick={handleViewSecurityLog}
-            className="flex items-center gap-2 px-3 py-2 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900 dark:hover:bg-purple-800 text-purple-800 dark:text-purple-200 text-sm rounded-md transition-colors"
-            title="View security activities log"
-          >
-            <Shield className="w-3 h-3" />
-            Security Log
-          </button>
-          <button
-            onClick={handleExportSecurityLog}
-            className="flex items-center gap-2 px-3 py-2 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900 dark:hover:bg-indigo-800 text-indigo-800 dark:text-indigo-200 text-sm rounded-md transition-colors"
-            title="Export security log as JSON"
-          >
-            <Download className="w-3 h-3" />
-            Export Log
-          </button>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md transition-colors"
-            title="Logout current user"
-          >
-            <RefreshCw className="w-3 h-3" />
-            Logout
-          </button>
-        </div>
-      </div>
+      {/* Development Tools */}
+      <DevTools
+        onClearPinCache={handleClearPinCache}
+        onClearSecurityData={handleClearSecurityData}
+        onClearLanguageCache={handleClearLanguageCache}
+        onClearAllCache={handleClearAllCache}
+        onViewSecurityLog={handleViewSecurityLog}
+        onExportSecurityLog={handleExportSecurityLog}
+        onLogout={handleLogout}
+      />
 
       {/* Fullscreen Image Gallery Modal */}
       <FullscreenGallery
