@@ -5,7 +5,7 @@ import { useQRAccessStore } from '@/stores/qrAccessStore'
 import { useSecurityStore } from '@/stores/securityStore'
 import { useSecurityMonitorStore, SUSPICIOUS_ACTIVITY_TYPES } from '@/stores/securityMonitorStore'
 import { authService } from '@/services/authService'
-import { Heart, Trash2, RefreshCw, Shield, Download, Globe, MessageCircle, Stethoscope, Tag, AlertTriangle, ChevronDown, ChevronUp, MapPin, School, ShoppingBag, Coffee, TreePine, Building2, Cross, BookOpen } from 'lucide-react'
+import { Heart, Trash2, RefreshCw, Shield, Download, Globe, MapPin, School, ShoppingBag, Coffee, TreePine, Building2, Cross, BookOpen } from 'lucide-react'
 import L from 'leaflet'
 
 // Extracted components
