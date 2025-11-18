@@ -1,5 +1,6 @@
 import React from 'react'
-import { Heart, PawPrint, QrCode, BarChart3, Settings } from 'lucide-react'
+import { PawPrint, QrCode, BarChart3, Settings, LayoutDashboard } from 'lucide-react'
+import Header from '@/components/Header'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -9,7 +10,7 @@ interface DashboardLayoutProps {
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, activeTab, onTabChange }) => {
   const tabs = [
-    { id: 'overview' as const, label: 'Overview', icon: Heart },
+    { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
     { id: 'pets' as const, label: 'My Pets', icon: PawPrint },
     { id: 'qrcodes' as const, label: 'QR Codes', icon: QrCode },
     { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
@@ -18,22 +19,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, activeTab, 
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
+      {/* Main Header with Auth */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="w-full max-w-7xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 border-2 border-indigo-500 rounded-full flex items-center justify-center">
-              <Heart className="w-5 h-5 text-indigo-500" fill="currentColor" />
-            </div>
-            <div>
-              <h1 className="text-xl font-light text-gray-900 dark:text-white tracking-wide">
-                Dashboard
-              </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Pet Management
-              </p>
-            </div>
-          </div>
+        <div className="w-full max-w-7xl mx-auto">
+          <Header variant="default" showAuthButton={true} />
+        </div>
+      </div>
+
+      {/* Dashboard Navigation */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="w-full max-w-7xl mx-auto px-4 py-4">
 
           {/* Desktop Navigation Tabs */}
           <div className="hidden md:flex gap-1">
