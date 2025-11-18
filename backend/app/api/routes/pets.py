@@ -17,7 +17,7 @@ router = APIRouter()
 def get_pet_service() -> PetService:
     """Get pet service instance."""
     # TODO: Get tenant schema from request context
-    return PetService(tenant_schema="demo")
+    return PetService(tenant_schema="tenant_demo")
 
 
 @router.post("/", response_model=PetResponse)

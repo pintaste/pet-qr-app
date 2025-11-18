@@ -5,7 +5,7 @@
 
 set -e  # Exit on any error
 
-PROJECT_ROOT="/Users/pin/Desktop/Context-Engineering-Intro"
+PROJECT_ROOT="/Users/pin/Desktop/Pet QR App"
 FRONTEND_DIR="${PROJECT_ROOT}/frontend"
 BACKEND_DIR="${PROJECT_ROOT}/backend"
 

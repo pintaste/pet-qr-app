@@ -2,11 +2,20 @@
 Public routes that don't require authentication.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import HTMLResponse
 import os
 
+from ...schemas.pet import PetPublicResponse
+from ...services.pet import PetService
+
 router = APIRouter()
+
+
+def get_pet_service() -> PetService:
+    """Get pet service instance."""
+    # TODO: Get tenant schema from request context
+    return PetService(tenant_schema="demo")
 
 
 @router.get("/scan", response_class=HTMLResponse)

@@ -30,13 +30,13 @@ router = APIRouter()
 def get_qr_service() -> QRCodeService:
     """Get QR code service instance."""
     # TODO: Get tenant schema from request context
-    return QRCodeService(tenant_schema="demo")
+    return QRCodeService(tenant_schema="tenant_demo")
 
 
 def get_pet_service() -> PetService:
     """Get pet service instance."""
     # TODO: Get tenant schema from request context
-    return PetService(tenant_schema="demo")
+    return PetService(tenant_schema="tenant_demo")
 
 
 def get_qr_image_service() -> QRImageService:
