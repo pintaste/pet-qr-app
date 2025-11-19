@@ -1,18 +1,24 @@
 import React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
+import { useUserRole, UserRole } from '@/hooks/useUserRole'
 import { Loader2 } from 'lucide-react'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
   requireAuth?: boolean
+  requireRole?: UserRole | UserRole[]
+  fallbackPath?: string
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
-  requireAuth = true
+  requireAuth = true,
+  requireRole,
+  fallbackPath = '/',
 }) => {
   const { isAuthenticated, accessToken } = useAuthStore()
+  const { role } = useUserRole()
   const location = useLocation()
 
   // If authentication is not required, render children
@@ -26,7 +32,17 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/" state={{ from: location }} replace />
   }
 
-  // User is authenticated, render the protected content
+  // Check if specific role is required
+  if (requireRole) {
+    const requiredRoles = Array.isArray(requireRole) ? requireRole : [requireRole]
+
+    if (!role || !requiredRoles.includes(role)) {
+      // User doesn't have the required role, redirect to fallback path
+      return <Navigate to={fallbackPath} replace />
+    }
+  }
+
+  // User is authenticated and authorized, render the protected content
   return <>{children}</>
 }
 

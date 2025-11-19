@@ -106,6 +106,50 @@ async def get_current_super_user(
     return current_user
 
 
+async def get_current_tenant_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    Get the current tenant admin user.
+
+    Args:
+        current_user: Current user from get_current_user
+
+    Returns:
+        User: Current tenant admin user
+
+    Raises:
+        HTTPException: If user is not a tenant admin
+    """
+    from ..models.shared import UserRole
+
+    if current_user.role not in [UserRole.SUPER_ADMIN, UserRole.TENANT_ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tenant admin permissions required"
+        )
+    return current_user
+
+
+async def get_current_regular_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    Get any authenticated user (USER, TENANT_ADMIN, or SUPER_ADMIN).
+
+    Args:
+        current_user: Current user from get_current_user
+
+    Returns:
+        User: Current authenticated user
+
+    Raises:
+        HTTPException: If user is not authenticated
+    """
+    # All authenticated users are allowed
+    return current_user
+
+
 def get_tenant_from_request(request) -> Optional[str]:
     """
     Extract tenant information from request.
