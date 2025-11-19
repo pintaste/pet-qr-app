@@ -100,3 +100,90 @@ class User(SQLModel, table=True):
                 "is_active": True,
             }
         }
+
+
+class ImpersonationLog(SQLModel, table=True):
+    """
+    Impersonation log model for audit tracking.
+
+    Stores in shared.impersonation_logs table.
+    """
+
+    __tablename__ = "impersonation_logs"
+    __table_args__ = {"schema": "shared"}
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    super_admin_id: int = Field(
+        foreign_key="shared.users.id", description="Admin performing impersonation"
+    )
+    impersonated_user_id: int = Field(
+        foreign_key="shared.users.id", description="User being impersonated"
+    )
+    started_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Impersonation start time"
+    )
+    ended_at: Optional[datetime] = Field(
+        default=None, description="Impersonation end time"
+    )
+    actions_taken: Optional[Dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSON), description="Actions performed during impersonation"
+    )
+    ip_address: Optional[str] = Field(
+        default=None, max_length=50, description="IP address of admin"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "super_admin_id": 1,
+                "impersonated_user_id": 5,
+                "started_at": "2025-11-19T10:00:00",
+                "ip_address": "192.168.1.100",
+            }
+        }
+
+
+class QRBatch(SQLModel, table=True):
+    """
+    QR batch model for tracking batch generation and assignment.
+
+    Stores in shared.qr_batches table.
+    """
+
+    __tablename__ = "qr_batches"
+    __table_args__ = {"schema": "shared"}
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    batch_id: str = Field(
+        max_length=255, unique=True, description="Unique batch identifier"
+    )
+    quantity: int = Field(description="Number of QR codes in this batch")
+    assigned_to_tenant_id: Optional[int] = Field(
+        default=None,
+        foreign_key="shared.tenants.id",
+        description="Tenant this batch is assigned to",
+    )
+    created_by_admin_id: int = Field(
+        foreign_key="shared.users.id", description="Super admin who created the batch"
+    )
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Batch creation timestamp"
+    )
+    print_data: Optional[Dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSON), description="Printing metadata"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "batch_id": "BATCH-2025-001",
+                "quantity": 1000,
+                "assigned_to_tenant_id": 1,
+                "created_by_admin_id": 1,
+                "print_data": {
+                    "factory": "PrintCorp",
+                    "print_date": "2025-11-19",
+                    "notes": "Initial batch for Demo Store",
+                },
+            }
+        }
