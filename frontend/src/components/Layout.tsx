@@ -41,10 +41,10 @@ const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
-      {/* Full-width Header */}
+      {/* Full-width Header - Always use extraWide container for consistency */}
       {showHeader && (
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <div className={containerStyles[getContainerType()]}>
+          <div className={containerStyles.extraWide}>
             <Header
               variant={headerVariant}
               showAuthButton={showAuthButton}
@@ -54,7 +54,7 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
       )}
 
-      {/* Main Container */}
+      {/* Main Container - Use page-specific container width */}
       <div className={containerClass}>
         <main className={`relative flex-1 ${showHeader ? 'pt-4' : 'pt-0'}`}>
           <div className={`${
