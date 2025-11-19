@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   LayoutDashboard,
   Building2,
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { containerStyles } from '@/styles/containers'
 import Header from '@/components/Header'
+import { superAdminService, PlatformStats, Tenant } from '@/services/superAdminService'
 
 type SuperAdminTab = 'overview' | 'tenants' | 'qr-factory' | 'users' | 'impersonate' | 'analytics' | 'settings' | 'billing'
 
@@ -21,6 +22,45 @@ type SuperAdminTab = 'overview' | 'tenants' | 'qr-factory' | 'users' | 'imperson
  */
 const SuperAdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SuperAdminTab>('overview')
+  const [platformStats, setPlatformStats] = useState<PlatformStats | null>(null)
+  const [tenants, setTenants] = useState<Tenant[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch platform stats
+  useEffect(() => {
+    const fetchPlatformStats = async () => {
+      try {
+        setIsLoading(true)
+        const stats = await superAdminService.getPlatformStats()
+        setPlatformStats(stats)
+        setError(null)
+      } catch (err) {
+        console.error('Error fetching platform stats:', err)
+        setError('Failed to load platform statistics')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchPlatformStats()
+  }, [])
+
+  // Fetch tenants when tenants tab is active
+  useEffect(() => {
+    const fetchTenants = async () => {
+      if (activeTab === 'tenants') {
+        try {
+          const tenantList = await superAdminService.listTenants()
+          setTenants(tenantList)
+        } catch (err) {
+          console.error('Error fetching tenants:', err)
+        }
+      }
+    }
+
+    fetchTenants()
+  }, [activeTab])
 
   const tabs = [
     { id: 'overview' as const, label: 'Platform Overview', icon: LayoutDashboard },
@@ -38,44 +78,63 @@ const SuperAdminDashboard: React.FC = () => {
       case 'overview':
         return (
           <div className="space-y-6">
+            {/* Loading State */}
+            {isLoading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+                  <p className="text-gray-500 dark:text-gray-400">Loading platform statistics...</p>
+                </div>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+                <p className="text-red-800 dark:text-red-200">{error}</p>
+              </div>
+            )}
+
             {/* Platform Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-emerald-200 dark:border-emerald-700">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Tenants</h3>
-                  <Building2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            {!isLoading && !error && platformStats && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-emerald-200 dark:border-emerald-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Tenants</h3>
+                    <Building2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">{platformStats.total_tenants}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{platformStats.active_tenants} active</p>
                 </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">0</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Pet stores registered</p>
-              </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-700">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Users</h3>
-                  <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Users</h3>
+                    <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">{platformStats.total_users}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{platformStats.active_users} active</p>
                 </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">0</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Across all tenants</p>
-              </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-purple-200 dark:border-purple-700">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">QR Codes Generated</h3>
-                  <QrCode className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-purple-200 dark:border-purple-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">QR Codes Generated</h3>
+                    <QrCode className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">{platformStats.total_qr_codes}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Platform-wide</p>
                 </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">0</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Platform-wide</p>
-              </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-indigo-200 dark:border-indigo-700">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Scans</h3>
-                  <BarChart3 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-indigo-200 dark:border-indigo-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Scans</h3>
+                    <BarChart3 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">{platformStats.total_scans}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">All time</p>
                 </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">0</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">All time</p>
               </div>
-            </div>
+            )}
 
             {/* Quick Actions */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-gray-200 dark:border-gray-700">
@@ -135,9 +194,51 @@ const SuperAdminDashboard: React.FC = () => {
                 + Create New Tenant
               </button>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-              No tenants registered yet. Create your first pet store tenant.
-            </p>
+
+            {/* Tenants List */}
+            {tenants.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+                No tenants registered yet. Create your first pet store tenant.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {tenants.map((tenant) => (
+                  <div
+                    key={tenant.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">{tenant.name}</h3>
+                        <span className={`px-2 py-0.5 text-xs rounded-full ${
+                          tenant.is_active
+                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                        }`}>
+                          {tenant.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                          {tenant.tier}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                        <span>Subdomain: {tenant.subdomain}</span>
+                        {tenant.custom_domain && <span>Domain: {tenant.custom_domain}</span>}
+                        <span>Created: {new Date(tenant.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button className="px-3 py-1.5 text-sm bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors">
+                        View
+                      </button>
+                      <button className="px-3 py-1.5 text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )
 

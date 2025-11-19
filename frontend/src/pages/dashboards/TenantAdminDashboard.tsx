@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   LayoutDashboard,
   Users,
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { containerStyles } from '@/styles/containers'
 import Header from '@/components/Header'
+import { tenantAdminService, TenantStats } from '@/services/tenantAdminService'
 
 type TenantAdminTab = 'overview' | 'users' | 'pets' | 'qrcodes' | 'analytics' | 'settings' | 'support' | 'impersonate'
 
@@ -21,6 +22,24 @@ type TenantAdminTab = 'overview' | 'users' | 'pets' | 'qrcodes' | 'analytics' | 
  */
 const TenantAdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TenantAdminTab>('overview')
+  const [tenantStats, setTenantStats] = useState<TenantStats | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchTenantStats = async () => {
+      try {
+        setIsLoading(true)
+        const stats = await tenantAdminService.getTenantStats()
+        setTenantStats(stats)
+      } catch (err) {
+        console.error('Error fetching tenant stats:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchTenantStats()
+  }, [])
 
   const tabs = [
     { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
@@ -38,44 +57,56 @@ const TenantAdminDashboard: React.FC = () => {
       case 'overview':
         return (
           <div className="space-y-6">
+            {/* Loading State */}
+            {isLoading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                  <p className="text-gray-500 dark:text-gray-400">Loading store statistics...</p>
+                </div>
+              </div>
+            )}
+
             {/* Store Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-purple-200 dark:border-purple-700">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Users</h3>
-                  <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+            {!isLoading && tenantStats && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-purple-200 dark:border-purple-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Users</h3>
+                    <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">{tenantStats.total_users}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{tenantStats.active_users} active</p>
                 </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">0</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Customers in your store</p>
-              </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-700">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Pets</h3>
-                  <PawPrint className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Pets</h3>
+                    <PawPrint className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">{tenantStats.total_pets}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Registered in your store</p>
                 </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">0</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Registered in your store</p>
-              </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-indigo-200 dark:border-indigo-700">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">QR Codes Assigned</h3>
-                  <QrCode className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-indigo-200 dark:border-indigo-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">QR Codes Assigned</h3>
+                    <QrCode className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">{tenantStats.total_qr_codes}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{tenantStats.active_qr_codes} active</p>
                 </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">0</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Available for distribution</p>
-              </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-green-200 dark:border-green-700">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Scans</h3>
-                  <BarChart3 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-green-200 dark:border-green-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Scans</h3>
+                    <BarChart3 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">{tenantStats.total_scans}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">From your store</p>
                 </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">0</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">From your store</p>
               </div>
-            </div>
+            )}
 
             {/* Quick Actions */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-gray-200 dark:border-gray-700">

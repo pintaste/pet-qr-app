@@ -4,22 +4,23 @@ interface Pet {
   id: number
   name: string
   breed: string
-  age_months: number
+  age: number  // Age in months
   description?: string
   photos: string[]
   medical_info: any
-  contact_info: any
+  contact_info?: any
   owner_id: number
-  tenant_id: number
-  qr_code_id?: number
+  is_active: boolean
+  is_pinned?: boolean
   created_at: string
   updated_at: string
+  qr_code_id?: number
 }
 
 interface CreatePetRequest {
   name: string
   breed: string
-  age_months: number
+  age_months: number  // For creation, still using age_months for backward compatibility
   description?: string
   photos?: string[]
   medical_info?: any
@@ -46,7 +47,7 @@ interface PetStatistics {
 
 class PetService {
   async createPet(petData: CreatePetRequest): Promise<Pet> {
-    return await apiClient.post<Pet>('/api/pets', petData)
+    return await apiClient.post<Pet>('/api/v1/pets', petData)
   }
 
   async getPets(params?: {
@@ -54,73 +55,87 @@ class PetService {
     limit?: number
     search?: string
     owner_id?: number
-  }): Promise<PetListResponse> {
-    const queryParams: Record<string, string> = {}
+  }): Promise<Pet[]> {
+    const queryParams: Record<string, any> = {}
 
-    if (params?.skip !== undefined) queryParams.skip = params.skip.toString()
-    if (params?.limit !== undefined) queryParams.limit = params.limit.toString()
+    if (params?.skip !== undefined) queryParams.skip = params.skip
+    if (params?.limit !== undefined) queryParams.limit = params.limit
     if (params?.search) queryParams.search = params.search
-    if (params?.owner_id !== undefined) queryParams.owner_id = params.owner_id.toString()
+    if (params?.owner_id !== undefined) queryParams.owner_id = params.owner_id
 
-    return await apiClient.get<PetListResponse>('/api/pets', queryParams)
+    return await apiClient.get<Pet[]>('/api/v1/pets', { params: queryParams })
   }
 
   async getPet(petId: number): Promise<Pet> {
-    return await apiClient.get<Pet>(`/api/pets/${petId}`)
+    return await apiClient.get<Pet>(`/api/v1/pets/${petId}`)
   }
 
   async updatePet(petId: number, updates: UpdatePetRequest): Promise<Pet> {
-    return await apiClient.put<Pet>(`/api/pets/${petId}`, updates)
+    return await apiClient.put<Pet>(`/api/v1/pets/${petId}`, updates)
   }
 
   async deletePet(petId: number): Promise<{ message: string }> {
-    return await apiClient.delete<{ message: string }>(`/api/pets/${petId}`)
+    return await apiClient.delete<{ message: string }>(`/api/v1/pets/${petId}`)
   }
 
   async getPetsByOwner(ownerId: number, params?: {
     skip?: number
     limit?: number
   }): Promise<Pet[]> {
-    const queryParams: Record<string, string> = {
-      owner_id: ownerId.toString(),
+    const queryParams: Record<string, any> = {
+      owner_id: ownerId,
     }
 
-    if (params?.skip !== undefined) queryParams.skip = params.skip.toString()
-    if (params?.limit !== undefined) queryParams.limit = params.limit.toString()
+    if (params?.skip !== undefined) queryParams.skip = params.skip
+    if (params?.limit !== undefined) queryParams.limit = params.limit
 
-    const response = await apiClient.get<PetListResponse>('/api/pets', queryParams)
+    const response = await apiClient.get<PetListResponse>('/api/v1/pets', { params: queryParams })
     return response.pets
   }
 
   async addPetPhoto(petId: number, photoUrl: string): Promise<Pet> {
-    return await apiClient.post<Pet>(`/api/pets/${petId}/photos`, {
+    return await apiClient.post<Pet>(`/api/v1/pets/${petId}/photos`, {
       photo_url: photoUrl
     })
   }
 
   async removePetPhoto(petId: number, photoUrl: string): Promise<Pet> {
-    return await apiClient.delete<Pet>(`/api/pets/${petId}/photos?photo_url=${encodeURIComponent(photoUrl)}`)
+    return await apiClient.delete<Pet>(`/api/v1/pets/${petId}/photos?photo_url=${encodeURIComponent(photoUrl)}`)
   }
 
   async uploadPetPhoto(petId: number, file: File): Promise<{ photo_url: string }> {
     return await apiClient.uploadFile<{ photo_url: string }>(
-      `/api/pets/${petId}/upload-photo`,
+      `/api/v1/pets/${petId}/upload-photo`,
       file
     )
   }
 
   async getPetStatistics(): Promise<PetStatistics> {
-    return await apiClient.get<PetStatistics>('/api/pets/statistics')
+    return await apiClient.get<PetStatistics>('/api/v1/pets/statistics')
   }
 
   async linkPetToQR(petId: number, qrCodeId: number): Promise<Pet> {
-    return await apiClient.post<Pet>(`/api/pets/${petId}/link-qr`, {
+    return await apiClient.post<Pet>(`/api/v1/pets/${petId}/link-qr`, {
       qr_code_id: qrCodeId
     })
   }
 
   async unlinkPetFromQR(petId: number): Promise<Pet> {
-    return await apiClient.post<Pet>(`/api/pets/${petId}/unlink-qr`)
+    return await apiClient.post<Pet>(`/api/v1/pets/${petId}/unlink-qr`)
+  }
+
+  async togglePinPet(petId: number): Promise<Pet> {
+    return await apiClient.post<Pet>(`/api/v1/pets/${petId}/toggle-pin`)
+  }
+
+  async linkQRCode(petId: number, qrCodeId: number): Promise<Pet> {
+    return await apiClient.post<Pet>(`/api/v1/pets/${petId}/link-qr`, {
+      qr_code_id: qrCodeId
+    })
+  }
+
+  async unlinkQRCode(petId: number): Promise<Pet> {
+    return await apiClient.post<Pet>(`/api/v1/pets/${petId}/unlink-qr`)
   }
 
   // Search pets with advanced filters
@@ -133,15 +148,15 @@ class PetService {
     skip?: number
     limit?: number
   }): Promise<PetListResponse> {
-    const queryParams: Record<string, string> = {}
+    const queryParams: Record<string, any> = {}
 
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
-        queryParams[key] = value.toString()
+        queryParams[key] = value
       }
     })
 
-    return await apiClient.get<PetListResponse>('/api/pets/search', queryParams)
+    return await apiClient.get<PetListResponse>('/api/v1/pets/search', { params: queryParams })
   }
 
   // Bulk operations
@@ -149,14 +164,14 @@ class PetService {
     petIds: number[],
     updates: UpdatePetRequest
   ): Promise<{ updated_count: number; pets: Pet[] }> {
-    return await apiClient.post<{ updated_count: number; pets: Pet[] }>('/api/pets/bulk-update', {
+    return await apiClient.post<{ updated_count: number; pets: Pet[] }>('/api/v1/pets/bulk-update', {
       pet_ids: petIds,
       updates,
     })
   }
 
   async bulkDeletePets(petIds: number[]): Promise<{ deleted_count: number }> {
-    return await apiClient.post<{ deleted_count: number }>('/api/pets/bulk-delete', {
+    return await apiClient.post<{ deleted_count: number }>('/api/v1/pets/bulk-delete', {
       pet_ids: petIds,
     })
   }
@@ -232,3 +247,4 @@ class PetService {
 
 export const petService = new PetService()
 export { PetService }
+export type { Pet, CreatePetRequest, UpdatePetRequest, PetListResponse, PetStatistics }

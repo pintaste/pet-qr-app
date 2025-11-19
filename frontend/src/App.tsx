@@ -6,6 +6,7 @@ import { useLanguage } from '@/hooks/useLanguage'
 // Layout Components
 import Layout from '@/components/Layout'
 import AuthModal from '@/components/AuthModal'
+import { DevTools } from '@/components/DevTools'
 
 // Pages
 import LandingPage from '@/pages/LandingPage'
@@ -44,6 +45,9 @@ function App() {
       data-theme={theme}
       data-language={language}
     >
+      {/* Development Tools - Remove before production */}
+      <DevTools enabled={import.meta.env.DEV} />
+
       <Routes>
         {/* Landing Page - Clean entry point without header */}
         <Route path="/" element={<LandingPage />} />

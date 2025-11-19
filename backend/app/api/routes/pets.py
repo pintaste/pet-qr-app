@@ -233,6 +233,96 @@ async def get_public_pet_info(
     )
 
 
+@router.post("/{pet_id}/toggle-pin", response_model=PetResponse)
+async def toggle_pin_pet(
+    pet_id: int,
+    current_user: User = Depends(get_current_user),
+    pet_service: PetService = Depends(get_pet_service),
+):
+    """
+    Toggle pin status for a pet.
+
+    Pinned pets will be displayed at the front of the pet list.
+
+    Args:
+        pet_id: Pet ID
+        current_user: Current authenticated user
+        pet_service: Pet service instance
+
+    Returns:
+        PetResponse: Updated pet data with new pin status
+
+    Raises:
+        HTTPException: If pet not found or not authorized
+    """
+    # Toggle the pin status with owner validation
+    updated_pet = pet_service.toggle_pin(pet_id, owner_id=current_user.id)
+    if not updated_pet:
+        raise HTTPException(status_code=404, detail="Pet not found or not authorized")
+
+    return PetResponse.from_orm(updated_pet)
+
+
+@router.post("/{pet_id}/link-qr", response_model=PetResponse)
+async def link_qr_to_pet(
+    pet_id: int,
+    qr_data: dict,
+    current_user: User = Depends(get_current_user),
+    pet_service: PetService = Depends(get_pet_service),
+):
+    """
+    Link a QR code to a pet.
+
+    Args:
+        pet_id: Pet ID
+        qr_data: Dictionary containing qr_code_id
+        current_user: Current authenticated user
+        pet_service: Pet service instance
+
+    Returns:
+        PetResponse: Updated pet data with QR code linked
+
+    Raises:
+        HTTPException: If pet not found, not authorized, or QR code already assigned
+    """
+    qr_code_id = qr_data.get('qr_code_id')
+    if not qr_code_id:
+        raise HTTPException(status_code=400, detail="qr_code_id is required")
+
+    updated_pet = pet_service.link_qr_code(pet_id, qr_code_id, owner_id=current_user.id)
+    if not updated_pet:
+        raise HTTPException(status_code=404, detail="Pet not found or not authorized")
+
+    return PetResponse.from_orm(updated_pet)
+
+
+@router.post("/{pet_id}/unlink-qr", response_model=PetResponse)
+async def unlink_qr_from_pet(
+    pet_id: int,
+    current_user: User = Depends(get_current_user),
+    pet_service: PetService = Depends(get_pet_service),
+):
+    """
+    Unlink QR code from a pet.
+
+    Args:
+        pet_id: Pet ID
+        current_user: Current authenticated user
+        pet_service: Pet service instance
+
+    Returns:
+        PetResponse: Updated pet data with QR code unlinked
+
+    Raises:
+        HTTPException: If pet not found or not authorized
+    """
+    updated_pet = pet_service.unlink_qr_code(pet_id, owner_id=current_user.id)
+    if not updated_pet:
+        raise HTTPException(status_code=404, detail="Pet not found or not authorized")
+
+    return PetResponse.from_orm(updated_pet)
+
+
 @router.post("/{pet_id}/photos")
 async def upload_pet_photo(pet_id: int):
     """Upload pet photo."""

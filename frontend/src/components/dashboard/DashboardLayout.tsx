@@ -5,16 +5,15 @@ import { containerStyles } from '@/styles/containers'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
-  activeTab: 'overview' | 'pets' | 'qrcodes' | 'analytics' | 'settings'
-  onTabChange: (tab: 'overview' | 'pets' | 'qrcodes' | 'analytics' | 'settings') => void
+  activeTab: 'overview' | 'qrcodes' | 'activity' | 'settings'
+  onTabChange: (tab: 'overview' | 'qrcodes' | 'activity' | 'settings') => void
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, activeTab, onTabChange }) => {
   const tabs = [
     { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
-    { id: 'pets' as const, label: 'My Pets', icon: PawPrint },
     { id: 'qrcodes' as const, label: 'QR Codes', icon: QrCode },
-    { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
+    { id: 'activity' as const, label: 'Activity', icon: BarChart3 },
     { id: 'settings' as const, label: 'Settings', icon: Settings },
   ]
 

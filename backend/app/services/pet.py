@@ -253,6 +253,212 @@ class PetService:
         finally:
             session.close()
 
+    def toggle_pin(self, pet_id: int, owner_id: int) -> Optional[Pet]:
+        """
+        Toggle the pin status of a pet.
+
+        Args:
+            pet_id: Pet ID
+            owner_id: Owner ID (shared user ID, for authorization)
+
+        Returns:
+            Pet: Updated pet instance, or None if not found or not authorized
+        """
+        session = self._get_session()
+        try:
+            self._set_search_path(session)
+
+            # Map shared user ID to tenant user ID
+            tenant_user_id = self._get_tenant_user_id(owner_id)
+
+            # Use raw SQL to toggle the is_pinned field with owner validation
+            result = session.execute(
+                text("""
+                    UPDATE pets
+                    SET is_pinned = COALESCE(NOT is_pinned, true),
+                        updated_at = NOW()
+                    WHERE id = :pet_id
+                      AND owner_id = :owner_id
+                      AND is_active = true
+                    RETURNING id, name, breed, age, sex, color, size, weight,
+                             microchip_id, is_spayed_neutered, birthday, description,
+                             photos, medical_info, owner_id, is_active, is_pinned,
+                             created_at, updated_at
+                """),
+                {"pet_id": pet_id, "owner_id": tenant_user_id}
+            )
+
+            # Fetch the updated row
+            updated_row = result.fetchone()
+            if not updated_row:
+                session.rollback()
+                return None
+
+            session.commit()
+
+            # Create Pet object from the returned row
+            pet = Pet(
+                id=updated_row[0],
+                name=updated_row[1],
+                breed=updated_row[2],
+                age=updated_row[3],
+                sex=updated_row[4],
+                color=updated_row[5],
+                size=updated_row[6],
+                weight=updated_row[7],
+                microchip_id=updated_row[8],
+                is_spayed_neutered=updated_row[9],
+                birthday=updated_row[10],
+                description=updated_row[11],
+                photos=updated_row[12] or [],
+                medical_info=updated_row[13] or {},
+                owner_id=updated_row[14],
+                is_active=updated_row[15],
+                is_pinned=updated_row[16],
+                created_at=updated_row[17],
+                updated_at=updated_row[18]
+            )
+            return pet
+        finally:
+            session.close()
+
+    def link_qr_code(self, pet_id: int, qr_code_id: int, owner_id: int) -> Optional[Pet]:
+        """
+        Link a QR code to a pet.
+
+        Args:
+            pet_id: Pet ID
+            qr_code_id: QR code ID to link
+            owner_id: Owner ID (shared user ID, for authorization)
+
+        Returns:
+            Pet: Updated pet instance, or None if not found or not authorized
+        """
+        session = self._get_session()
+        try:
+            self._set_search_path(session)
+
+            # Map shared user ID to tenant user ID
+            tenant_user_id = self._get_tenant_user_id(owner_id)
+
+            # Update pet with QR code
+            result = session.execute(
+                text("""
+                    UPDATE pets
+                    SET qr_code_id = :qr_code_id,
+                        updated_at = NOW()
+                    WHERE id = :pet_id
+                      AND owner_id = :owner_id
+                      AND is_active = true
+                    RETURNING id, name, breed, age, sex, color, size, weight,
+                             microchip_id, is_spayed_neutered, birthday, description,
+                             photos, medical_info, owner_id, is_active, is_pinned,
+                             created_at, updated_at
+                """),
+                {"pet_id": pet_id, "qr_code_id": qr_code_id, "owner_id": tenant_user_id}
+            )
+
+            updated_row = result.fetchone()
+            if not updated_row:
+                session.rollback()
+                return None
+
+            session.commit()
+
+            # Create Pet object from the returned row
+            pet = Pet(
+                id=updated_row[0],
+                name=updated_row[1],
+                breed=updated_row[2],
+                age=updated_row[3],
+                sex=updated_row[4],
+                color=updated_row[5],
+                size=updated_row[6],
+                weight=updated_row[7],
+                microchip_id=updated_row[8],
+                is_spayed_neutered=updated_row[9],
+                birthday=updated_row[10],
+                description=updated_row[11],
+                photos=updated_row[12] or [],
+                medical_info=updated_row[13] or {},
+                owner_id=updated_row[14],
+                is_active=updated_row[15],
+                is_pinned=updated_row[16],
+                created_at=updated_row[17],
+                updated_at=updated_row[18]
+            )
+            return pet
+        finally:
+            session.close()
+
+    def unlink_qr_code(self, pet_id: int, owner_id: int) -> Optional[Pet]:
+        """
+        Unlink QR code from a pet.
+
+        Args:
+            pet_id: Pet ID
+            owner_id: Owner ID (shared user ID, for authorization)
+
+        Returns:
+            Pet: Updated pet instance, or None if not found or not authorized
+        """
+        session = self._get_session()
+        try:
+            self._set_search_path(session)
+
+            # Map shared user ID to tenant user ID
+            tenant_user_id = self._get_tenant_user_id(owner_id)
+
+            # Update pet to remove QR code
+            result = session.execute(
+                text("""
+                    UPDATE pets
+                    SET qr_code_id = NULL,
+                        updated_at = NOW()
+                    WHERE id = :pet_id
+                      AND owner_id = :owner_id
+                      AND is_active = true
+                    RETURNING id, name, breed, age, sex, color, size, weight,
+                             microchip_id, is_spayed_neutered, birthday, description,
+                             photos, medical_info, owner_id, is_active, is_pinned,
+                             created_at, updated_at
+                """),
+                {"pet_id": pet_id, "owner_id": tenant_user_id}
+            )
+
+            updated_row = result.fetchone()
+            if not updated_row:
+                session.rollback()
+                return None
+
+            session.commit()
+
+            # Create Pet object from the returned row
+            pet = Pet(
+                id=updated_row[0],
+                name=updated_row[1],
+                breed=updated_row[2],
+                age=updated_row[3],
+                sex=updated_row[4],
+                color=updated_row[5],
+                size=updated_row[6],
+                weight=updated_row[7],
+                microchip_id=updated_row[8],
+                is_spayed_neutered=updated_row[9],
+                birthday=updated_row[10],
+                description=updated_row[11],
+                photos=updated_row[12] or [],
+                medical_info=updated_row[13] or {},
+                owner_id=updated_row[14],
+                is_active=updated_row[15],
+                is_pinned=updated_row[16],
+                created_at=updated_row[17],
+                updated_at=updated_row[18]
+            )
+            return pet
+        finally:
+            session.close()
+
     def search_pets(self, query: str, skip: int = 0, limit: int = 100) -> List[Pet]:
         """
         Search pets by name, breed, or description.

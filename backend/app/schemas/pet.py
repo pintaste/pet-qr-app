@@ -78,6 +78,7 @@ class PetResponse(BaseModel):
     medical_info: Dict[str, Any] = {}
     owner_id: int
     is_active: bool
+    is_pinned: bool = False
     created_at: datetime
     updated_at: datetime
 

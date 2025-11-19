@@ -114,6 +114,7 @@ class Pet(SQLModel, table=True):
     )
     owner_id: int = Field(foreign_key="tenant_users.id", description="Owner user ID")
     is_active: bool = Field(default=True, description="Is pet active")
+    is_pinned: bool = Field(default=False, description="Is pet pinned to top of list")
     created_at: datetime = Field(
         default_factory=datetime.utcnow, description="Creation timestamp"
     )

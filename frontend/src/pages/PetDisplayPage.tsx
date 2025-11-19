@@ -2,10 +2,8 @@ import React, { useState, useEffect, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLanguage } from '@/hooks/useLanguage'
 import { useQRAccessStore } from '@/stores/qrAccessStore'
-import { useSecurityStore } from '@/stores/securityStore'
 import { useSecurityMonitorStore, SUSPICIOUS_ACTIVITY_TYPES } from '@/stores/securityMonitorStore'
-import { authService } from '@/services/authService'
-import { Heart, Trash2, RefreshCw, Shield, Download, Globe, ChevronLeft, ChevronRight, X, Maximize2, Phone, Mail, MessageCircle, Stethoscope, Tag, AlertTriangle, ChevronDown, ChevronUp, MapPin, School, ShoppingBag, Coffee, TreePine, Building2, Cross, BookOpen } from 'lucide-react'
+import { Heart, ChevronLeft, ChevronRight, X, Maximize2, Phone, Mail, MessageCircle, Stethoscope, Tag, AlertTriangle, ChevronDown, ChevronUp, MapPin, School, ShoppingBag, Coffee, TreePine, Building2, Cross, BookOpen, Shield } from 'lucide-react'
 
 // Lazy load the map component to avoid Leaflet initialization issues
 const LocationMapModal = lazy(() => import('@/components/LocationMapModal').then(module => ({ default: module.LocationMapModal })))
@@ -51,10 +49,9 @@ interface PetInfo {
 const PetDisplayPage: React.FC = () => {
   const { petId } = useParams<{ petId: string }>()
   const navigate = useNavigate()
-  const { t, clearLanguagePreference } = useLanguage()
-  const { clearVerification, isPetAccessible, getQRCodeForPetId } = useQRAccessStore()
-  const { clearSecurityData } = useSecurityStore()
-  const { logSuspiciousActivity, getSuspiciousActivities, exportSecurityLog } = useSecurityMonitorStore()
+  const { t } = useLanguage()
+  const { isPetAccessible, getQRCodeForPetId } = useQRAccessStore()
+  const { logSuspiciousActivity } = useSecurityMonitorStore()
 
 
   const [petInfo, setPetInfo] = useState<PetInfo | null>(null)
@@ -910,77 +907,6 @@ const PetDisplayPage: React.FC = () => {
 
 
 
-  // Development tools functions
-  const handleClearPinCache = () => {
-    // For demo, we clear the cache for DEMO123 QR code
-    const demoQrCode = 'DEMO123'
-    clearVerification(demoQrCode)
-    alert('PIN verification cache cleared for DEMO123!')
-    console.log('Development: PIN verification cache cleared for', demoQrCode)
-  }
-
-  const handleClearSecurityData = () => {
-    // Clear security data for DEMO123 QR code
-    const demoQrCode = 'DEMO123'
-    clearSecurityData(demoQrCode)
-    alert('Security data (attempts, cooldowns, blocks) cleared for DEMO123!')
-    console.log('Development: Security data cleared for', demoQrCode)
-  }
-
-  const handleClearLanguageCache = () => {
-    clearLanguagePreference()
-    alert('Language preference cleared!')
-    console.log('Development: Language preference cleared')
-  }
-
-  const handleClearAllCache = () => {
-    const demoQrCode = 'DEMO123'
-    clearVerification(demoQrCode)
-    clearSecurityData(demoQrCode)
-    clearLanguagePreference()
-    alert('All caches cleared! (PIN verification, security data for DEMO123, and language preference)')
-    console.log('Development: All caches cleared - PIN verification, security data, and language preference')
-  }
-
-  const handleViewSecurityLog = () => {
-    const activities = getSuspiciousActivities()
-    const logData = activities.map(activity =>
-      `${new Date(activity.timestamp).toISOString()} - ${activity.type} - QR: ${activity.qrCode || 'N/A'} - Pet: ${activity.petId || 'N/A'}`
-    ).join('\n')
-
-    const message = activities.length > 0
-      ? `Security Activities (${activities.length} entries):\n\n${logData}`
-      : 'No suspicious activities recorded'
-
-    alert(message)
-  }
-
-  const handleExportSecurityLog = () => {
-    const logData = exportSecurityLog()
-    const blob = new Blob([logData], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `security-log-${new Date().toISOString().split('T')[0]}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    alert('Security log exported successfully!')
-  }
-
-  const handleLogout = async () => {
-    try {
-      await authService.logout()
-      alert('Logged out successfully!')
-      console.log('Development: User logged out')
-      // Navigate back to landing page
-      navigate('/')
-    } catch (error) {
-      console.error('Logout error:', error)
-      alert('Logout failed. Check console for details.')
-    }
-  }
 
   if (isLoading) {
     return (
@@ -1386,75 +1312,6 @@ const PetDisplayPage: React.FC = () => {
           </div>
         </button>
 
-      </div>
-
-      {/* Development Tools - Clean & Bottom */}
-      <div className="mt-8 p-5 bg-gradient-to-br from-gray-50/90 to-gray-100/50 dark:from-gray-800/90 dark:to-gray-700/50 rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-sm hover:shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-gradient-to-br hover:from-gray-100/90 hover:to-gray-50/70 dark:hover:from-gray-700/90 dark:hover:to-gray-600/50">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-r from-orange-500 to-red-500 rounded-full">
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-          </div>
-          <span className="text-gray-700 dark:text-gray-300 text-sm font-semibold tracking-wide">Development Tools</span>
-          <div className="flex-1 h-px bg-gradient-to-r from-gray-300 to-transparent dark:from-gray-600"></div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleClearPinCache}
-            className="flex items-center gap-2 px-3 py-2 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900 dark:hover:bg-orange-800 text-orange-800 dark:text-orange-200 text-sm rounded-md transition-colors"
-            title="Clear PIN verification cache"
-          >
-            <Trash2 className="w-3 h-3" />
-            Clear PIN
-          </button>
-          <button
-            onClick={handleClearSecurityData}
-            className="flex items-center gap-2 px-3 py-2 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900 dark:hover:bg-yellow-800 text-yellow-800 dark:text-yellow-200 text-sm rounded-md transition-colors"
-            title="Clear security data (attempts, cooldowns, blocks)"
-          >
-            <Trash2 className="w-3 h-3" />
-            Clear Security
-          </button>
-          <button
-            onClick={handleClearLanguageCache}
-            className="flex items-center gap-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-800 dark:text-blue-200 text-sm rounded-md transition-colors"
-            title="Clear language preference"
-          >
-            <Globe className="w-3 h-3" />
-            Clear Lang
-          </button>
-          <button
-            onClick={handleClearAllCache}
-            className="flex items-center gap-2 px-3 py-2 bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 text-red-800 dark:text-red-200 text-sm rounded-md transition-colors"
-            title="Clear all caches"
-          >
-            <Trash2 className="w-3 h-3" />
-            Clear All
-          </button>
-          <button
-            onClick={handleViewSecurityLog}
-            className="flex items-center gap-2 px-3 py-2 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900 dark:hover:bg-purple-800 text-purple-800 dark:text-purple-200 text-sm rounded-md transition-colors"
-            title="View security activities log"
-          >
-            <Shield className="w-3 h-3" />
-            Security Log
-          </button>
-          <button
-            onClick={handleExportSecurityLog}
-            className="flex items-center gap-2 px-3 py-2 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900 dark:hover:bg-indigo-800 text-indigo-800 dark:text-indigo-200 text-sm rounded-md transition-colors"
-            title="Export security log as JSON"
-          >
-            <Download className="w-3 h-3" />
-            Export Log
-          </button>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md transition-colors"
-            title="Logout current user"
-          >
-            <RefreshCw className="w-3 h-3" />
-            Logout
-          </button>
-        </div>
       </div>
 
       {/* Fullscreen Image Gallery Modal */}

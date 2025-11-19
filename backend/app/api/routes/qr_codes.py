@@ -70,6 +70,25 @@ async def create_qr_code(
         )
 
 
+@router.get("/available", response_model=List[QRCodeResponse])
+async def get_available_qr_codes(
+    current_user: User = Depends(get_current_user),
+    qr_service: QRCodeService = Depends(get_qr_service),
+):
+    """
+    Get available (unassigned) QR codes for the current user.
+
+    Args:
+        current_user: Current authenticated user
+        qr_service: QR code service instance
+
+    Returns:
+        List[QRCodeResponse]: List of available QR codes
+    """
+    qr_codes = qr_service.get_unassigned_qr_codes(owner_id=current_user.id)
+    return [QRCodeResponse.from_orm(qr) for qr in qr_codes]
+
+
 @router.get("/", response_model=List[QRCodeResponse])
 async def get_qr_codes(
     skip: int = Query(0, ge=0, description="Number of records to skip"),

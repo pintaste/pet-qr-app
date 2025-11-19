@@ -90,14 +90,18 @@ class QRService {
     status?: string
     batch_name?: string
   }): Promise<QRCode[]> {
-    const queryParams: Record<string, string> = {}
+    const queryParams: Record<string, any> = {}
 
-    if (params?.skip !== undefined) queryParams.skip = params.skip.toString()
-    if (params?.limit !== undefined) queryParams.limit = params.limit.toString()
+    if (params?.skip !== undefined) queryParams.skip = params.skip
+    if (params?.limit !== undefined) queryParams.limit = params.limit
     if (params?.status) queryParams.status = params.status
     if (params?.batch_name) queryParams.batch_name = params.batch_name
 
-    return await apiClient.get<QRCode[]>('/api/qr', queryParams)
+    return await apiClient.get<QRCode[]>('/api/v1/qr-codes', { params: queryParams })
+  }
+
+  async getAvailableQRCodes(): Promise<QRCode[]> {
+    return await apiClient.get<QRCode[]>('/api/v1/qr-codes/available')
   }
 
   async getQRCode(qrCodeId: number): Promise<QRCode> {
