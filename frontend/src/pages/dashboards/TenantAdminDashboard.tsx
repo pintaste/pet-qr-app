@@ -1,4 +1,18 @@
-import React from 'react'
+import React, { useState } from 'react'
+import {
+  LayoutDashboard,
+  Users,
+  PawPrint,
+  QrCode,
+  BarChart3,
+  Settings,
+  HelpCircle,
+  UserCog,
+} from 'lucide-react'
+import { containerStyles } from '@/styles/containers'
+import Header from '@/components/Header'
+
+type TenantAdminTab = 'overview' | 'users' | 'pets' | 'qrcodes' | 'analytics' | 'settings' | 'support' | 'impersonate'
 
 /**
  * Tenant Admin Dashboard
@@ -6,22 +20,389 @@ import React from 'react'
  * For pet store owners to manage their store, users, and QR inventory.
  */
 const TenantAdminDashboard: React.FC = () => {
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border-2 border-purple-200 dark:border-purple-700">
-          <h1 className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-4">
-            Tenant Admin Dashboard
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Store management interface for pet store owners.
-          </p>
-          <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
-            <p className="text-sm text-purple-700 dark:text-purple-300">
-              🔧 This dashboard is under construction. Full features coming soon!
+  const [activeTab, setActiveTab] = useState<TenantAdminTab>('overview')
+
+  const tabs = [
+    { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
+    { id: 'users' as const, label: 'Users', icon: Users },
+    { id: 'pets' as const, label: 'Pets', icon: PawPrint },
+    { id: 'qrcodes' as const, label: 'QR Codes', icon: QrCode },
+    { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
+    { id: 'settings' as const, label: 'Settings', icon: Settings },
+    { id: 'support' as const, label: 'Support', icon: HelpCircle },
+    { id: 'impersonate' as const, label: 'Impersonate', icon: UserCog },
+  ]
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'overview':
+        return (
+          <div className="space-y-6">
+            {/* Store Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-purple-200 dark:border-purple-700">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Users</h3>
+                  <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">0</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Customers in your store</p>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-700">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Pets</h3>
+                  <PawPrint className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">0</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Registered in your store</p>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-indigo-200 dark:border-indigo-700">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">QR Codes Assigned</h3>
+                  <QrCode className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">0</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Available for distribution</p>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-green-200 dark:border-green-700">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Scans</h3>
+                  <BarChart3 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                </div>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">0</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">From your store</p>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-gray-200 dark:border-gray-700">
+              <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4">
+                Quick Actions
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <button
+                  onClick={() => setActiveTab('users')}
+                  className="flex flex-col items-center gap-2 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
+                >
+                  <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Manage Users</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('pets')}
+                  className="flex flex-col items-center gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                >
+                  <PawPrint className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">View Pets</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('qrcodes')}
+                  className="flex flex-col items-center gap-2 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors"
+                >
+                  <QrCode className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">QR Inventory</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('analytics')}
+                  className="flex flex-col items-center gap-2 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                >
+                  <BarChart3 className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">View Analytics</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-gray-200 dark:border-gray-700">
+              <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4">
+                Recent Store Activity
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+                No recent activity to display
+              </p>
+            </div>
+          </div>
+        )
+
+      case 'users':
+        return (
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-purple-200 dark:border-purple-700">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Store Users</h2>
+              <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
+                + Add User
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+              No users in your store yet. Users will appear here when customers register.
             </p>
           </div>
+        )
+
+      case 'pets':
+        return (
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-700">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">All Pets</h2>
+              <div className="flex gap-2">
+                <select className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">
+                  <option>All Breeds</option>
+                  <option>Dog</option>
+                  <option>Cat</option>
+                </select>
+                <input
+                  type="text"
+                  placeholder="Search pets..."
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+              No pets registered yet. Pets from your store's users will appear here.
+            </p>
+          </div>
+        )
+
+      case 'qrcodes':
+        return (
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-indigo-200 dark:border-indigo-700">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">QR Code Inventory</h2>
+            </div>
+
+            {/* QR Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Total Assigned</p>
+                <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">0</p>
+              </div>
+              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Activated</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">0</p>
+              </div>
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">In Use</p>
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">0</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-700/20 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Available</p>
+                <p className="text-2xl font-bold text-gray-600 dark:text-gray-400">0</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+              No QR codes assigned to your store yet. Contact support to request QR codes.
+            </p>
+          </div>
+        )
+
+      case 'analytics':
+        return (
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-green-200 dark:border-green-700">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Store Analytics</h2>
+
+            <div className="space-y-4 mb-6">
+              <div className="flex gap-2">
+                <button className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium text-sm">
+                  Last 7 Days
+                </button>
+                <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm">
+                  Last 30 Days
+                </button>
+                <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm">
+                  Last 90 Days
+                </button>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+              Analytics charts will be displayed here (real-time data with 30s polling)
+            </p>
+          </div>
+        )
+
+      case 'settings':
+        return (
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-gray-200 dark:border-gray-700">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Store Settings</h2>
+
+            <div className="max-w-2xl space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Store Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="My Pet Store"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Subdomain
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="mystore"
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                  <span className="text-gray-500 dark:text-gray-400">.petqr.app</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Branding Color
+                </label>
+                <input
+                  type="color"
+                  defaultValue="#8B5CF6"
+                  className="w-full h-12 rounded-lg border border-gray-300 dark:border-gray-600"
+                />
+              </div>
+
+              <button className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
+                Save Settings
+              </button>
+            </div>
+          </div>
+        )
+
+      case 'support':
+        return (
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-orange-200 dark:border-orange-700">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Support Tickets</h2>
+              <button className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors">
+                + New Ticket
+              </button>
+            </div>
+
+            <div className="flex gap-2 mb-6">
+              <button className="px-4 py-2 bg-orange-600 text-white rounded-lg font-medium text-sm">
+                All
+              </button>
+              <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm">
+                Open
+              </button>
+              <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm">
+                In Progress
+              </button>
+              <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm">
+                Closed
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+              No support tickets. Create a new ticket if you need help.
+            </p>
+          </div>
+        )
+
+      case 'impersonate':
+        return (
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-red-200 dark:border-red-700">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Impersonate User</h2>
+
+            <div className="max-w-2xl space-y-4">
+              <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-700">
+                <p className="text-sm text-red-800 dark:text-red-300">
+                  ⚠️ Warning: You can only impersonate users in your store. All actions will be logged.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Search User by Email
+                </label>
+                <input
+                  type="email"
+                  placeholder="customer@example.com"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <button className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors">
+                Start Impersonation
+              </button>
+            </div>
+          </div>
+        )
+
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Header */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className={containerStyles.extraWide}>
+          <Header variant="default" showAuthButton={true} />
         </div>
+      </div>
+
+      {/* Dashboard Navigation */}
+      <div className="bg-white dark:bg-gray-800 border-b border-purple-200 dark:border-purple-700">
+        <div className={`${containerStyles.extraWide} py-4`}>
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex gap-1 overflow-x-auto">
+            {tabs.map((tab) => {
+              const Icon = tab.icon
+              const isActive = activeTab === tab.id
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all duration-300 whitespace-nowrap ${
+                    isActive
+                      ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-2 border-purple-500'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 border-2 border-transparent'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="text-sm font-medium">{tab.label}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Mobile Navigation */}
+          <div className="md:hidden overflow-x-auto hide-scrollbar -mx-4 px-4">
+            <div className="flex gap-2 pb-1">
+              {tabs.map((tab) => {
+                const Icon = tab.icon
+                const isActive = activeTab === tab.id
+
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-300 flex-shrink-0 ${
+                      isActive
+                        ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-2 border-purple-500'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 border-2 border-transparent'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="text-xs font-medium whitespace-nowrap">{tab.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className={`${containerStyles.extraWide} py-6`}>
+        {renderContent()}
       </div>
     </div>
   )
