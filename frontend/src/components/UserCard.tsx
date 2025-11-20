@@ -1,12 +1,11 @@
 import React from 'react'
-import { User, Shield, ShieldCheck, Calendar, Edit, Trash2, Building2, CheckCircle, XCircle, Key } from 'lucide-react'
+import { User, Shield, ShieldCheck, Calendar, Edit, Building2, CheckCircle, XCircle, LogIn } from 'lucide-react'
 import type { PlatformUser } from '@/services/superAdminService'
 
 interface UserCardProps {
   user: PlatformUser
   onEdit?: (user: PlatformUser) => void
-  onDelete?: (user: PlatformUser) => void
-  onResetPassword?: (user: PlatformUser) => void
+  onImpersonate?: (user: PlatformUser) => void
 }
 
 /**
@@ -17,8 +16,7 @@ interface UserCardProps {
 export const UserCard: React.FC<UserCardProps> = ({
   user,
   onEdit,
-  onDelete,
-  onResetPassword,
+  onImpersonate,
 }) => {
   // Format created date
   const createdDate = new Date(user.created_at).toLocaleDateString('en-US', {
@@ -131,23 +129,14 @@ export const UserCard: React.FC<UserCardProps> = ({
             </button>
           )}
 
-          {onResetPassword && (
+          {/* Only show Impersonate for non-super_admin users */}
+          {onImpersonate && user.role !== 'super_admin' && (
             <button
-              onClick={() => onResetPassword(user)}
-              className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-400 rounded-lg transition-colors text-xs font-medium"
-              title="Reset Password"
+              onClick={() => onImpersonate(user)}
+              className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-orange-100 dark:bg-orange-900/30 hover:bg-orange-200 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-400 rounded-lg transition-colors text-xs font-medium"
+              title="Impersonate User"
             >
-              <Key className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          {onDelete && (
-            <button
-              onClick={() => onDelete(user)}
-              className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 rounded-lg transition-colors text-xs font-medium"
-              title="Delete User"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
+              <LogIn className="w-3.5 h-3.5" />
             </button>
           )}
         </div>

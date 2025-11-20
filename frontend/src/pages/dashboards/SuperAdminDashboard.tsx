@@ -4,6 +4,7 @@ import {
   Building2,
   QrCode,
   Users,
+  User,
   UserCog,
   BarChart3,
   Settings,
@@ -24,6 +25,8 @@ import {
   Globe,
   LogIn,
   Clock,
+  PawPrint,
+  Key,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { containerStyles } from '@/styles/containers'
@@ -46,7 +49,7 @@ import { ResetPasswordModal } from '@/components/ResetPasswordModal'
 import QRCodeLib from 'qrcode'
 import JSZip from 'jszip'
 
-type SuperAdminTab = 'overview' | 'tenants' | 'qr-factory' | 'users' | 'impersonate' | 'analytics' | 'settings' | 'billing'
+type SuperAdminTab = 'overview' | 'tenants' | 'users' | 'qr-factory' | 'analytics' | 'subscriptions' | 'settings'
 
 /**
  * Super Admin Dashboard
@@ -98,6 +101,7 @@ const SuperAdminDashboard: React.FC = () => {
   const [qrStatusFilter, setQrStatusFilter] = useState<string>('')
   const [qrBatchFilter, setQrBatchFilter] = useState<string>('')
   const [qrTenantFilter, setQrTenantFilter] = useState<string>('')
+  const [qrAssignmentFilter, setQrAssignmentFilter] = useState<string>('')
   const [selectedQR, setSelectedQR] = useState<QRCodeData | null>(null)
   const [isViewQRModalOpen, setIsViewQRModalOpen] = useState(false)
   const [isDeleteQRModalOpen, setIsDeleteQRModalOpen] = useState(false)
@@ -256,6 +260,41 @@ const SuperAdminDashboard: React.FC = () => {
   const handleResetPassword = (user: PlatformUser) => {
     setSelectedUser(user)
     setIsResetPasswordModalOpen(true)
+  }
+
+  const handleImpersonateUser = async (user: PlatformUser) => {
+    // Can only impersonate tenant_admin or user, not super_admin
+    if (user.role === 'super_admin') {
+      return
+    }
+
+    // For tenant admins and users, we need their tenant
+    if (!user.tenant_id) {
+      return
+    }
+
+    try {
+      // Find the tenant for this user
+      const tenant = tenants.find(t => t.id === user.tenant_id)
+      if (!tenant) {
+        console.error('Tenant not found for user')
+        return
+      }
+
+      // Start impersonation
+      await startImpersonation({
+        userId: user.id,
+        tenantId: tenant.id,
+        tenantName: tenant.name,
+        userEmail: user.email,
+        userRole: user.role,
+      })
+
+      // Navigate to tenant dashboard
+      navigate('/dashboard')
+    } catch (err) {
+      console.error('Failed to impersonate user:', err)
+    }
   }
 
   const handleUserSuccess = async () => {
@@ -667,18 +706,20 @@ const SuperAdminDashboard: React.FC = () => {
       qr.batch_id?.toLowerCase().includes(qrSearchQuery.toLowerCase())
     const matchesStatus = !qrStatusFilter || qr.status.toLowerCase() === qrStatusFilter.toLowerCase()
     const matchesBatch = !qrBatchFilter || qr.batch_id === qrBatchFilter
-    return matchesSearch && matchesStatus && matchesBatch
+    const matchesAssignment = !qrAssignmentFilter ||
+      (qrAssignmentFilter === 'assigned' && qr.pet_id) ||
+      (qrAssignmentFilter === 'unassigned' && !qr.pet_id)
+    return matchesSearch && matchesStatus && matchesBatch && matchesAssignment
   })
 
   const tabs = [
-    { id: 'overview' as const, label: 'Platform Overview', icon: LayoutDashboard },
-    { id: 'tenants' as const, label: 'Tenants', icon: Building2 },
-    { id: 'users' as const, label: 'Users', icon: Users },
+    { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
+    { id: 'tenants' as const, label: 'Tenants', icon: Building2, count: tenants.length },
+    { id: 'users' as const, label: 'Users', icon: Users, count: users.length },
     { id: 'qr-factory' as const, label: 'QR Factory', icon: QrCode },
-    { id: 'impersonate' as const, label: 'Impersonate', icon: UserCog },
     { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
+    { id: 'subscriptions' as const, label: 'Subscriptions', icon: CreditCard },
     { id: 'settings' as const, label: 'Settings', icon: Settings },
-    { id: 'billing' as const, label: 'Billing', icon: CreditCard },
   ]
 
   const renderContent = () => {
@@ -770,12 +811,109 @@ const SuperAdminDashboard: React.FC = () => {
 
             {/* Platform Activity */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-gray-200 dark:border-gray-700">
-              <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4">
-                Recent Platform Activity
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-                No recent activity to display
-              </p>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  Recent Platform Activity
+                </h2>
+                <button className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium">
+                  View All →
+                </button>
+              </div>
+              {/* Activity Filters */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                <button className="px-3 py-1.5 text-xs font-medium rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700">
+                  All
+                </button>
+                <button className="px-3 py-1.5 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                  Tenants
+                </button>
+                <button className="px-3 py-1.5 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                  Users
+                </button>
+                <button className="px-3 py-1.5 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                  QR Codes
+                </button>
+                <button className="px-3 py-1.5 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                  Pets
+                </button>
+                <button className="px-3 py-1.5 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                  Security
+                </button>
+              </div>
+              <div className="space-y-3">
+                {/* Fake activity data */}
+                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                  <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+                    <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900 dark:text-white">
+                      New tenant <span className="font-semibold">Happy Paws Clinic</span> registered
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">5 minutes ago</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                  <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900 dark:text-white">
+                      User <span className="font-semibold">john@petcare.com</span> created account
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">12 minutes ago</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                  <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                    <QrCode className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900 dark:text-white">
+                      QR code <span className="font-semibold">PQR-7X9K2M</span> scanned in Vancouver, BC
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">28 minutes ago</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                  <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                    <Key className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900 dark:text-white">
+                      Password reset for <span className="font-semibold">admin@vetclinic.com</span>
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">1 hour ago</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                  <div className="p-1.5 bg-pink-100 dark:bg-pink-900/30 rounded-lg">
+                    <PawPrint className="w-4 h-4 text-pink-600 dark:text-pink-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900 dark:text-white">
+                      Pet <span className="font-semibold">Buddy</span> profile updated by owner
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">2 hours ago</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                  <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <CreditCard className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900 dark:text-white">
+                      <span className="font-semibold">PetSmart Downtown</span> upgraded to Premium plan
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">3 hours ago</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )
@@ -851,7 +989,6 @@ const SuperAdminDashboard: React.FC = () => {
                     key={tenant.id}
                     tenant={tenant}
                     onEdit={handleEditTenant}
-                    onDelete={handleDeleteTenant}
                     onImpersonate={handleImpersonateTenant}
                   />
                 ))}
@@ -943,13 +1080,6 @@ const SuperAdminDashboard: React.FC = () => {
                               title={`Edit ${tenant.name}`}
                             >
                               <Settings className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteTenant(tenant)}
-                              className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded transition-colors"
-                              title={`Delete ${tenant.name}`}
-                            >
-                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
@@ -1053,17 +1183,37 @@ const SuperAdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Stats Cards */}
+            {/* Stats Cards - Clickable to filter */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-indigo-200 dark:border-indigo-700">
+              <button
+                onClick={() => {
+                  setQrStatusFilter('')
+                  setQrAssignmentFilter('')
+                }}
+                className={`bg-white dark:bg-gray-800 rounded-xl p-6 border-2 transition-all hover:shadow-lg text-left ${
+                  !qrStatusFilter && !qrAssignmentFilter
+                    ? 'border-indigo-500 dark:border-indigo-500 ring-2 ring-indigo-200 dark:ring-indigo-800'
+                    : 'border-indigo-200 dark:border-indigo-700 hover:border-indigo-400 dark:hover:border-indigo-500'
+                }`}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Generated</h3>
                   <QrCode className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 </div>
                 <p className="text-3xl font-bold text-gray-900 dark:text-white">{qrCodes.length}</p>
-              </div>
+              </button>
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-green-200 dark:border-green-700">
+              <button
+                onClick={() => {
+                  setQrStatusFilter('active')
+                  setQrAssignmentFilter('')
+                }}
+                className={`bg-white dark:bg-gray-800 rounded-xl p-6 border-2 transition-all hover:shadow-lg text-left ${
+                  qrStatusFilter === 'active' && !qrAssignmentFilter
+                    ? 'border-green-500 dark:border-green-500 ring-2 ring-green-200 dark:ring-green-800'
+                    : 'border-green-200 dark:border-green-700 hover:border-green-400 dark:hover:border-green-500'
+                }`}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Active</h3>
                   <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -1071,9 +1221,19 @@ const SuperAdminDashboard: React.FC = () => {
                 <p className="text-3xl font-bold text-gray-900 dark:text-white">
                   {qrCodes.filter(qr => qr.status === 'active').length}
                 </p>
-              </div>
+              </button>
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-700">
+              <button
+                onClick={() => {
+                  setQrStatusFilter('')
+                  setQrAssignmentFilter('assigned')
+                }}
+                className={`bg-white dark:bg-gray-800 rounded-xl p-6 border-2 transition-all hover:shadow-lg text-left ${
+                  qrAssignmentFilter === 'assigned'
+                    ? 'border-blue-500 dark:border-blue-500 ring-2 ring-blue-200 dark:ring-blue-800'
+                    : 'border-blue-200 dark:border-blue-700 hover:border-blue-400 dark:hover:border-blue-500'
+                }`}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Assigned to Pets</h3>
                   <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -1081,9 +1241,19 @@ const SuperAdminDashboard: React.FC = () => {
                 <p className="text-3xl font-bold text-gray-900 dark:text-white">
                   {qrCodes.filter(qr => qr.pet_id).length}
                 </p>
-              </div>
+              </button>
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => {
+                  setQrStatusFilter('')
+                  setQrAssignmentFilter('unassigned')
+                }}
+                className={`bg-white dark:bg-gray-800 rounded-xl p-6 border-2 transition-all hover:shadow-lg text-left ${
+                  qrAssignmentFilter === 'unassigned'
+                    ? 'border-gray-500 dark:border-gray-500 ring-2 ring-gray-200 dark:ring-gray-600'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
+                }`}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Unassigned</h3>
                   <QrCode className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -1091,7 +1261,7 @@ const SuperAdminDashboard: React.FC = () => {
                 <p className="text-3xl font-bold text-gray-900 dark:text-white">
                   {qrCodes.filter(qr => !qr.pet_id).length}
                 </p>
-              </div>
+              </button>
             </div>
 
             {/* Filters */}
@@ -1154,10 +1324,23 @@ const SuperAdminDashboard: React.FC = () => {
                     ))}
                   </select>
                 </div>
+
+                {/* Assignment Filter */}
+                <div className="md:w-44">
+                  <select
+                    value={qrAssignmentFilter}
+                    onChange={(e) => setQrAssignmentFilter(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="">All Assignment</option>
+                    <option value="assigned">Assigned</option>
+                    <option value="unassigned">Unassigned</option>
+                  </select>
+                </div>
               </div>
 
               {/* Active Filters Summary */}
-              {(qrSearchQuery || qrStatusFilter || qrBatchFilter || qrTenantFilter) && (
+              {(qrSearchQuery || qrStatusFilter || qrBatchFilter || qrTenantFilter || qrAssignmentFilter) && (
                 <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <Filter className="w-4 h-4 text-gray-400" />
                   <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -1169,6 +1352,7 @@ const SuperAdminDashboard: React.FC = () => {
                       setQrStatusFilter('')
                       setQrBatchFilter('')
                       setQrTenantFilter('')
+                      setQrAssignmentFilter('')
                     }}
                     className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline ml-auto"
                   >
@@ -1362,7 +1546,7 @@ const SuperAdminDashboard: React.FC = () => {
                   className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors"
                 >
                   <Plus className="w-5 h-5" />
-                  Create Admin
+                  Create User
                 </button>
               </div>
             </div>
@@ -1464,7 +1648,7 @@ const SuperAdminDashboard: React.FC = () => {
                 <p className="text-gray-500 dark:text-gray-400 mb-6">
                   {userSearchQuery || userRoleFilter || userTenantFilter
                     ? 'Try adjusting your search or filters'
-                    : 'Click "Create Admin" to add a Super Admin or Tenant Admin'}
+                    : 'Click "Create User" to add a Super Admin or Tenant Admin'}
                 </p>
                 {!userSearchQuery && !userRoleFilter && !userTenantFilter && (
                   <button
@@ -1472,7 +1656,7 @@ const SuperAdminDashboard: React.FC = () => {
                     className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors"
                   >
                     <Plus className="w-5 h-5" />
-                    Create Admin
+                    Create User
                   </button>
                 )}
               </div>
@@ -1483,8 +1667,7 @@ const SuperAdminDashboard: React.FC = () => {
                     key={user.id}
                     user={user}
                     onEdit={handleEditUser}
-                    onDelete={handleDeleteUser}
-                    onResetPassword={handleResetPassword}
+                    onImpersonate={handleImpersonateUser}
                   />
                 ))}
               </div>
@@ -1540,26 +1723,21 @@ const SuperAdminDashboard: React.FC = () => {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center justify-end gap-1">
+                            {user.role !== 'super_admin' && (
+                              <button
+                                onClick={() => handleImpersonateUser(user)}
+                                className="p-1.5 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded transition-colors"
+                                title={`Impersonate ${user.email}`}
+                              >
+                                <LogIn className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleEditUser(user)}
                               className="p-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded transition-colors"
-                              title="Edit"
-                            >
-                              <UserCog className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleResetPassword(user)}
-                              className="p-1.5 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded transition-colors"
-                              title="Reset Password"
+                              title={`Edit ${user.email}`}
                             >
                               <Settings className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteUser(user)}
-                              className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
@@ -1578,28 +1756,6 @@ const SuperAdminDashboard: React.FC = () => {
                 </p>
               </div>
             )}
-          </div>
-        )
-
-      case 'impersonate':
-        return (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-orange-200 dark:border-orange-700">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">User Impersonation</h2>
-            <div className="max-w-2xl space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Search User by Email
-                </label>
-                <input
-                  type="email"
-                  placeholder="user@example.com"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Search for a user to impersonate. All actions will be logged for audit purposes.
-              </p>
-            </div>
           </div>
         )
 
@@ -1623,12 +1779,12 @@ const SuperAdminDashboard: React.FC = () => {
           </div>
         )
 
-      case 'billing':
+      case 'subscriptions':
         return (
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-green-200 dark:border-green-700">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Billing & Subscriptions</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Subscriptions</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Billing features will be implemented in a future phase
+              Subscription management and billing features will be implemented in a future phase
             </p>
           </div>
         )
@@ -1668,6 +1824,15 @@ const SuperAdminDashboard: React.FC = () => {
                 >
                   <Icon className="w-4 h-4" />
                   <span className="text-sm font-medium">{tab.label}</span>
+                  {tab.count !== undefined && tab.count > 0 && (
+                    <span className={`px-1.5 py-0.5 text-xs rounded-full ${
+                      isActive
+                        ? 'bg-emerald-200 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
+                    }`}>
+                      {tab.count}
+                    </span>
+                  )}
                 </button>
               )
             })}
@@ -1727,6 +1892,11 @@ const SuperAdminDashboard: React.FC = () => {
           setSelectedTenant(null)
         }}
         onSuccess={handleTenantSuccess}
+        onDelete={() => {
+          setIsEditTenantModalOpen(false)
+          setSelectedTenant(null)
+          handleTenantSuccess()
+        }}
       />
 
       <DeleteTenantModal
@@ -1754,6 +1924,11 @@ const SuperAdminDashboard: React.FC = () => {
           setSelectedUser(null)
         }}
         onSuccess={handleUserSuccess}
+        onDelete={() => {
+          setIsEditUserModalOpen(false)
+          setSelectedUser(null)
+          handleUserSuccess()
+        }}
       />
 
       <DeleteUserModal

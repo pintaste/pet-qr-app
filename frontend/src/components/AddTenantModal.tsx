@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, Building2, Loader2, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react'
+import { X, Building2, Loader2, AlertCircle, CheckCircle, Eye, EyeOff, RefreshCw } from 'lucide-react'
 import { superAdminService, type CreateTenantRequest } from '@/services/superAdminService'
 
 interface AddTenantModalProps {
@@ -30,6 +30,31 @@ export const AddTenantModal: React.FC<AddTenantModalProps> = ({
   const [success, setSuccess] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [confirmPassword, setConfirmPassword] = useState('')
+
+  // Generate strong password
+  const generateStrongPassword = () => {
+    const length = 12
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz'
+    const numbers = '0123456789'
+    const symbols = '!@#$%^&*'
+    const allChars = uppercase + lowercase + numbers + symbols
+
+    let password = ''
+    password += uppercase[Math.floor(Math.random() * uppercase.length)]
+    password += lowercase[Math.floor(Math.random() * lowercase.length)]
+    password += numbers[Math.floor(Math.random() * numbers.length)]
+    password += symbols[Math.floor(Math.random() * symbols.length)]
+
+    for (let i = 4; i < length; i++) {
+      password += allChars[Math.floor(Math.random() * allChars.length)]
+    }
+
+    password = password.split('').sort(() => Math.random() - 0.5).join('')
+    setFormData({ ...formData, admin_password: password })
+    setConfirmPassword(password)
+    setShowPassword(true)
+  }
 
   const handleSubmit = async () => {
     // Validation
@@ -77,6 +102,7 @@ export const AddTenantModal: React.FC<AddTenantModalProps> = ({
       await superAdminService.createTenant(formData)
 
       setSuccess(true)
+      setIsCreating(false)
 
       // Show success message briefly, then close
       setTimeout(() => {
@@ -266,26 +292,43 @@ export const AddTenantModal: React.FC<AddTenantModalProps> = ({
                     onChange={(e) => setFormData({ ...formData, admin_password: e.target.value })}
                     onKeyPress={handleKeyPress}
                     disabled={isCreating}
-                    className="w-full px-4 py-2.5 pr-12 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-2.5 pr-24 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="Minimum 8 characters"
                     minLength={8}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    disabled={isCreating}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                    ) : (
-                      <Eye className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                    )}
-                  </button>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPassword(!showPassword)
+                        // Clear confirm password when showing password (no longer needed)
+                        if (!showPassword) {
+                          setConfirmPassword('')
+                        }
+                      }}
+                      disabled={isCreating}
+                      className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors disabled:opacity-50"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      ) : (
+                        <Eye className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={generateStrongPassword}
+                      disabled={isCreating}
+                      className="p-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded transition-colors disabled:opacity-50"
+                      title="Generate strong password"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Minimum 8 characters required
+                  Click the refresh icon to auto-generate a strong password
                 </p>
               </div>
 

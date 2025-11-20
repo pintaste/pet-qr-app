@@ -1,11 +1,10 @@
 import React from 'react'
-import { Building2, Calendar, Trash2, Globe, CheckCircle, XCircle, Crown, Star, Clock, AlertTriangle, LogIn, Settings, Users } from 'lucide-react'
+import { Building2, Calendar, Globe, CheckCircle, XCircle, Crown, Star, Clock, AlertTriangle, LogIn, Settings, Users } from 'lucide-react'
 import type { Tenant } from '@/services/superAdminService'
 
 interface TenantCardProps {
   tenant: Tenant
   onEdit?: (tenant: Tenant) => void
-  onDelete?: (tenant: Tenant) => void
   onImpersonate?: (tenant: Tenant) => void
   onClick?: (tenant: Tenant) => void
 }
@@ -18,7 +17,6 @@ interface TenantCardProps {
 export const TenantCard: React.FC<TenantCardProps> = ({
   tenant,
   onEdit,
-  onDelete,
   onImpersonate,
   onClick,
 }) => {
@@ -217,19 +215,6 @@ export const TenantCard: React.FC<TenantCardProps> = ({
               title="Edit Tenant"
             >
               <Settings className="w-4 h-4" />
-            </button>
-          )}
-
-          {onDelete && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete(tenant)
-              }}
-              className="flex items-center justify-center gap-2 px-3 py-2 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 rounded-lg transition-colors duration-200 text-sm font-medium"
-              title="Delete Tenant"
-            >
-              <Trash2 className="w-4 h-4" />
             </button>
           )}
         </div>

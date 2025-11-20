@@ -52,12 +52,30 @@ async def list_all_tenants(
     statement = select(Tenant)
     tenants = db.exec(statement).all()
 
+    from sqlalchemy import text
+
     result = []
     for tenant in tenants:
         # Count users in this tenant
-        user_count = len(
-            db.exec(select(User).where(User.tenant_id == tenant.id)).all()
-        )
+        users = db.exec(select(User).where(User.tenant_id == tenant.id)).all()
+        user_count = len(users)
+        admin_count = len([u for u in users if u.role == UserRole.TENANT_ADMIN])
+
+        # Count pets and QR codes from tenant schema
+        pet_count = 0
+        qr_count = 0
+        scan_count = 0
+        try:
+            schema_name = f"tenant_{tenant.subdomain}"
+            pet_result = db.exec(text(f"SELECT COUNT(*) FROM {schema_name}.pets")).first()
+            qr_result = db.exec(text(f"SELECT COUNT(*) FROM {schema_name}.qr_codes")).first()
+            scan_result = db.exec(text(f"SELECT COUNT(*) FROM {schema_name}.pet_scan_logs")).first()
+            pet_count = pet_result[0] if pet_result else 0
+            qr_count = qr_result[0] if qr_result else 0
+            scan_count = scan_result[0] if scan_result else 0
+        except Exception:
+            # Schema might not exist yet or tables not created
+            pass
 
         result.append({
             "id": tenant.id,
@@ -69,6 +87,10 @@ async def list_all_tenants(
             "subscription_expires_at": tenant.subscription_expires_at.isoformat() if tenant.subscription_expires_at else None,
             "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
             "user_count": user_count,
+            "admin_count": admin_count,
+            "pet_count": pet_count,
+            "qr_count": qr_count,
+            "scan_count": scan_count,
         })
 
     return result
@@ -536,11 +558,11 @@ async def create_user(
     """
     from app.core.security import get_password_hash
 
-    # Super Admin can only create super_admin and tenant_admin
-    if user_data.role not in ['super_admin', 'tenant_admin']:
+    # Validate role
+    if user_data.role not in ['super_admin', 'tenant_admin', 'user']:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Super Admin can only create super_admin and tenant_admin roles. Regular users should be created by their Tenant Admin.",
+            detail="Invalid role. Must be super_admin, tenant_admin, or user.",
         )
 
     # Check if email already exists
@@ -751,7 +773,7 @@ async def reset_user_password(
 
     # Hash and update password
     from app.core.security import get_password_hash
-    user.hashed_password = get_password_hash(password_data.new_password)
+    user.password_hash = get_password_hash(password_data.new_password)
     db.add(user)
     db.commit()
 

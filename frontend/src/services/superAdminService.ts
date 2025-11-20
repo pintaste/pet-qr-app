@@ -16,6 +16,10 @@ export interface Tenant {
   subscription_expires_at: string | null
   created_at: string
   user_count?: number
+  admin_count?: number
+  pet_count?: number
+  qr_count?: number
+  scan_count?: number
 }
 
 export interface PlatformStats {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, Key, Loader2, AlertCircle, CheckCircle, Eye, EyeOff, User } from 'lucide-react'
+import { X, Key, Loader2, AlertCircle, CheckCircle, Eye, EyeOff, User, RefreshCw, Copy, Check } from 'lucide-react'
 import { superAdminService, type PlatformUser } from '@/services/superAdminService'
 
 interface ResetPasswordModalProps {
@@ -26,6 +26,47 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
   const [isResetting, setIsResetting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [generatedPassword, setGeneratedPassword] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  // Generate strong password
+  const generateStrongPassword = () => {
+    const length = 12
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz'
+    const numbers = '0123456789'
+    const symbols = '!@#$%^&*'
+    const allChars = uppercase + lowercase + numbers + symbols
+
+    let password = ''
+    password += uppercase[Math.floor(Math.random() * uppercase.length)]
+    password += lowercase[Math.floor(Math.random() * lowercase.length)]
+    password += numbers[Math.floor(Math.random() * numbers.length)]
+    password += symbols[Math.floor(Math.random() * symbols.length)]
+
+    for (let i = 4; i < length; i++) {
+      password += allChars[Math.floor(Math.random() * allChars.length)]
+    }
+
+    password = password.split('').sort(() => Math.random() - 0.5).join('')
+    setNewPassword(password)
+    setConfirmPassword(password)
+    setGeneratedPassword(password)
+    setShowPassword(true)
+  }
+
+  // Copy credentials to clipboard
+  const copyCredentials = async () => {
+    if (!user) return
+    const credentials = `Email: ${user.email}\nPassword: ${generatedPassword}`
+    try {
+      await navigator.clipboard.writeText(credentials)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
 
   const handleSubmit = async () => {
     if (!user) return
@@ -49,13 +90,11 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
       console.log('[ResetPasswordModal] Resetting password for user:', user.id)
       await superAdminService.resetUserPassword(user.id, newPassword)
 
+      // Store password for display
+      setGeneratedPassword(newPassword)
       setSuccess(true)
 
-      // Show success message briefly, then close
-      setTimeout(() => {
-        onSuccess()
-        handleClose()
-      }, 1500)
+      // Don't auto-close - let user copy credentials first
     } catch (err) {
       console.error('[ResetPasswordModal] Failed to reset password:', err)
       setError(err instanceof Error ? err.message : 'Failed to reset password')
@@ -70,6 +109,8 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
       setShowPassword(false)
       setError(null)
       setSuccess(false)
+      setGeneratedPassword('')
+      setCopied(false)
       onClose()
     }
   }
@@ -102,18 +143,54 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
 
         {/* Content */}
         <div className="p-6 space-y-4">
-          {/* Success Message */}
+          {/* Success Message with Credentials */}
           {success && (
-            <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-              <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold text-green-800 dark:text-green-300">
-                  Password Reset Successfully!
-                </p>
-                <p className="text-sm text-green-700 dark:text-green-400">
-                  The user can now log in with the new password.
-                </p>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-green-800 dark:text-green-300">
+                    Password Reset Successfully!
+                  </p>
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    Please share these credentials with the user.
+                  </p>
+                </div>
               </div>
+
+              {/* Credentials Display */}
+              <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Email</span>
+                    <p className="font-mono text-sm text-gray-900 dark:text-white">{user?.email}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">New Password</span>
+                    <p className="font-mono text-sm text-gray-900 dark:text-white bg-amber-100 dark:bg-amber-900/30 px-2 py-1 rounded">
+                      {generatedPassword}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Copy Button */}
+              <button
+                onClick={copyCredentials}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 rounded-lg font-medium transition-colors"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Copied to Clipboard!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    Copy Credentials
+                  </>
+                )}
+              </button>
             </div>
           )}
 
@@ -158,25 +235,39 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
                     onChange={(e) => setNewPassword(e.target.value)}
                     onKeyPress={handleKeyPress}
                     disabled={isResetting}
-                    className="w-full px-4 py-2.5 pr-12 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-2.5 pr-24 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="Minimum 8 characters"
                     minLength={8}
                     autoFocus
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    disabled={isResetting}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors disabled:opacity-50"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                    ) : (
-                      <Eye className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                    )}
-                  </button>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      disabled={isResetting}
+                      className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors disabled:opacity-50"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      ) : (
+                        <Eye className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={generateStrongPassword}
+                      disabled={isResetting}
+                      className="p-1.5 hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded transition-colors disabled:opacity-50"
+                      title="Generate strong password"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Click the refresh icon to auto-generate a strong password
+                </p>
               </div>
 
               {/* Confirm Password - only show when password is hidden */}
@@ -238,6 +329,21 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
                   Reset Password
                 </>
               )}
+            </button>
+          </div>
+        )}
+
+        {/* Success Footer */}
+        {success && (
+          <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => {
+                onSuccess()
+                handleClose()
+              }}
+              className="flex-1 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors"
+            >
+              Done
             </button>
           </div>
         )}

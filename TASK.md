@@ -159,6 +159,40 @@
 - [ ] PWA offline functionality
 - [ ] Advanced dashboard features
 
+**Super Admin Dashboard Enhancements:**
+- [ ] **Platform Activity Feed** - Implement activity tracking system:
+  - Create activity_logs table in database
+  - Backend endpoint to fetch recent activities
+  - Log events: tenant registrations, user signups, QR scans, pet updates, password resets
+  - Frontend component with icon, description, timestamp, and actor
+  - Real-time updates or polling
+  - Make activity filter buttons functional (filter by category)
+  - Implement "View All" page with pagination
+- [ ] **Analytics Tab** - Implement platform analytics:
+  - Charts for user growth, QR scans over time, tenant activity
+  - Geographic distribution of scans
+  - Peak usage times
+  - Retention metrics
+- [ ] **Subscriptions Tab** - Implement subscription management:
+  - View all tenant subscriptions
+  - Manage billing plans and pricing
+  - Process upgrades/downgrades
+  - Payment history and invoices
+- [ ] **Settings Tab** - Implement platform settings:
+  - Global configuration options
+  - Email templates management
+  - Default QR code settings
+  - Security policies
+- [ ] **Impersonate User Implementation** - Complete impersonation system:
+  - Backend endpoint for user impersonation with proper authorization
+  - JWT token generation for impersonated session
+  - Impersonation audit logging (who impersonated whom, when, duration)
+  - Session management (impersonated user context)
+  - End impersonation functionality with return to super admin
+  - Visual indicator showing impersonation mode is active
+  - Restrict impersonation to tenant_admin and regular user roles only
+  - Test impersonation flow end-to-end
+
 **DevOps & Infrastructure:**
 - [ ] Docker production configuration
 - [ ] CI/CD pipeline setup
