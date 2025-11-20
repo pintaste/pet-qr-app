@@ -3,11 +3,11 @@ QR Code management API endpoints.
 """
 
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 
 from ...core.dependencies import get_current_user
-from ...models.shared import User
+from ...models.shared import User, UserRole
 from ...schemas.pet import (
     QRCodeCreate,
     QRCodeUpdate,
@@ -115,8 +115,8 @@ async def get_qr_codes(
     if unassigned_only:
         qr_codes = qr_service.get_unassigned_qr_codes(skip=skip, limit=limit)
     else:
-        # For now, return unassigned codes - in production, filter by user/tenant
-        qr_codes = qr_service.get_unassigned_qr_codes(skip=skip, limit=limit)
+        # Return all QR codes for the tenant
+        qr_codes = qr_service.get_all_qr_codes(skip=skip, limit=limit)
 
     return [QRCodeResponse.from_orm(qr_code) for qr_code in qr_codes]
 
@@ -312,6 +312,46 @@ async def update_qr_code(
     return QRCodeResponse.from_orm(qr_code)
 
 
+@router.delete("/{qr_id}")
+async def delete_qr_code(
+    qr_id: int,
+    current_user: User = Depends(get_current_user),
+    qr_service: QRCodeService = Depends(get_qr_service),
+):
+    """
+    Delete a QR code.
+
+    Args:
+        qr_id: QR code ID
+        current_user: Current authenticated user
+        qr_service: QR code service instance
+
+    Returns:
+        dict: Deletion confirmation message
+
+    Raises:
+        HTTPException: If user is not a super admin or QR code not found
+    """
+    # Only super admins can delete QR codes
+    if current_user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only super admins can delete QR codes"
+        )
+
+    # Get QR code to verify it exists
+    qr_code = qr_service.get_qr_code(qr_id)
+    if not qr_code:
+        raise HTTPException(status_code=404, detail="QR code not found")
+
+    # Delete the QR code
+    success = qr_service.delete_qr_code(qr_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to delete QR code")
+
+    return {"message": f"QR code {qr_code.code} deleted successfully"}
+
+
 @router.post("/batch/generate", response_model=BatchQRCodeResponse)
 async def generate_batch_qr_codes(
     batch_data: BatchQRCodeGenerate,
@@ -328,13 +368,31 @@ async def generate_batch_qr_codes(
 
     Returns:
         BatchQRCodeResponse: Generated QR codes batch
+
+    Raises:
+        HTTPException: If user is not a super admin
     """
+    # Only super admins can generate QR codes
+    if current_user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only super admins can generate QR codes"
+        )
+
     try:
+        # Generate QR codes in tenant schema
+        # For now, use tenant_demo schema
+        # TODO: If assigned_to_tenant_id is provided, validate tenant exists
+        #       If None, this creates universal QR codes
         qr_codes = qr_service.generate_batch_qr_codes(
             quantity=batch_data.quantity,
             batch_id=batch_data.batch_id,
             physical_format=batch_data.physical_format,
         )
+
+        # TODO: Create QRCodeBatch record in shared.qr_code_batches table
+        # to track which tenant these QR codes are assigned to
+        # If assigned_to_tenant_id is None, they are universal QR codes
 
         return BatchQRCodeResponse(
             batch_id=qr_codes[0].batch_id,

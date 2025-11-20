@@ -7,7 +7,9 @@ interface ApiConfig {
 }
 
 const defaultConfig: ApiConfig = {
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  // In development, use empty string to go through Vite proxy
+  // In production, use full URL from environment variable
+  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : 'http://localhost:8000'),
   timeout: 10000,
 }
 

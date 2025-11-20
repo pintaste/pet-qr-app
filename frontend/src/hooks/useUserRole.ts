@@ -23,6 +23,8 @@ export const useUserRole = (): UseUserRoleReturn => {
   const { user } = useAuthStore()
 
   return useMemo(() => {
+    console.log('[useUserRole] User from auth store:', user)
+
     if (!user) {
       return {
         role: null,
@@ -37,10 +39,19 @@ export const useUserRole = (): UseUserRoleReturn => {
     }
 
     const role = user.role as UserRole
+    console.log('[useUserRole] Extracted role:', role)
+    console.log('[useUserRole] Role type:', typeof role)
+
     const isSuperAdmin = role === 'super_admin'
     const isTenantAdmin = role === 'tenant_admin'
     const isRegularUser = role === 'user'
     const hasAdminAccess = isSuperAdmin || isTenantAdmin
+
+    console.log('[useUserRole] Comparison results:', {
+      isSuperAdmin: `${role} === 'super_admin' = ${isSuperAdmin}`,
+      isTenantAdmin: `${role} === 'tenant_admin' = ${isTenantAdmin}`,
+      isRegularUser: `${role} === 'user' = ${isRegularUser}`,
+    })
 
     return {
       role,

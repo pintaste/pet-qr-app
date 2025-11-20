@@ -8,10 +8,14 @@ import {
   Settings,
   HelpCircle,
   UserCog,
+  Plus,
+  Search,
 } from 'lucide-react'
 import { containerStyles } from '@/styles/containers'
 import Header from '@/components/Header'
-import { tenantAdminService, TenantStats } from '@/services/tenantAdminService'
+import { tenantAdminService, TenantStats, TenantUser } from '@/services/tenantAdminService'
+import { TenantUserCard, TenantUserCardSkeleton } from '@/components/tenant/TenantUserCard'
+import { AddTenantUserModal, EditTenantUserModal, DeleteTenantUserModal, ResetTenantUserPasswordModal } from '@/components/tenant/TenantUserModals'
 
 type TenantAdminTab = 'overview' | 'users' | 'pets' | 'qrcodes' | 'analytics' | 'settings' | 'support' | 'impersonate'
 
@@ -24,6 +28,16 @@ const TenantAdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TenantAdminTab>('overview')
   const [tenantStats, setTenantStats] = useState<TenantStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+
+  // User management states
+  const [users, setUsers] = useState<TenantUser[]>([])
+  const [isUsersLoading, setIsUsersLoading] = useState(false)
+  const [userSearchQuery, setUserSearchQuery] = useState('')
+  const [selectedUser, setSelectedUser] = useState<TenantUser | null>(null)
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false)
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false)
+  const [isDeleteUserModalOpen, setIsDeleteUserModalOpen] = useState(false)
+  const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false)
 
   useEffect(() => {
     const fetchTenantStats = async () => {
@@ -40,6 +54,56 @@ const TenantAdminDashboard: React.FC = () => {
 
     fetchTenantStats()
   }, [])
+
+  // Fetch users when users tab is active
+  useEffect(() => {
+    const fetchUsers = async () => {
+      if (activeTab === 'users') {
+        try {
+          setIsUsersLoading(true)
+          const userList = await tenantAdminService.listTenantUsers({
+            search: userSearchQuery || undefined,
+          })
+          setUsers(userList)
+        } catch (err) {
+          console.error('Error fetching users:', err)
+        } finally {
+          setIsUsersLoading(false)
+        }
+      }
+    }
+
+    fetchUsers()
+  }, [activeTab, userSearchQuery])
+
+  // User handlers
+  const handleCreateUser = () => setIsAddUserModalOpen(true)
+  const handleEditUser = (user: TenantUser) => {
+    setSelectedUser(user)
+    setIsEditUserModalOpen(true)
+  }
+  const handleDeleteUser = (user: TenantUser) => {
+    setSelectedUser(user)
+    setIsDeleteUserModalOpen(true)
+  }
+  const handleResetPassword = (user: TenantUser) => {
+    setSelectedUser(user)
+    setIsResetPasswordModalOpen(true)
+  }
+
+  const handleUserSuccess = async () => {
+    try {
+      const userList = await tenantAdminService.listTenantUsers({
+        search: userSearchQuery || undefined,
+      })
+      setUsers(userList)
+      // Refresh stats
+      const stats = await tenantAdminService.getTenantStats()
+      setTenantStats(stats)
+    } catch (err) {
+      console.error('Error refreshing after user operation:', err)
+    }
+  }
 
   const tabs = [
     { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
@@ -159,16 +223,88 @@ const TenantAdminDashboard: React.FC = () => {
 
       case 'users':
         return (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-purple-200 dark:border-purple-700">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Store Users</h2>
-              <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
-                + Add User
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">User Management</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Manage customers in your store
+                </p>
+              </div>
+              <button
+                onClick={handleCreateUser}
+                className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                Add User
               </button>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-              No users in your store yet. Users will appear here when customers register.
-            </p>
+
+            {/* Search */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by email..."
+                  value={userSearchQuery}
+                  onChange={(e) => setUserSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Users Grid */}
+            {isUsersLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <TenantUserCardSkeleton />
+                <TenantUserCardSkeleton />
+                <TenantUserCardSkeleton />
+              </div>
+            ) : users.length === 0 ? (
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-12 border-2 border-gray-200 dark:border-gray-700 text-center">
+                <Users className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  {userSearchQuery ? 'No Users Found' : 'No Users Yet'}
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-6">
+                  {userSearchQuery
+                    ? 'Try adjusting your search'
+                    : 'Click "Add User" to create the first user in your store'}
+                </p>
+                {!userSearchQuery && (
+                  <button
+                    onClick={handleCreateUser}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Add User
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {users.map((user) => (
+                  <TenantUserCard
+                    key={user.id}
+                    user={user}
+                    onEdit={handleEditUser}
+                    onDelete={handleDeleteUser}
+                    onResetPassword={handleResetPassword}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* User Count */}
+            {!isUsersLoading && users.length > 0 && (
+              <div className="text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Showing {users.length} user{users.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+            )}
           </div>
         )
 
@@ -435,6 +571,43 @@ const TenantAdminDashboard: React.FC = () => {
       <div className={`${containerStyles.extraWide} py-6`}>
         {renderContent()}
       </div>
+
+      {/* User Modals */}
+      <AddTenantUserModal
+        isOpen={isAddUserModalOpen}
+        onClose={() => setIsAddUserModalOpen(false)}
+        onSuccess={handleUserSuccess}
+      />
+
+      <EditTenantUserModal
+        isOpen={isEditUserModalOpen}
+        user={selectedUser}
+        onClose={() => {
+          setIsEditUserModalOpen(false)
+          setSelectedUser(null)
+        }}
+        onSuccess={handleUserSuccess}
+      />
+
+      <DeleteTenantUserModal
+        isOpen={isDeleteUserModalOpen}
+        user={selectedUser}
+        onClose={() => {
+          setIsDeleteUserModalOpen(false)
+          setSelectedUser(null)
+        }}
+        onSuccess={handleUserSuccess}
+      />
+
+      <ResetTenantUserPasswordModal
+        isOpen={isResetPasswordModalOpen}
+        user={selectedUser}
+        onClose={() => {
+          setIsResetPasswordModalOpen(false)
+          setSelectedUser(null)
+        }}
+        onSuccess={handleUserSuccess}
+      />
     </div>
   )
 }

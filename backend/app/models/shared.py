@@ -5,6 +5,7 @@ Shared schema models for tenant management.
 from typing import Optional, Dict, Any
 from datetime import datetime
 from sqlmodel import SQLModel, Field, JSON, Column
+from sqlalchemy import Enum as SQLAEnum
 from enum import Enum
 
 
@@ -39,11 +40,18 @@ class Tenant(SQLModel, table=True):
     custom_domain: Optional[str] = Field(
         default=None, max_length=255, description="Custom domain"
     )
-    tier: TenantTier = Field(default=TenantTier.STANDARD, description="Tenant tier")
+    tier: TenantTier = Field(
+        default=TenantTier.STANDARD,
+        sa_column=Column(SQLAEnum(TenantTier, native_enum=False, values_callable=lambda obj: [e.value for e in obj])),
+        description="Tenant tier"
+    )
     settings: Dict[str, Any] = Field(
         default_factory=dict, sa_column=Column(JSON), description="Tenant settings"
     )
     is_active: bool = Field(default=True, description="Is tenant active")
+    subscription_expires_at: Optional[datetime] = Field(
+        default=None, description="Subscription expiration date"
+    )
     created_at: datetime = Field(
         default_factory=datetime.utcnow, description="Creation timestamp"
     )
@@ -82,7 +90,11 @@ class User(SQLModel, table=True):
     tenant_id: Optional[int] = Field(
         default=None, foreign_key="shared.tenants.id", description="Associated tenant"
     )
-    role: UserRole = Field(default=UserRole.USER, description="User role")
+    role: UserRole = Field(
+        default=UserRole.USER,
+        sa_column=Column(SQLAEnum(UserRole, native_enum=False, values_callable=lambda obj: [e.value for e in obj])),
+        description="User role"
+    )
     is_active: bool = Field(default=True, description="Is user active")
     created_at: datetime = Field(
         default_factory=datetime.utcnow, description="Creation timestamp"

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useLanguage } from '@/hooks/useLanguage'
 import { useQRAccessStore } from '@/stores/qrAccessStore'
 import { useSecurityMonitorStore, SUSPICIOUS_ACTIVITY_TYPES } from '@/stores/securityMonitorStore'
-import { Heart, ChevronLeft, ChevronRight, X, Maximize2, Phone, Mail, MessageCircle, Stethoscope, Tag, AlertTriangle, ChevronDown, ChevronUp, MapPin, School, ShoppingBag, Coffee, TreePine, Building2, Cross, BookOpen, Shield } from 'lucide-react'
+import { Heart, ChevronLeft, ChevronRight, X, Maximize2, Phone, Mail, MessageCircle, Stethoscope, Tag, AlertTriangle, ChevronDown, ChevronUp, MapPin, School, ShoppingBag, Coffee, TreePine, Building2, Cross, BookOpen, Shield, Download } from 'lucide-react'
 
 // Lazy load the map component to avoid Leaflet initialization issues
 const LocationMapModal = lazy(() => import('@/components/LocationMapModal').then(module => ({ default: module.LocationMapModal })))

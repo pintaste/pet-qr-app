@@ -152,7 +152,9 @@ start_dev_servers() {
 
         # Check if virtual environment exists
         if [ -d "../venv_linux" ]; then
-            nohup ../venv_linux/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 > ../logs/backend.log 2>&1 &
+            # Use python -m uvicorn to avoid hardcoded shebang path issues
+            # Set NO_PROXY to avoid proxy interference with localhost
+            nohup env NO_PROXY=localhost,127.0.0.1 ../venv_linux/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 > ../logs/backend.log 2>&1 &
             echo $! > ../logs/backend.pid
             print_status "✅ Backend started on http://localhost:8000 (PID: $(cat ../logs/backend.pid))"
         else
@@ -170,7 +172,8 @@ start_dev_servers() {
 
         # Check if node_modules exists
         if [ -d "node_modules" ]; then
-            nohup npm run dev > ../logs/frontend.log 2>&1 &
+            # Set NO_PROXY to avoid proxy interference with localhost backend
+            nohup env NO_PROXY=localhost,127.0.0.1 npm run dev > ../logs/frontend.log 2>&1 &
             echo $! > ../logs/frontend.pid
             print_status "✅ Frontend started (PID: $(cat ../logs/frontend.pid))"
         else

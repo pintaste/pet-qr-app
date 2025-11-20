@@ -246,6 +246,10 @@ class BatchQRCodeGenerate(BaseModel):
         "sticker", max_length=50, description="Physical format"
     )
     auto_assign_pins: bool = Field(True, description="Automatically generate PINs")
+    assigned_to_tenant_id: Optional[int] = Field(
+        None,
+        description="Tenant ID to assign QR codes to. If None, creates universal QR codes that can be activated by any tenant"
+    )
 
 
 class BatchQRCodeResponse(BaseModel):

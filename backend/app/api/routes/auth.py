@@ -145,7 +145,7 @@ async def login(
         token_type=token_response.token_type,
         user_id=user.id,
         email=user.email,
-        role="user",  # Default role for now
+        role=user.role.value if hasattr(user.role, 'value') else user.role,
         tenant_id=user.tenant_id,
     )
 

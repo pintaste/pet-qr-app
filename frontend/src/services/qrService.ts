@@ -30,8 +30,10 @@ interface PetInfo {
 interface QRCode {
   id: number
   code: string
+  pin: string
   status: string
   pet_id?: number
+  batch_id?: string
   batch_name?: string
   activated_at?: string
   created_at: string
@@ -40,13 +42,18 @@ interface QRCode {
 }
 
 interface QRBatchRequest {
-  count: number
-  batch_name?: string
+  quantity: number
+  batch_id?: string
+  physical_format?: string
+  auto_assign_pins?: boolean
+  assigned_to_tenant_id?: number | null  // null or undefined = universal QR codes
 }
 
 interface QRBatchResponse {
+  batch_id: string
+  quantity: number
   qr_codes: QRCode[]
-  message: string
+  created_at: string
 }
 
 interface QRActivationRequest {
@@ -77,7 +84,7 @@ class QRService {
   }
 
   async generateQRBatch(request: QRBatchRequest): Promise<QRBatchResponse> {
-    return await apiClient.post<QRBatchResponse>('/api/qr/generate-batch', request)
+    return await apiClient.post<QRBatchResponse>('/api/v1/qr-codes/batch/generate', request)
   }
 
   async activateQRCode(request: QRActivationRequest): Promise<QRCode> {
@@ -97,7 +104,7 @@ class QRService {
     if (params?.status) queryParams.status = params.status
     if (params?.batch_name) queryParams.batch_name = params.batch_name
 
-    return await apiClient.get<QRCode[]>('/api/v1/qr-codes', { params: queryParams })
+    return await apiClient.get<QRCode[]>('/api/v1/qr-codes/', { params: queryParams })
   }
 
   async getAvailableQRCodes(): Promise<QRCode[]> {
@@ -113,7 +120,7 @@ class QRService {
   }
 
   async deleteQRCode(qrCodeId: number): Promise<{ message: string }> {
-    return await apiClient.delete<{ message: string }>(`/api/qr/${qrCodeId}`)
+    return await apiClient.delete<{ message: string }>(`/api/v1/qr-codes/${qrCodeId}`)
   }
 
   async recordScanEvent(qrCode: string, data?: {

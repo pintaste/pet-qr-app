@@ -17,6 +17,7 @@ import { useQRAccessStore } from '../stores/qrAccessStore'
 import { useSecurityStore } from '../stores/securityStore'
 import { useSecurityMonitorStore } from '../stores/securityMonitorStore'
 import { authService } from '../services/authService'
+import { userService } from '../services/userService'
 
 interface DevToolsProps {
   /** Set to false to hide the widget (e.g., in production) */
@@ -26,6 +27,7 @@ interface DevToolsProps {
 export const DevTools: React.FC<DevToolsProps> = ({ enabled = true }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'role' | 'cache'>('role')
+  const [isSwitchingRole, setIsSwitchingRole] = useState(false)
   const { user, setUser } = useAuthStore()
   const { clearLanguagePreference } = useLanguage()
   const { clearVerification } = useQRAccessStore()
@@ -38,13 +40,41 @@ export const DevTools: React.FC<DevToolsProps> = ({ enabled = true }) => {
     return null
   }
 
-  const switchRole = (role: UserRole) => {
-    if (user) {
+  const switchRole = async (role: UserRole) => {
+    if (!user) {
+      alert('No user logged in!')
+      return
+    }
+
+    if (isSwitchingRole) {
+      return // Prevent multiple simultaneous requests
+    }
+
+    setIsSwitchingRole(true)
+
+    try {
+      console.log(`[DevTools] Switching role to: ${role}`)
+
+      // Update role in database via API
+      const updatedUser = await userService.updateRole(role)
+
+      // Update local auth store
       setUser({
         ...user,
-        role,
+        role: updatedUser.role,
       })
-      console.log(`[DevTools] Switched to role: ${role}`)
+
+      console.log(`[DevTools] ✅ Role switched successfully to: ${updatedUser.role}`)
+      alert(`✅ Role switched to ${role}!\n\nThe change has been saved to the database.\nRefresh the page to see dashboard changes.`)
+
+      // Reload the page to reflect dashboard changes
+      setTimeout(() => {
+        window.location.reload()
+      }, 500)
+    } catch (error) {
+      console.error('[DevTools] Failed to switch role:', error)
+      alert(`❌ Failed to switch role: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setIsSwitchingRole(false)
     }
   }
 
@@ -258,16 +288,16 @@ export const DevTools: React.FC<DevToolsProps> = ({ enabled = true }) => {
                     <button
                       key={role.value}
                       onClick={() => switchRole(role.value)}
-                      disabled={user?.role === role.value}
+                      disabled={user?.role === role.value || isSwitchingRole}
                       className={`w-full rounded-lg px-4 py-3 text-left text-sm font-medium transition-all ${
                         user?.role === role.value
                           ? `${role.color} text-white shadow-md`
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      } disabled:cursor-not-allowed`}
+                      } disabled:cursor-not-allowed disabled:opacity-50`}
                     >
                       <div className="flex items-center justify-between">
                         <span>{role.label}</span>
-                        {user?.role === role.value && (
+                        {user?.role === role.value ? (
                           <svg
                             className="h-5 w-5"
                             fill="currentColor"
@@ -279,7 +309,27 @@ export const DevTools: React.FC<DevToolsProps> = ({ enabled = true }) => {
                               clipRule="evenodd"
                             />
                           </svg>
-                        )}
+                        ) : isSwitchingRole ? (
+                          <svg
+                            className="h-5 w-5 animate-spin"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
+                          </svg>
+                        ) : null}
                       </div>
                       <div className="mt-1 text-xs opacity-75">
                         {role.value === 'super_admin' &&

@@ -134,6 +134,30 @@ class QRCodeService:
         finally:
             session.close()
 
+    def get_all_qr_codes(self, skip: int = 0, limit: int = 100) -> List[QRCode]:
+        """
+        Get all QR codes.
+
+        Args:
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+
+        Returns:
+            List[QRCode]: List of all QR codes
+        """
+        session = self._get_session()
+        try:
+            self._set_search_path(session)
+            return (
+                session.query(QRCode)
+                .order_by(QRCode.created_at.desc())
+                .offset(skip)
+                .limit(limit)
+                .all()
+            )
+        finally:
+            session.close()
+
     def get_unassigned_qr_codes(self, skip: int = 0, limit: int = 100) -> List[QRCode]:
         """
         Get unassigned QR codes.
@@ -266,6 +290,33 @@ class QRCodeService:
                 return False
 
             return qr_code.pin == pin
+        finally:
+            session.close()
+
+    def delete_qr_code(self, qr_id: int) -> bool:
+        """
+        Delete a QR code.
+
+        Args:
+            qr_id: QR code ID
+
+        Returns:
+            bool: True if deleted successfully, False otherwise
+        """
+        session = self._get_session()
+        try:
+            self._set_search_path(session)
+
+            qr_code = session.query(QRCode).filter(QRCode.id == qr_id).first()
+            if not qr_code:
+                return False
+
+            session.delete(qr_code)
+            session.commit()
+            return True
+        except Exception:
+            session.rollback()
+            return False
         finally:
             session.close()
 
