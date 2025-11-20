@@ -334,8 +334,8 @@ class QRCodeService:
         Returns:
             List[QRCode]: List of generated QR codes
         """
-        if quantity > 1000:
-            raise ValueError("Cannot generate more than 1000 QR codes at once")
+        if quantity > 1000000:
+            raise ValueError("Cannot generate more than 1000000 QR codes at once")
 
         session = self._get_session()
         try:
@@ -365,6 +365,9 @@ class QRCodeService:
                 generated_codes.append(qr_code)
 
             session.commit()
+
+            # Re-set search path after commit (may be reset)
+            self._set_search_path(session)
 
             # Refresh all objects
             for qr_code in generated_codes:

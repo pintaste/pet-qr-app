@@ -10,7 +10,7 @@ const defaultConfig: ApiConfig = {
   // In development, use empty string to go through Vite proxy
   // In production, use full URL from environment variable
   baseURL: import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : 'http://localhost:8000'),
-  timeout: 10000,
+  timeout: 300000, // 5 minutes for large batch operations
 }
 
 class ApiClient {
@@ -76,7 +76,13 @@ class ApiClient {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`)
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+        if (errorData.detail) {
+          errorMessage = typeof errorData.detail === 'string'
+            ? errorData.detail
+            : JSON.stringify(errorData.detail)
+        }
+        throw new Error(errorMessage)
       }
 
       return await response.json()

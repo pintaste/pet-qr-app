@@ -93,7 +93,7 @@ async def get_available_qr_codes(
 async def get_qr_codes(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(
-        100, ge=1, le=1000, description="Maximum number of records to return"
+        100, ge=1, le=1000000, description="Maximum number of records to return"
     ),
     unassigned_only: bool = Query(False, description="Return only unassigned QR codes"),
     current_user: User = Depends(get_current_user),

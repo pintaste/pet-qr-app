@@ -1,7 +1,7 @@
 /**
  * Development Tools Widget
  *
- * Floating widget for testing role-based features during development.
+ * Floating widget for testing and cache management during development.
  *
  * ⚠️ WARNING: REMOVE BEFORE PRODUCTION RELEASE ⚠️
  * This component is for development/testing only and should be removed
@@ -11,13 +11,11 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
-import { UserRole } from '../hooks/useUserRole'
 import { useLanguage } from '../hooks/useLanguage'
 import { useQRAccessStore } from '../stores/qrAccessStore'
 import { useSecurityStore } from '../stores/securityStore'
 import { useSecurityMonitorStore } from '../stores/securityMonitorStore'
 import { authService } from '../services/authService'
-import { userService } from '../services/userService'
 
 interface DevToolsProps {
   /** Set to false to hide the widget (e.g., in production) */
@@ -26,9 +24,7 @@ interface DevToolsProps {
 
 export const DevTools: React.FC<DevToolsProps> = ({ enabled = true }) => {
   const [isOpen, setIsOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<'role' | 'cache'>('role')
-  const [isSwitchingRole, setIsSwitchingRole] = useState(false)
-  const { user, setUser } = useAuthStore()
+  const { user } = useAuthStore()
   const { clearLanguagePreference } = useLanguage()
   const { clearVerification } = useQRAccessStore()
   const { clearSecurityData } = useSecurityStore()
@@ -38,44 +34,6 @@ export const DevTools: React.FC<DevToolsProps> = ({ enabled = true }) => {
   // Don't render if disabled
   if (!enabled || import.meta.env.PROD) {
     return null
-  }
-
-  const switchRole = async (role: UserRole) => {
-    if (!user) {
-      alert('No user logged in!')
-      return
-    }
-
-    if (isSwitchingRole) {
-      return // Prevent multiple simultaneous requests
-    }
-
-    setIsSwitchingRole(true)
-
-    try {
-      console.log(`[DevTools] Switching role to: ${role}`)
-
-      // Update role in database via API
-      const updatedUser = await userService.updateRole(role)
-
-      // Update local auth store
-      setUser({
-        ...user,
-        role: updatedUser.role,
-      })
-
-      console.log(`[DevTools] ✅ Role switched successfully to: ${updatedUser.role}`)
-      alert(`✅ Role switched to ${role}!\n\nThe change has been saved to the database.\nRefresh the page to see dashboard changes.`)
-
-      // Reload the page to reflect dashboard changes
-      setTimeout(() => {
-        window.location.reload()
-      }, 500)
-    } catch (error) {
-      console.error('[DevTools] Failed to switch role:', error)
-      alert(`❌ Failed to switch role: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      setIsSwitchingRole(false)
-    }
   }
 
   // Cache management functions
@@ -146,12 +104,6 @@ export const DevTools: React.FC<DevToolsProps> = ({ enabled = true }) => {
       alert('Logout failed. Check console for details.')
     }
   }
-
-  const roles: { value: UserRole; label: string; color: string }[] = [
-    { value: 'super_admin', label: 'Super Admin', color: 'bg-emerald-500' },
-    { value: 'tenant_admin', label: 'Tenant Admin', color: 'bg-purple-500' },
-    { value: 'user', label: 'Regular User', color: 'bg-indigo-500' },
-  ]
 
   return (
     <>
@@ -253,170 +205,77 @@ export const DevTools: React.FC<DevToolsProps> = ({ enabled = true }) => {
               )}
             </div>
 
-            {/* Tabs */}
-            <div className="mb-4 flex gap-2">
-              <button
-                onClick={() => setActiveTab('role')}
-                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  activeTab === 'role'
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Roles
-              </button>
-              <button
-                onClick={() => setActiveTab('cache')}
-                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  activeTab === 'cache'
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Cache
-              </button>
+            {/* Cache & Security Tools */}
+            <div className="mb-6">
+              <h3 className="mb-3 text-sm font-semibold text-gray-700">
+                Cache & Security Tools
+              </h3>
+              <div className="space-y-2">
+                <button
+                  onClick={handleClearPinCache}
+                  className="w-full rounded-lg bg-orange-100 px-4 py-3 text-left text-sm font-medium text-orange-800 transition-colors hover:bg-orange-200"
+                >
+                  Clear PIN Cache
+                  <p className="mt-1 text-xs opacity-75">
+                    Clear PIN verification for DEMO123
+                  </p>
+                </button>
+                <button
+                  onClick={handleClearSecurityData}
+                  className="w-full rounded-lg bg-yellow-100 px-4 py-3 text-left text-sm font-medium text-yellow-800 transition-colors hover:bg-yellow-200"
+                >
+                  Clear Security Data
+                  <p className="mt-1 text-xs opacity-75">
+                    Clear attempts, cooldowns, blocks
+                  </p>
+                </button>
+                <button
+                  onClick={handleClearLanguageCache}
+                  className="w-full rounded-lg bg-blue-100 px-4 py-3 text-left text-sm font-medium text-blue-800 transition-colors hover:bg-blue-200"
+                >
+                  Clear Language
+                  <p className="mt-1 text-xs opacity-75">
+                    Reset language preference
+                  </p>
+                </button>
+                <button
+                  onClick={handleClearAllCache}
+                  className="w-full rounded-lg bg-red-100 px-4 py-3 text-left text-sm font-medium text-red-800 transition-colors hover:bg-red-200"
+                >
+                  Clear All Caches
+                  <p className="mt-1 text-xs opacity-75">
+                    Reset everything at once
+                  </p>
+                </button>
+                <button
+                  onClick={handleViewSecurityLog}
+                  className="w-full rounded-lg bg-purple-100 px-4 py-3 text-left text-sm font-medium text-purple-800 transition-colors hover:bg-purple-200"
+                >
+                  View Security Log
+                  <p className="mt-1 text-xs opacity-75">
+                    Show security activities
+                  </p>
+                </button>
+                <button
+                  onClick={handleExportSecurityLog}
+                  className="w-full rounded-lg bg-indigo-100 px-4 py-3 text-left text-sm font-medium text-indigo-800 transition-colors hover:bg-indigo-200"
+                >
+                  Export Security Log
+                  <p className="mt-1 text-xs opacity-75">
+                    Download as JSON file
+                  </p>
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="w-full rounded-lg bg-gray-100 px-4 py-3 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+                >
+                  Logout
+                  <p className="mt-1 text-xs opacity-75">
+                    Clear session and return home
+                  </p>
+                </button>
+              </div>
             </div>
-
-            {/* Role Switcher Tab */}
-            {activeTab === 'role' && (
-              <div className="mb-6">
-                <h3 className="mb-3 text-sm font-semibold text-gray-700">
-                  Switch Role
-                </h3>
-                <div className="space-y-2">
-                  {roles.map((role) => (
-                    <button
-                      key={role.value}
-                      onClick={() => switchRole(role.value)}
-                      disabled={user?.role === role.value || isSwitchingRole}
-                      className={`w-full rounded-lg px-4 py-3 text-left text-sm font-medium transition-all ${
-                        user?.role === role.value
-                          ? `${role.color} text-white shadow-md`
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      } disabled:cursor-not-allowed disabled:opacity-50`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span>{role.label}</span>
-                        {user?.role === role.value ? (
-                          <svg
-                            className="h-5 w-5"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        ) : isSwitchingRole ? (
-                          <svg
-                            className="h-5 w-5 animate-spin"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            />
-                          </svg>
-                        ) : null}
-                      </div>
-                      <div className="mt-1 text-xs opacity-75">
-                        {role.value === 'super_admin' &&
-                          'Platform-wide access'}
-                        {role.value === 'tenant_admin' &&
-                          'Tenant management access'}
-                        {role.value === 'user' && 'Regular user access'}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Cache Management Tab */}
-            {activeTab === 'cache' && (
-              <div className="mb-6">
-                <h3 className="mb-3 text-sm font-semibold text-gray-700">
-                  Cache & Security Tools
-                </h3>
-                <div className="space-y-2">
-                  <button
-                    onClick={handleClearPinCache}
-                    className="w-full rounded-lg bg-orange-100 px-4 py-3 text-left text-sm font-medium text-orange-800 transition-colors hover:bg-orange-200"
-                  >
-                    Clear PIN Cache
-                    <p className="mt-1 text-xs opacity-75">
-                      Clear PIN verification for DEMO123
-                    </p>
-                  </button>
-                  <button
-                    onClick={handleClearSecurityData}
-                    className="w-full rounded-lg bg-yellow-100 px-4 py-3 text-left text-sm font-medium text-yellow-800 transition-colors hover:bg-yellow-200"
-                  >
-                    Clear Security Data
-                    <p className="mt-1 text-xs opacity-75">
-                      Clear attempts, cooldowns, blocks
-                    </p>
-                  </button>
-                  <button
-                    onClick={handleClearLanguageCache}
-                    className="w-full rounded-lg bg-blue-100 px-4 py-3 text-left text-sm font-medium text-blue-800 transition-colors hover:bg-blue-200"
-                  >
-                    Clear Language
-                    <p className="mt-1 text-xs opacity-75">
-                      Reset language preference
-                    </p>
-                  </button>
-                  <button
-                    onClick={handleClearAllCache}
-                    className="w-full rounded-lg bg-red-100 px-4 py-3 text-left text-sm font-medium text-red-800 transition-colors hover:bg-red-200"
-                  >
-                    Clear All Caches
-                    <p className="mt-1 text-xs opacity-75">
-                      Reset everything at once
-                    </p>
-                  </button>
-                  <button
-                    onClick={handleViewSecurityLog}
-                    className="w-full rounded-lg bg-purple-100 px-4 py-3 text-left text-sm font-medium text-purple-800 transition-colors hover:bg-purple-200"
-                  >
-                    View Security Log
-                    <p className="mt-1 text-xs opacity-75">
-                      Show security activities
-                    </p>
-                  </button>
-                  <button
-                    onClick={handleExportSecurityLog}
-                    className="w-full rounded-lg bg-indigo-100 px-4 py-3 text-left text-sm font-medium text-indigo-800 transition-colors hover:bg-indigo-200"
-                  >
-                    Export Security Log
-                    <p className="mt-1 text-xs opacity-75">
-                      Download as JSON file
-                    </p>
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full rounded-lg bg-gray-100 px-4 py-3 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
-                  >
-                    Logout
-                    <p className="mt-1 text-xs opacity-75">
-                      Clear session and return home
-                    </p>
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Warning */}
             <div className="rounded-lg border-2 border-red-200 bg-red-50 p-4">

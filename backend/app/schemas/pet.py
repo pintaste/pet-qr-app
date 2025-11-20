@@ -239,7 +239,7 @@ class BatchQRCodeGenerate(BaseModel):
     """Schema for generating batch of QR codes."""
 
     quantity: int = Field(
-        ..., ge=1, le=1000, description="Number of QR codes to generate"
+        ..., ge=1, le=1000000, description="Number of QR codes to generate"
     )
     batch_id: Optional[str] = Field(None, max_length=50, description="Batch identifier")
     physical_format: Optional[str] = Field(

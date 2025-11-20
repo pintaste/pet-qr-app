@@ -190,4 +190,14 @@ export const superAdminService = {
   async getQRInventory(): Promise<any[]> {
     return await apiClient.get<any[]>('/api/v1/super-admin/qr/inventory')
   },
+
+  /**
+   * Get all QR codes across all tenants
+   */
+  async getAllQRCodes(params?: { skip?: number; limit?: number }): Promise<any[]> {
+    const queryParams: Record<string, any> = {}
+    if (params?.skip !== undefined) queryParams.skip = params.skip
+    if (params?.limit !== undefined) queryParams.limit = params.limit
+    return await apiClient.get<any[]>('/api/v1/super-admin/qr/all', { params: queryParams })
+  },
 }

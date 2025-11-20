@@ -941,3 +941,80 @@ async def get_qr_inventory(
         })
 
     return result
+
+
+@router.get("/qr/all", response_model=List[dict])
+async def get_all_qr_codes(
+    skip: int = 0,
+    limit: int = 1000000,
+    current_user: User = Depends(get_current_super_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get all QR codes across all tenant schemas.
+
+    Args:
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+        current_user: Current super admin user
+        db: Database session
+
+    Returns:
+        List of all QR codes with tenant information
+    """
+    from sqlalchemy import text
+
+    all_qr_codes = []
+
+    # Get all tenant schemas
+    schema_result = db.exec(
+        text("SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'tenant_%'")
+    ).all()
+
+    # Create a mapping of schema_name to tenant info
+    tenants = db.exec(select(Tenant)).all()
+    tenant_map = {}
+    for tenant in tenants:
+        schema_name = f"tenant_{tenant.subdomain}"
+        tenant_map[schema_name] = {"id": tenant.id, "name": tenant.name, "subdomain": tenant.subdomain}
+
+    for (schema_name,) in schema_result:
+        try:
+            # Get QR codes from this tenant schema
+            result = db.exec(
+                text(f"""
+                    SELECT
+                        id, code, pin, pet_id, status, batch_id,
+                        print_data, activated_at, created_at
+                    FROM {schema_name}.qr_codes
+                    ORDER BY created_at DESC
+                """)
+            ).all()
+
+            tenant_info = tenant_map.get(schema_name, {"id": None, "name": schema_name, "subdomain": None})
+
+            for row in result:
+                qr_data = {
+                    "id": row[0],
+                    "code": row[1],
+                    "pin": row[2],
+                    "pet_id": row[3],
+                    "status": row[4],
+                    "batch_id": row[5],
+                    "print_data": row[6],
+                    "activated_at": row[7].isoformat() if row[7] else None,
+                    "created_at": row[8].isoformat() if row[8] else None,
+                    "tenant_id": tenant_info["id"],
+                    "tenant_name": tenant_info["name"],
+                    "tenant_subdomain": tenant_info["subdomain"],
+                }
+                all_qr_codes.append(qr_data)
+        except Exception:
+            # Table might not exist yet, rollback and continue
+            db.rollback()
+            continue
+
+    # Sort by created_at desc and apply pagination
+    all_qr_codes.sort(key=lambda x: x["created_at"] or "", reverse=True)
+
+    return all_qr_codes[skip:skip + limit]

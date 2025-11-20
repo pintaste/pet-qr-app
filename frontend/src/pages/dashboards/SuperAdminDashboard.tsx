@@ -27,6 +27,12 @@ import {
   Clock,
   PawPrint,
   Key,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  ArrowUp,
+  MoreHorizontal,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { containerStyles } from '@/styles/containers'
@@ -110,12 +116,48 @@ const SuperAdminDashboard: React.FC = () => {
   const [viewQRImageUrl, setViewQRImageUrl] = useState<string>('')
   const [isBulkDownloading, setIsBulkDownloading] = useState(false)
   const [bulkDownloadProgress, setBulkDownloadProgress] = useState(0)
-  const [showBulkDownloadMenu, setShowBulkDownloadMenu] = useState(false)
+  const [showActionsMenu, setShowActionsMenu] = useState(false)
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [bulkDeleteProgress, setBulkDeleteProgress] = useState(0)
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null)
+
+  // QR Pagination states
+  const [qrCurrentPage, setQrCurrentPage] = useState(1)
+  const QR_PER_PAGE = 100
+
+  // Tenants Pagination states
+  const [tenantsCurrentPage, setTenantsCurrentPage] = useState(1)
+  const TENANTS_PER_PAGE = 100
+
+  // Users Pagination states
+  const [usersCurrentPage, setUsersCurrentPage] = useState(1)
+  const USERS_PER_PAGE = 100
+
+  // Back to top button state
+  const [showBackToTop, setShowBackToTop] = useState(false)
 
   // View mode states (grid or list) - default to list view
   const [tenantsViewMode, setTenantsViewMode] = useState<'grid' | 'list'>('list')
   const [qrViewMode, setQrViewMode] = useState<'grid' | 'list'>('list')
   const [usersViewMode, setUsersViewMode] = useState<'grid' | 'list'>('list')
+
+  // Handle scroll for back-to-top button
+  useEffect(() => {
+    const handleScroll = () => {
+      // Show button when scrolled down more than 300px
+      const scrolled = window.scrollY > 300
+      setShowBackToTop(scrolled)
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Scroll to top function
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   // Fetch platform stats
   useEffect(() => {
@@ -380,7 +422,7 @@ const SuperAdminDashboard: React.FC = () => {
 
       try {
         setIsQRsLoading(true)
-        const codes = await qrService.getQRCodes()
+        const codes = await superAdminService.getAllQRCodes({ limit: 1000000 })
         setQRCodes(codes || [])
       } catch (err) {
         console.error('[SuperAdminDashboard] Error fetching QR codes:', err)
@@ -401,7 +443,7 @@ const SuperAdminDashboard: React.FC = () => {
 
     // Refresh QR codes list
     try {
-      const codes = await qrService.getQRCodes()
+      const codes = await superAdminService.getAllQRCodes({ limit: 1000000 })
       setQRCodes(codes || [])
 
       // Refresh platform stats
@@ -679,7 +721,7 @@ const SuperAdminDashboard: React.FC = () => {
       await qrService.deleteQRCode(selectedQR.id)
 
       // Refresh QR codes
-      const codes = await qrService.getQRCodes()
+      const codes = await superAdminService.getAllQRCodes({ limit: 1000000 })
       setQRCodes(codes || [])
 
       // Refresh stats
@@ -693,6 +735,52 @@ const SuperAdminDashboard: React.FC = () => {
       setDeleteError(error instanceof Error ? error.message : 'Failed to delete QR code')
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  // Bulk delete filtered QR codes
+  const handleBulkDelete = async () => {
+    if (filteredQRCodes.length === 0) return
+
+    setIsBulkDeleting(true)
+    setBulkDeleteProgress(0)
+    setBulkDeleteError(null)
+
+    try {
+      let successCount = 0
+      let failCount = 0
+
+      for (let i = 0; i < filteredQRCodes.length; i++) {
+        const qr = filteredQRCodes[i]
+        try {
+          await qrService.deleteQRCode(qr.id)
+          successCount++
+        } catch (err) {
+          console.error(`[SuperAdminDashboard] Failed to delete QR ${qr.code}:`, err)
+          failCount++
+        }
+        setBulkDeleteProgress(Math.round(((i + 1) / filteredQRCodes.length) * 100))
+      }
+
+      // Refresh QR codes
+      const codes = await superAdminService.getAllQRCodes({ limit: 1000000 })
+      setQRCodes(codes || [])
+
+      // Refresh stats
+      const stats = await superAdminService.getPlatformStats()
+      setPlatformStats(stats)
+
+      if (failCount > 0) {
+        setBulkDeleteError(`Deleted ${successCount} QR codes. Failed to delete ${failCount}.`)
+      }
+
+      setShowBulkDeleteConfirm(false)
+    } catch (error) {
+      console.error('[SuperAdminDashboard] Error bulk deleting QR codes:', error)
+      setBulkDeleteError(error instanceof Error ? error.message : 'Failed to delete QR codes')
+    } finally {
+      setIsBulkDeleting(false)
+      setBulkDeleteProgress(0)
     }
   }
 
@@ -711,6 +799,39 @@ const SuperAdminDashboard: React.FC = () => {
       (qrAssignmentFilter === 'unassigned' && !qr.pet_id)
     return matchesSearch && matchesStatus && matchesBatch && matchesAssignment
   })
+
+  // Calculate pagination for QR codes
+  const qrTotalPages = Math.ceil(filteredQRCodes.length / QR_PER_PAGE)
+  const qrStartIndex = (qrCurrentPage - 1) * QR_PER_PAGE
+  const qrEndIndex = qrStartIndex + QR_PER_PAGE
+  const paginatedQRCodes = filteredQRCodes.slice(qrStartIndex, qrEndIndex)
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setQrCurrentPage(1)
+  }, [qrSearchQuery, qrStatusFilter, qrBatchFilter, qrAssignmentFilter])
+
+  // Calculate pagination for tenants
+  const tenantsTotalPages = Math.ceil(tenants.length / TENANTS_PER_PAGE)
+  const tenantsStartIndex = (tenantsCurrentPage - 1) * TENANTS_PER_PAGE
+  const tenantsEndIndex = tenantsStartIndex + TENANTS_PER_PAGE
+  const paginatedTenants = tenants.slice(tenantsStartIndex, tenantsEndIndex)
+
+  // Reset tenants page when tenants change
+  React.useEffect(() => {
+    setTenantsCurrentPage(1)
+  }, [tenants.length])
+
+  // Calculate pagination for users
+  const usersTotalPages = Math.ceil(users.length / USERS_PER_PAGE)
+  const usersStartIndex = (usersCurrentPage - 1) * USERS_PER_PAGE
+  const usersEndIndex = usersStartIndex + USERS_PER_PAGE
+  const paginatedUsers = users.slice(usersStartIndex, usersEndIndex)
+
+  // Reset users page when users or filters change
+  React.useEffect(() => {
+    setUsersCurrentPage(1)
+  }, [userSearchQuery, userRoleFilter, userTenantFilter])
 
   const tabs = [
     { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
@@ -984,7 +1105,7 @@ const SuperAdminDashboard: React.FC = () => {
               <NoTenantsCard onCreate={handleCreateTenant} />
             ) : tenantsViewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {tenants.map((tenant) => (
+                {paginatedTenants.map((tenant) => (
                   <TenantCard
                     key={tenant.id}
                     tenant={tenant}
@@ -1008,7 +1129,7 @@ const SuperAdminDashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {tenants.map((tenant) => (
+                    {paginatedTenants.map((tenant) => (
                       <tr key={tenant.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                         <td className="py-3 px-4">
                           <div>
@@ -1089,6 +1210,43 @@ const SuperAdminDashboard: React.FC = () => {
                 </table>
               </div>
             )}
+
+            {/* Tenants Pagination */}
+            {tenantsTotalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-4 py-3">
+                <button
+                  onClick={() => setTenantsCurrentPage(1)}
+                  disabled={tenantsCurrentPage === 1}
+                  className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronsLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                </button>
+                <button
+                  onClick={() => setTenantsCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={tenantsCurrentPage === 1}
+                  className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                </button>
+                <span className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
+                  Page {tenantsCurrentPage} of {tenantsTotalPages}
+                </span>
+                <button
+                  onClick={() => setTenantsCurrentPage(prev => Math.min(tenantsTotalPages, prev + 1))}
+                  disabled={tenantsCurrentPage === tenantsTotalPages}
+                  className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                </button>
+                <button
+                  onClick={() => setTenantsCurrentPage(tenantsTotalPages)}
+                  disabled={tenantsCurrentPage === tenantsTotalPages}
+                  className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronsRight className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+            )}
           </div>
         )
 
@@ -1130,44 +1288,70 @@ const SuperAdminDashboard: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Bulk Download Button */}
+                {/* Actions Dropdown - combines Bulk Delete and Bulk Download */}
                 <div className="relative">
                   <button
-                    onClick={() => setShowBulkDownloadMenu(!showBulkDownloadMenu)}
-                    disabled={filteredQRCodes.length === 0 || isBulkDownloading}
-                    className="flex items-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+                    onClick={() => setShowActionsMenu(!showActionsMenu)}
+                    disabled={filteredQRCodes.length === 0 || isBulkDeleting || isBulkDownloading}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
                   >
-                    {isBulkDownloading ? (
+                    {isBulkDeleting ? (
                       <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        {bulkDownloadProgress}%
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Deleting {bulkDeleteProgress}%
+                      </>
+                    ) : isBulkDownloading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Downloading {bulkDownloadProgress}%
                       </>
                     ) : (
                       <>
-                        <Download className="w-5 h-5" />
-                        Bulk Download
+                        <MoreHorizontal className="w-4 h-4" />
+                        Actions
                       </>
                     )}
                   </button>
-                  {showBulkDownloadMenu && !isBulkDownloading && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-10">
+                  {showActionsMenu && !isBulkDeleting && !isBulkDownloading && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-10">
+                      {/* Download Options */}
+                      <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Download
+                      </div>
                       <button
                         onClick={() => {
-                          setShowBulkDownloadMenu(false)
+                          setShowActionsMenu(false)
                           handleBulkDownload('scanner')
                         }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                       >
+                        <Download className="w-4 h-4" />
                         Scanner Style
                       </button>
                       <button
                         onClick={() => {
-                          setShowBulkDownloadMenu(false)
+                          setShowActionsMenu(false)
                           handleBulkDownload('rounded')
                         }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                       >
+                        <Download className="w-4 h-4" />
                         Rounded Style
+                      </button>
+
+                      {/* Divider */}
+                      <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
+
+                      {/* Delete Option */}
+                      <button
+                        onClick={() => {
+                          setShowActionsMenu(false)
+                          setShowBulkDeleteConfirm(true)
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete All Filtered ({filteredQRCodes.length})
                       </button>
                     </div>
                   )}
@@ -1175,7 +1359,7 @@ const SuperAdminDashboard: React.FC = () => {
 
                 <button
                   onClick={handleGenerateQR}
-                  className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
                 >
                   <Plus className="w-5 h-5" />
                   Generate QR Batch
@@ -1266,9 +1450,9 @@ const SuperAdminDashboard: React.FC = () => {
 
             {/* Filters */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700">
-              <div className="flex flex-col md:flex-row gap-4">
-                {/* Search */}
-                <div className="flex-1 relative">
+              <div className="space-y-3">
+                {/* Row 1: Search (full width) */}
+                <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
                     type="text"
@@ -1279,26 +1463,25 @@ const SuperAdminDashboard: React.FC = () => {
                   />
                 </div>
 
-                {/* Status Filter */}
-                <div className="md:w-40">
+                {/* Row 2: Filter dropdowns (evenly distributed) */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {/* Status Filter */}
                   <select
                     value={qrStatusFilter}
                     onChange={(e) => setQrStatusFilter(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-3 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
                   >
                     <option value="">All Status</option>
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                     <option value="pending">Pending</option>
                   </select>
-                </div>
 
-                {/* Batch Filter */}
-                <div className="md:w-56">
+                  {/* Batch Filter */}
                   <select
                     value={qrBatchFilter}
                     onChange={(e) => setQrBatchFilter(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-3 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
                   >
                     <option value="">All Batches</option>
                     {uniqueBatches.map(batchId => (
@@ -1307,14 +1490,12 @@ const SuperAdminDashboard: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                </div>
 
-                {/* Tenant Filter */}
-                <div className="md:w-48">
+                  {/* Tenant Filter */}
                   <select
                     value={qrTenantFilter}
                     onChange={(e) => setQrTenantFilter(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-3 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
                   >
                     <option value="">All Tenants</option>
                     {tenants.map(tenant => (
@@ -1323,14 +1504,12 @@ const SuperAdminDashboard: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                </div>
 
-                {/* Assignment Filter */}
-                <div className="md:w-44">
+                  {/* Assignment Filter */}
                   <select
                     value={qrAssignmentFilter}
                     onChange={(e) => setQrAssignmentFilter(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-3 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
                   >
                     <option value="">All Assignment</option>
                     <option value="assigned">Assigned</option>
@@ -1406,7 +1585,7 @@ const SuperAdminDashboard: React.FC = () => {
                 </div>
               ) : qrViewMode === 'grid' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredQRCodes.map((qr) => (
+                  {paginatedQRCodes.map((qr) => (
                     <QRCard
                       key={qr.id}
                       qr={qr}
@@ -1432,7 +1611,7 @@ const SuperAdminDashboard: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredQRCodes.map((qr) => (
+                      {paginatedQRCodes.map((qr) => (
                         <tr key={qr.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                           <td className="py-3 px-4">
                             <span className="font-mono font-semibold text-gray-900 dark:text-white">{qr.code}</span>
@@ -1492,12 +1671,51 @@ const SuperAdminDashboard: React.FC = () => {
                 </div>
               )}
 
-              {/* Results count */}
+              {/* Pagination controls */}
               {!isQRsLoading && filteredQRCodes.length > 0 && (
-                <div className="mt-4 text-center">
+                <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Showing {filteredQRCodes.length} QR code{filteredQRCodes.length !== 1 ? 's' : ''}
+                    Showing {qrStartIndex + 1}-{Math.min(qrEndIndex, filteredQRCodes.length)} of {filteredQRCodes.length} QR codes
                   </p>
+                  {qrTotalPages > 1 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setQrCurrentPage(1)}
+                        disabled={qrCurrentPage === 1}
+                        className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="First page"
+                      >
+                        <ChevronsLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setQrCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={qrCurrentPage === 1}
+                        className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Previous page"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300">
+                        Page {qrCurrentPage} of {qrTotalPages}
+                      </span>
+                      <button
+                        onClick={() => setQrCurrentPage(prev => Math.min(qrTotalPages, prev + 1))}
+                        disabled={qrCurrentPage === qrTotalPages}
+                        className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Next page"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setQrCurrentPage(qrTotalPages)}
+                        disabled={qrCurrentPage === qrTotalPages}
+                        className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Last page"
+                      >
+                        <ChevronsRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1662,7 +1880,7 @@ const SuperAdminDashboard: React.FC = () => {
               </div>
             ) : usersViewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {users.map((user) => (
+                {paginatedUsers.map((user) => (
                   <UserCard
                     key={user.id}
                     user={user}
@@ -1686,7 +1904,7 @@ const SuperAdminDashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((user) => (
+                    {paginatedUsers.map((user) => (
                       <tr key={user.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                         <td className="py-3 px-4">
                           <p className="font-semibold text-gray-900 dark:text-white">{user.email}</p>
@@ -1749,10 +1967,47 @@ const SuperAdminDashboard: React.FC = () => {
             )}
 
             {/* User Count Summary */}
+            {/* Users Pagination */}
+            {usersTotalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-4 py-3">
+                <button
+                  onClick={() => setUsersCurrentPage(1)}
+                  disabled={usersCurrentPage === 1}
+                  className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronsLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                </button>
+                <button
+                  onClick={() => setUsersCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={usersCurrentPage === 1}
+                  className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                </button>
+                <span className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
+                  Page {usersCurrentPage} of {usersTotalPages}
+                </span>
+                <button
+                  onClick={() => setUsersCurrentPage(prev => Math.min(usersTotalPages, prev + 1))}
+                  disabled={usersCurrentPage === usersTotalPages}
+                  className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                </button>
+                <button
+                  onClick={() => setUsersCurrentPage(usersTotalPages)}
+                  disabled={usersCurrentPage === usersTotalPages}
+                  className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronsRight className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+            )}
+
             {!isUsersLoading && users.length > 0 && (
               <div className="text-center">
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Showing {users.length} user{users.length !== 1 ? 's' : ''}
+                  Showing {usersStartIndex + 1}-{Math.min(usersEndIndex, users.length)} of {users.length} user{users.length !== 1 ? 's' : ''}
                 </p>
               </div>
             )}
@@ -1954,11 +2209,11 @@ const SuperAdminDashboard: React.FC = () => {
       {/* View QR Modal */}
       {isViewQRModalOpen && selectedQR && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full">
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                <QrCode className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <QrCode className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 QR Code Details
               </h2>
               <button
@@ -1966,117 +2221,113 @@ const SuperAdminDashboard: React.FC = () => {
                   setIsViewQRModalOpen(false)
                   setSelectedQR(null)
                 }}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
               >
-                <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               </button>
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-4">
+            <div className="p-4 space-y-3">
               {/* QR Code Display */}
-              <div className="flex justify-center p-4 bg-white rounded-lg border-2 border-gray-200 dark:border-gray-600">
+              <div className="flex justify-center p-3 bg-white rounded-lg border border-gray-200 dark:border-gray-600">
                 <div className="text-center">
                   {viewQRImageUrl ? (
                     <img
                       src={viewQRImageUrl}
                       alt={`QR Code ${selectedQR.code}`}
-                      className="w-48 h-48 mx-auto mb-2"
+                      className="w-32 h-32 mx-auto"
                     />
                   ) : (
-                    <div className="w-48 h-48 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center mb-2">
-                      <Loader2 className="w-12 h-12 text-gray-400 animate-spin" />
+                    <div className="w-32 h-32 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                      <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
                     </div>
                   )}
-                  <p className="font-mono font-bold text-lg text-gray-900 dark:text-white">{selectedQR.code}</p>
+                  <p className="font-mono font-bold text-sm text-gray-900 dark:text-white mt-2">{selectedQR.code}</p>
                 </div>
               </div>
 
-              {/* Details */}
-              <div className="space-y-3">
-                <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">PIN</span>
-                  <span className="font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded">{selectedQR.pin}</span>
+              {/* Details - Compact grid */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                  <span className="text-gray-500 dark:text-gray-400">PIN</span>
+                  <span className="font-mono font-bold text-gray-900 dark:text-white">{selectedQR.pin}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Status</span>
-                  <span className={`px-2 py-1 rounded text-sm font-medium ${
+                <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                  <span className="text-gray-500 dark:text-gray-400">Status</span>
+                  <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
                     selectedQR.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
                     selectedQR.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
                     'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
                   }`}>{selectedQR.status}</span>
                 </div>
                 {selectedQR.batch_id && (
-                  <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">Batch ID</span>
-                    <span className="font-mono text-sm text-gray-900 dark:text-white">{selectedQR.batch_id}</span>
+                  <div className="col-span-2 flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                    <span className="text-gray-500 dark:text-gray-400">Batch</span>
+                    <span className="font-mono text-gray-900 dark:text-white truncate ml-2">{selectedQR.batch_id}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Created</span>
-                  <span className="text-sm text-gray-900 dark:text-white">
-                    {new Date(selectedQR.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                  <span className="text-gray-500 dark:text-gray-400">Created</span>
+                  <span className="text-gray-900 dark:text-white">
+                    {new Date(selectedQR.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Assigned to Pet</span>
-                  <span className="text-sm text-gray-900 dark:text-white">
-                    {selectedQR.pet_id ? `Pet #${selectedQR.pet_id}` : 'Not assigned'}
+                <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                  <span className="text-gray-500 dark:text-gray-400">Pet</span>
+                  <span className="text-gray-900 dark:text-white">
+                    {selectedQR.pet_id ? `#${selectedQR.pet_id}` : '-'}
                   </span>
                 </div>
               </div>
 
-              {/* Copy URL */}
-              <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">QR Code URL</p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={`${window.location.origin}/qr/${selectedQR.code}`}
-                    className="flex-1 px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white"
-                  />
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/qr/${selectedQR.code}`)
-                    }}
-                    className="p-2 bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 rounded transition-colors"
-                    title="Copy URL"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
-                </div>
+              {/* Copy URL - Inline */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={`${window.location.origin}/qr/${selectedQR.code}`}
+                  className="flex-1 px-2 py-1.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-900 dark:text-white"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/qr/${selectedQR.code}`)
+                  }}
+                  className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 rounded transition-colors"
+                  title="Copy URL"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="p-6 border-t border-gray-200 dark:border-gray-700 space-y-3">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center">Download Style</p>
-              <div className="flex gap-3">
+            {/* Footer - Compact download buttons */}
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex gap-2">
                 <button
                   onClick={() => handleDownloadQR(selectedQR, 'scanner')}
-                  className="flex-1 flex flex-col items-center gap-2 px-4 py-3 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg font-medium transition-colors border-2 border-indigo-200 dark:border-indigo-700"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-medium transition-colors"
                 >
-                  <Download className="w-5 h-5" />
-                  <span className="text-xs">Scanner Style</span>
+                  <Download className="w-3.5 h-3.5" />
+                  Scanner
                 </button>
                 <button
                   onClick={() => handleDownloadQR(selectedQR, 'rounded')}
-                  className="flex-1 flex flex-col items-center gap-2 px-4 py-3 bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg font-medium transition-colors border-2 border-purple-200 dark:border-purple-700"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-medium transition-colors"
                 >
-                  <Download className="w-5 h-5" />
-                  <span className="text-xs">Rounded Style</span>
+                  <Download className="w-3.5 h-3.5" />
+                  Rounded
+                </button>
+                <button
+                  onClick={() => {
+                    setIsViewQRModalOpen(false)
+                    setSelectedQR(null)
+                  }}
+                  className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-medium transition-colors"
+                >
+                  Close
                 </button>
               </div>
-              <button
-                onClick={() => {
-                  setIsViewQRModalOpen(false)
-                  setSelectedQR(null)
-                }}
-                className="w-full px-6 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>
@@ -2157,6 +2408,95 @@ const SuperAdminDashboard: React.FC = () => {
                   <>
                     <Trash2 className="w-5 h-5" />
                     Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                <Trash2 className="w-7 h-7 text-red-600 dark:text-red-400" />
+                Bulk Delete
+              </h2>
+              <button
+                onClick={() => {
+                  setShowBulkDeleteConfirm(false)
+                  setBulkDeleteError(null)
+                }}
+                disabled={isBulkDeleting}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors disabled:opacity-50"
+              >
+                <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              {bulkDeleteError && (
+                <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-800 dark:text-red-300">{bulkDeleteError}</p>
+                </div>
+              )}
+
+              <div className="text-center">
+                <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <QrCode className="w-8 h-8 text-red-600 dark:text-red-400" />
+                </div>
+                <p className="text-gray-700 dark:text-gray-300 mb-2">
+                  Are you sure you want to delete{' '}
+                  <span className="font-bold text-red-600 dark:text-red-400">
+                    {filteredQRCodes.length}
+                  </span>{' '}
+                  QR code{filteredQRCodes.length !== 1 ? 's' : ''}?
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  {qrStatusFilter || qrBatchFilter || qrSearchQuery || qrAssignmentFilter || qrTenantFilter ? (
+                    <>This will delete all QR codes matching your current filters.</>
+                  ) : (
+                    <>This will delete ALL QR codes in the system.</>
+                  )}
+                </p>
+                <p className="text-sm text-red-600 dark:text-red-400 font-medium">
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => {
+                  setShowBulkDeleteConfirm(false)
+                  setBulkDeleteError(null)
+                }}
+                disabled={isBulkDeleting}
+                className="flex-1 px-6 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                disabled={isBulkDeleting}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                {isBulkDeleting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    {bulkDeleteProgress}%
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-5 h-5" />
+                    Delete All
                   </>
                 )}
               </button>
@@ -2258,6 +2598,17 @@ const SuperAdminDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Floating Back to Top Button */}
+      {showBackToTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-6 right-6 z-50 p-3 bg-gradient-to-br from-gray-200/70 to-gray-300/70 hover:from-gray-200/90 hover:to-gray-300/90 text-gray-600/80 hover:text-gray-800 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 backdrop-blur-md"
+          aria-label="Back to top"
+        >
+          <ArrowUp className="w-5 h-5" />
+        </button>
       )}
     </div>
   )
