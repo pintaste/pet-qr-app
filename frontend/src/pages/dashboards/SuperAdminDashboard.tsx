@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   LayoutDashboard,
   Building2,
@@ -37,7 +37,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { containerStyles } from '@/styles/containers'
 import Header from '@/components/Header'
-import { superAdminService, PlatformStats, Tenant, PlatformUser } from '@/services/superAdminService'
+import { superAdminService, PlatformStats, Tenant, PlatformUser, RealtimeFeed } from '@/services/superAdminService'
 import { impersonationService } from '@/services/impersonationService'
 import { useImpersonationStore } from '@/stores/impersonationStore'
 import { GenerateQRModal } from '@/components/GenerateQRModal'
@@ -54,6 +54,9 @@ import { DeleteUserModal } from '@/components/DeleteUserModal'
 import { ResetPasswordModal } from '@/components/ResetPasswordModal'
 import QRCodeLib from 'qrcode'
 import JSZip from 'jszip'
+import { AnalyticsDashboard } from '@/components/AnalyticsDashboard'
+import SubscriptionsDashboard from '@/components/SubscriptionsDashboard'
+import { PlatformSettingsTab } from '@/components/PlatformSettings'
 
 type SuperAdminTab = 'overview' | 'tenants' | 'users' | 'qr-factory' | 'analytics' | 'subscriptions' | 'settings'
 
@@ -65,6 +68,14 @@ type SuperAdminTab = 'overview' | 'tenants' | 'users' | 'qr-factory' | 'analytic
 const SuperAdminDashboard: React.FC = () => {
   const navigate = useNavigate()
   const { startImpersonation } = useImpersonationStore()
+
+  // Ref for mobile tabs scrolling
+  const mobileTabsRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [startX, setStartX] = useState(0)
+  const [scrollLeft, setScrollLeft] = useState(0)
+  const [scrollPosition, setScrollPosition] = useState<'start' | 'middle' | 'end'>('start')
+  const [scrollProgress, setScrollProgress] = useState({ thumbWidth: 50, thumbLeft: 0 })
 
   const [activeTab, setActiveTab] = useState<SuperAdminTab>('overview')
   const [platformStats, setPlatformStats] = useState<PlatformStats | null>(null)
@@ -101,6 +112,12 @@ const SuperAdminDashboard: React.FC = () => {
   const [userSearchQuery, setUserSearchQuery] = useState('')
   const [userRoleFilter, setUserRoleFilter] = useState<string>('')
   const [userTenantFilter, setUserTenantFilter] = useState<string>('')
+
+  // User selection and bulk delete states
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<number>>(new Set())
+  const [isUsersBulkDeleting, setIsUsersBulkDeleting] = useState(false)
+  const [showUsersBulkDeleteConfirm, setShowUsersBulkDeleteConfirm] = useState(false)
+  const [usersBulkDeleteError, setUsersBulkDeleteError] = useState<string | null>(null)
 
   // QR Factory states
   const [qrSearchQuery, setQrSearchQuery] = useState('')
@@ -141,6 +158,20 @@ const SuperAdminDashboard: React.FC = () => {
   const [tenantsViewMode, setTenantsViewMode] = useState<'grid' | 'list'>('list')
   const [qrViewMode, setQrViewMode] = useState<'grid' | 'list'>('list')
   const [usersViewMode, setUsersViewMode] = useState<'grid' | 'list'>('list')
+
+  // Activity feed states (Options A, B, C, E)
+  const [activityFeed, setActivityFeed] = useState<RealtimeFeed | null>(null)
+  const [isActivityLoading, setIsActivityLoading] = useState(false)
+  const [activityFilter, setActivityFilter] = useState<string>('all')
+  const [activityCurrentPage, setActivityCurrentPage] = useState(1)
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true)
+  const [lastActivityUpdate, setLastActivityUpdate] = useState<Date | null>(null)
+  const [activityTimeRange, setActivityTimeRange] = useState<number>(24) // hours: 1, 24, 168
+  const [activitySkip, setActivitySkip] = useState(0)
+  const [showCustomDatePicker, setShowCustomDatePicker] = useState(false)
+  const [customStartDate, setCustomStartDate] = useState<string>('')
+  const [customEndDate, setCustomEndDate] = useState<string>('')
+  const ACTIVITIES_PER_PAGE = 10
 
   // Handle scroll for back-to-top button
   useEffect(() => {
@@ -198,6 +229,155 @@ const SuperAdminDashboard: React.FC = () => {
 
     fetchTenants()
   }, [activeTab])
+
+  // Fetch activity feed for overview tab
+  const fetchActivityFeed = async (resetSkip: boolean = false) => {
+    try {
+      setIsActivityLoading(true)
+      const currentSkip = resetSkip ? 0 : activitySkip
+      if (resetSkip) {
+        setActivitySkip(0)
+      }
+      const feed = await superAdminService.getRealtimeFeed({
+        skip: currentSkip,
+        limit: ACTIVITIES_PER_PAGE,
+        hours: activityTimeRange,
+        activity_type: activityFilter === 'all' ? undefined : activityFilter
+      })
+      setActivityFeed(feed)
+      setLastActivityUpdate(new Date())
+    } catch (err) {
+      console.error('Error fetching activity feed:', err)
+    } finally {
+      setIsActivityLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      fetchActivityFeed(true)
+    }
+  }, [activeTab, activityTimeRange, activityFilter])
+
+  // Handle pagination for activity feed
+  const loadMoreActivities = () => {
+    const newSkip = activitySkip + ACTIVITIES_PER_PAGE
+    setActivitySkip(newSkip)
+  }
+
+  // Fetch more when skip changes
+  useEffect(() => {
+    if (activeTab === 'overview' && activitySkip > 0) {
+      fetchActivityFeed(false)
+    }
+  }, [activitySkip])
+
+  // Auto-refresh activity feed every 30 seconds
+  useEffect(() => {
+    if (activeTab !== 'overview' || !autoRefreshEnabled) return
+
+    const interval = setInterval(() => {
+      fetchActivityFeed(true)
+    }, 30000) // 30 seconds
+
+    return () => clearInterval(interval)
+  }, [activeTab, autoRefreshEnabled, activityTimeRange, activityFilter])
+
+  // Helper function to format relative time
+  const formatRelativeTime = (timestamp: string) => {
+    const now = new Date()
+    const time = new Date(timestamp)
+    const diffMs = now.getTime() - time.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+  }
+
+  // Get activity icon and colors
+  const getActivityStyle = (type: string) => {
+    switch (type) {
+      case 'tenant_created':
+        return { icon: Building2, bgColor: 'bg-emerald-100 dark:bg-emerald-900/30', iconColor: 'text-emerald-600 dark:text-emerald-400' }
+      case 'user_registered':
+        return { icon: Users, bgColor: 'bg-blue-100 dark:bg-blue-900/30', iconColor: 'text-blue-600 dark:text-blue-400' }
+      case 'pet_registered':
+        return { icon: PawPrint, bgColor: 'bg-pink-100 dark:bg-pink-900/30', iconColor: 'text-pink-600 dark:text-pink-400' }
+      case 'qr_activated':
+        return { icon: QrCode, bgColor: 'bg-purple-100 dark:bg-purple-900/30', iconColor: 'text-purple-600 dark:text-purple-400' }
+      case 'qr_scanned':
+        return { icon: QrCode, bgColor: 'bg-amber-100 dark:bg-amber-900/30', iconColor: 'text-amber-600 dark:text-amber-400' }
+      default:
+        return { icon: Clock, bgColor: 'bg-gray-100 dark:bg-gray-900/30', iconColor: 'text-gray-600 dark:text-gray-400' }
+    }
+  }
+
+  // Export activity log to CSV
+  const exportActivityToCSV = () => {
+    if (!activityFeed?.activities || activityFeed.activities.length === 0) return
+
+    const now = new Date()
+    const exportDateTime = now.toLocaleString()
+
+    // Calculate data time range
+    let dataTimeRange = ''
+    if (customStartDate && customEndDate) {
+      dataTimeRange = `${new Date(customStartDate).toLocaleDateString()} - ${new Date(customEndDate).toLocaleDateString()}`
+    } else {
+      const rangeLabels: Record<number, string> = {
+        1: 'Last 1 hour',
+        24: 'Last 24 hours',
+        168: 'Last 7 days',
+        720: 'Last 30 days',
+        2160: 'Last 90 days'
+      }
+      dataTimeRange = rangeLabels[activityTimeRange] || `Last ${activityTimeRange} hours`
+    }
+
+    // Metadata section
+    const metadata = [
+      ['Pet QR System - Activity Log Export'],
+      ['Export Date/Time', exportDateTime],
+      ['Data Time Range', dataTimeRange],
+      ['Total Records', String(activityFeed.activities.length)],
+      ['']
+    ]
+
+    // CSV header
+    const headers = ['Time', 'Type', 'Description', 'Tenant', 'User']
+
+    // CSV rows - use user_email from API
+    const rows = activityFeed.activities.map(activity => [
+      new Date(activity.timestamp).toLocaleString(),
+      activity.type,
+      activity.description,
+      activity.tenant_name || '-',
+      activity.user_email || '-'
+    ])
+
+    // Combine metadata, headers and rows
+    const csvContent = [
+      ...metadata.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n')
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.setAttribute('href', url)
+    const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`
+    link.setAttribute('download', `pet_qr_activity_log_${timestamp}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   // Tenant CRUD handlers
   const handleCreateTenant = () => {
@@ -304,6 +484,99 @@ const SuperAdminDashboard: React.FC = () => {
     setIsResetPasswordModalOpen(true)
   }
 
+  // User selection handlers
+  const handleToggleUserSelection = (userId: number) => {
+    setSelectedUserIds(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(userId)) {
+        newSet.delete(userId)
+      } else {
+        newSet.add(userId)
+      }
+      return newSet
+    })
+  }
+
+  const handleSelectAllUsers = () => {
+    if (selectedUserIds.size === paginatedUsers.length) {
+      // Deselect all
+      setSelectedUserIds(new Set())
+    } else {
+      // Select all on current page
+      setSelectedUserIds(new Set(paginatedUsers.map(u => u.id)))
+    }
+  }
+
+  const handleBulkDeleteUsers = async () => {
+    if (selectedUserIds.size === 0) return
+
+    setIsUsersBulkDeleting(true)
+    setUsersBulkDeleteError(null)
+
+    try {
+      const result = await superAdminService.bulkDeleteUsers(Array.from(selectedUserIds))
+
+      // Remove deleted users from the list
+      setUsers(prev => prev.filter(u => !selectedUserIds.has(u.id)))
+
+      // Clear selection
+      setSelectedUserIds(new Set())
+      setShowUsersBulkDeleteConfirm(false)
+
+      // Update platform stats
+      if (platformStats) {
+        setPlatformStats({
+          ...platformStats,
+          total_users: platformStats.total_users - result.deleted_count,
+        })
+      }
+    } catch (err) {
+      console.error('Failed to bulk delete users:', err)
+      setUsersBulkDeleteError(err instanceof Error ? err.message : 'Failed to delete users')
+    } finally {
+      setIsUsersBulkDeleting(false)
+    }
+  }
+
+  // Mouse drag handlers for mobile tabs
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!mobileTabsRef.current) return
+    setIsDragging(true)
+    setStartX(e.pageX - mobileTabsRef.current.offsetLeft)
+    setScrollLeft(mobileTabsRef.current.scrollLeft)
+  }
+
+  const handleMouseLeave = () => {
+    setIsDragging(false)
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !mobileTabsRef.current) return
+    e.preventDefault()
+    const x = e.pageX - mobileTabsRef.current.offsetLeft
+    const walk = (x - startX) * 1.5 // Scroll speed multiplier
+    mobileTabsRef.current.scrollLeft = scrollLeft - walk
+  }
+
+  // Handle scroll position detection
+  const handleScroll = () => {
+    if (!mobileTabsRef.current) return
+    const { scrollLeft, scrollWidth, clientWidth } = mobileTabsRef.current
+    const maxScroll = scrollWidth - clientWidth
+
+    if (scrollLeft <= 10) {
+      setScrollPosition('start')
+    } else if (scrollLeft >= maxScroll - 10) {
+      setScrollPosition('end')
+    } else {
+      setScrollPosition('middle')
+    }
+  }
+
   const handleImpersonateUser = async (user: PlatformUser) => {
     // Can only impersonate tenant_admin or user, not super_admin
     if (user.role === 'super_admin') {
@@ -324,12 +597,11 @@ const SuperAdminDashboard: React.FC = () => {
       }
 
       // Start impersonation
-      await startImpersonation({
-        userId: user.id,
-        tenantId: tenant.id,
-        tenantName: tenant.name,
-        userEmail: user.email,
-        userRole: user.role,
+      startImpersonation({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        tenant_id: tenant.id,
       })
 
       // Navigate to tenant dashboard
@@ -738,7 +1010,7 @@ const SuperAdminDashboard: React.FC = () => {
     }
   }
 
-  // Bulk delete filtered QR codes
+  // Bulk delete filtered QR codes using polling
   const handleBulkDelete = async () => {
     if (filteredQRCodes.length === 0) return
 
@@ -747,38 +1019,59 @@ const SuperAdminDashboard: React.FC = () => {
     setBulkDeleteError(null)
 
     try {
-      let successCount = 0
-      let failCount = 0
+      // Get all QR IDs to delete
+      const qrIds = filteredQRCodes.map(qr => qr.id)
 
-      for (let i = 0; i < filteredQRCodes.length; i++) {
-        const qr = filteredQRCodes[i]
+      // Start bulk delete task
+      const response = await qrService.startBulkDelete(qrIds)
+      const taskId = response.task_id
+
+      console.log('[SuperAdminDashboard] Bulk delete started, task:', taskId)
+
+      // Poll for progress
+      const pollInterval = setInterval(async () => {
         try {
-          await qrService.deleteQRCode(qr.id)
-          successCount++
+          const status = await qrService.getBulkDeleteStatus(taskId)
+
+          setBulkDeleteProgress(status.progress)
+
+          if (status.status === 'completed' || status.status === 'failed') {
+            clearInterval(pollInterval)
+
+            // Refresh QR codes
+            const codes = await superAdminService.getAllQRCodes({ limit: 1000000 })
+            setQRCodes(codes || [])
+
+            // Refresh stats
+            const stats = await superAdminService.getPlatformStats()
+            setPlatformStats(stats)
+
+            if (status.fail_count > 0) {
+              setBulkDeleteError(`Deleted ${status.success_count} QR codes. Failed to delete ${status.fail_count}.`)
+            } else if (status.status === 'failed') {
+              setBulkDeleteError(status.error_message || 'Bulk delete failed')
+            }
+
+            setIsBulkDeleting(false)
+            setBulkDeleteProgress(100)
+
+            // Close modal after a brief delay to show 100%
+            setTimeout(() => {
+              setShowBulkDeleteConfirm(false)
+              setBulkDeleteProgress(0)
+            }, 500)
+          }
         } catch (err) {
-          console.error(`[SuperAdminDashboard] Failed to delete QR ${qr.code}:`, err)
-          failCount++
+          console.error('[SuperAdminDashboard] Error polling bulk delete status:', err)
+          clearInterval(pollInterval)
+          setBulkDeleteError('Failed to get delete progress')
+          setIsBulkDeleting(false)
         }
-        setBulkDeleteProgress(Math.round(((i + 1) / filteredQRCodes.length) * 100))
-      }
+      }, 1000) // Poll every 1 second
 
-      // Refresh QR codes
-      const codes = await superAdminService.getAllQRCodes({ limit: 1000000 })
-      setQRCodes(codes || [])
-
-      // Refresh stats
-      const stats = await superAdminService.getPlatformStats()
-      setPlatformStats(stats)
-
-      if (failCount > 0) {
-        setBulkDeleteError(`Deleted ${successCount} QR codes. Failed to delete ${failCount}.`)
-      }
-
-      setShowBulkDeleteConfirm(false)
     } catch (error) {
-      console.error('[SuperAdminDashboard] Error bulk deleting QR codes:', error)
-      setBulkDeleteError(error instanceof Error ? error.message : 'Failed to delete QR codes')
-    } finally {
+      console.error('[SuperAdminDashboard] Error starting bulk delete:', error)
+      setBulkDeleteError(error instanceof Error ? error.message : 'Failed to start bulk delete')
       setIsBulkDeleting(false)
       setBulkDeleteProgress(0)
     }
@@ -838,8 +1131,8 @@ const SuperAdminDashboard: React.FC = () => {
     { id: 'tenants' as const, label: 'Tenants', icon: Building2, count: tenants.length },
     { id: 'users' as const, label: 'Users', icon: Users, count: users.length },
     { id: 'qr-factory' as const, label: 'QR Factory', icon: QrCode },
-    { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
     { id: 'subscriptions' as const, label: 'Subscriptions', icon: CreditCard },
+    { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
     { id: 'settings' as const, label: 'Settings', icon: Settings },
   ]
 
@@ -847,7 +1140,15 @@ const SuperAdminDashboard: React.FC = () => {
     switch (activeTab) {
       case 'overview':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
+            {/* Header */}
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Platform Overview</h2>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Monitor key metrics and recent platform activity
+              </p>
+            </div>
+
             {/* Loading State */}
             {isLoading && (
               <div className="flex items-center justify-center py-12">
@@ -867,63 +1168,63 @@ const SuperAdminDashboard: React.FC = () => {
 
             {/* Platform Stats & Quick Actions Combined */}
             {!isLoading && !error && platformStats && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
                 <button
                   onClick={() => setActiveTab('tenants')}
-                  className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-emerald-200 dark:border-emerald-700 hover:border-emerald-400 dark:hover:border-emerald-500 hover:shadow-lg transition-all text-left group"
+                  className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 md:p-6 border-2 border-emerald-200 dark:border-emerald-700 hover:border-emerald-400 dark:hover:border-emerald-500 hover:shadow-lg transition-all text-left group min-h-[44px]"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Tenants</h3>
-                    <Building2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  <div className="flex items-center justify-between mb-1 sm:mb-2">
+                    <h3 className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total Tenants</h3>
+                    <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <p className="text-3xl font-bold text-gray-900 dark:text-white">{platformStats.total_tenants}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{platformStats.active_tenants} active</p>
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{platformStats.total_tenants}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">{platformStats.active_tenants} active</p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 sm:mt-2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
                     Click to manage tenants →
                   </p>
                 </button>
 
                 <button
                   onClick={() => setActiveTab('users')}
-                  className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-lg transition-all text-left group"
+                  className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 md:p-6 border-2 border-blue-200 dark:border-blue-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-lg transition-all text-left group min-h-[44px]"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Users</h3>
-                    <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <div className="flex items-center justify-between mb-1 sm:mb-2">
+                    <h3 className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total Users</h3>
+                    <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <p className="text-3xl font-bold text-gray-900 dark:text-white">{platformStats.total_users}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{platformStats.active_users} active</p>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{platformStats.total_users}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">{platformStats.active_users} active</p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 sm:mt-2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
                     Click to manage users →
                   </p>
                 </button>
 
                 <button
                   onClick={() => setActiveTab('qr-factory')}
-                  className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-purple-200 dark:border-purple-700 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-lg transition-all text-left group"
+                  className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 md:p-6 border-2 border-purple-200 dark:border-purple-700 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-lg transition-all text-left group min-h-[44px]"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">QR Codes Generated</h3>
-                    <QrCode className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  <div className="flex items-center justify-between mb-1 sm:mb-2">
+                    <h3 className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">QR Codes</h3>
+                    <QrCode className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 dark:text-purple-400" />
                   </div>
-                  <p className="text-3xl font-bold text-gray-900 dark:text-white">{platformStats.total_qr_codes}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Platform-wide</p>
-                  <p className="text-xs text-purple-600 dark:text-purple-400 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{platformStats.total_qr_codes}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">Platform-wide</p>
+                  <p className="text-xs text-purple-600 dark:text-purple-400 mt-1 sm:mt-2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
                     Click to generate QR codes →
                   </p>
                 </button>
 
                 <button
                   onClick={() => setActiveTab('analytics')}
-                  className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-indigo-200 dark:border-indigo-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-lg transition-all text-left group"
+                  className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 md:p-6 border-2 border-indigo-200 dark:border-indigo-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-lg transition-all text-left group min-h-[44px]"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Scans</h3>
-                    <BarChart3 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  <div className="flex items-center justify-between mb-1 sm:mb-2">
+                    <h3 className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total Scans</h3>
+                    <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400" />
                   </div>
-                  <p className="text-3xl font-bold text-gray-900 dark:text-white">{platformStats.total_scans}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">All time</p>
-                  <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{platformStats.total_scans}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">All time</p>
+                  <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 sm:mt-2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
                     Click to view analytics →
                   </p>
                 </button>
@@ -931,109 +1232,259 @@ const SuperAdminDashboard: React.FC = () => {
             )}
 
             {/* Platform Activity */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                  Recent Platform Activity
-                </h2>
-                <button className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium">
-                  View All →
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-4">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Activity Log
+                  </h2>
+                  {lastActivityUpdate && (
+                    <span className="text-xs text-gray-400 hidden sm:inline">
+                      Updated {formatRelativeTime(lastActivityUpdate.toISOString())}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  {/* Auto-refresh toggle */}
+                  <button
+                    onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+                    className={`px-2 py-1.5 sm:py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 min-h-[36px] sm:min-h-0 ${
+                      autoRefreshEnabled
+                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                    title={autoRefreshEnabled ? 'Auto-refresh ON (30s)' : 'Click to enable auto-refresh'}
+                  >
+                    <Clock className="w-3 h-3" />
+                    <span className="hidden sm:inline">Auto</span>
+                  </button>
+                  {/* Manual refresh */}
+                  <button
+                    onClick={() => fetchActivityFeed(true)}
+                    disabled={isActivityLoading}
+                    className="p-2 sm:p-1.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 min-h-[36px] sm:min-h-0"
+                    title="Refresh now"
+                  >
+                    <Loader2 className={`w-3.5 h-3.5 ${isActivityLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                  {/* Export CSV */}
+                  <button
+                    onClick={exportActivityToCSV}
+                    disabled={!activityFeed?.activities || activityFeed.activities.length === 0}
+                    className="px-2 py-1.5 sm:py-1 rounded text-xs font-medium transition-colors min-h-[36px] sm:min-h-0 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 flex items-center gap-1"
+                    title="Export to CSV"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span className="hidden sm:inline">CSV</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Time Range Selector */}
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <span className="text-xs text-gray-500 dark:text-gray-400">Time Range:</span>
+                {[
+                  { value: 1, label: '1h' },
+                  { value: 24, label: '24h' },
+                  { value: 168, label: '7d' },
+                  { value: 720, label: '30d' },
+                  { value: 2160, label: '90d' },
+                ].map(range => (
+                  <button
+                    key={range.value}
+                    onClick={() => {
+                      setActivityTimeRange(range.value)
+                      setShowCustomDatePicker(false)
+                      setCustomStartDate('')
+                      setCustomEndDate('')
+                    }}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                      activityTimeRange === range.value && !showCustomDatePicker
+                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {range.label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setShowCustomDatePicker(!showCustomDatePicker)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                    showCustomDatePicker
+                      ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  Custom
                 </button>
               </div>
-              {/* Activity Filters */}
+
+              {/* Custom Date Picker (Collapsible) */}
+              {showCustomDatePicker && (
+                <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                  <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
+                    <div className="w-full sm:w-auto">
+                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Start Date</label>
+                      <input
+                        type="datetime-local"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className="w-full sm:w-auto px-2 py-2.5 sm:py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px] sm:min-h-0"
+                      />
+                    </div>
+                    <div className="w-full sm:w-auto">
+                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">End Date</label>
+                      <input
+                        type="datetime-local"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className="w-full sm:w-auto px-2 py-2.5 sm:py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px] sm:min-h-0"
+                      />
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (customStartDate && customEndDate) {
+                          const start = new Date(customStartDate)
+                          const end = new Date(customEndDate)
+                          const diffHours = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60))
+                          if (diffHours > 0 && diffHours <= 2160) {
+                            setActivityTimeRange(diffHours)
+                          }
+                        }
+                      }}
+                      disabled={!customStartDate || !customEndDate}
+                      className="px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Apply
+                    </button>
+                    {customStartDate && customEndDate && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {(() => {
+                          const start = new Date(customStartDate)
+                          const end = new Date(customEndDate)
+                          const diffHours = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60))
+                          if (diffHours <= 0) return 'Invalid range'
+                          if (diffHours > 2160) return 'Max 90 days'
+                          if (diffHours < 24) return `${diffHours}h`
+                          return `${Math.round(diffHours / 24)}d`
+                        })()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Activity Filters with Counts */}
               <div className="flex flex-wrap gap-2 mb-4">
-                <button className="px-3 py-1.5 text-xs font-medium rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700">
-                  All
-                </button>
-                <button className="px-3 py-1.5 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                  Tenants
-                </button>
-                <button className="px-3 py-1.5 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                  Users
-                </button>
-                <button className="px-3 py-1.5 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                  QR Codes
-                </button>
-                <button className="px-3 py-1.5 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                  Pets
-                </button>
-                <button className="px-3 py-1.5 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                  Security
-                </button>
+                {[
+                  { key: 'all', label: 'All', count: activityFeed?.pagination?.total || activityFeed?.summary?.total_activities_24h || 0 },
+                  { key: 'user_registered', label: 'Users', count: activityFeed?.summary?.user_registrations || 0 },
+                  { key: 'tenant_created', label: 'Tenants', count: activityFeed?.summary?.tenant_registrations || 0 },
+                  { key: 'pet_registered', label: 'Pets', count: activityFeed?.summary?.pet_registrations || 0 },
+                  { key: 'qr_activated', label: 'Activated', count: activityFeed?.summary?.qr_activations || 0 },
+                  { key: 'qr_scanned', label: 'Scans', count: activityFeed?.summary?.qr_scans || 0 },
+                ].map(filter => (
+                  <button
+                    key={filter.key}
+                    onClick={() => setActivityFilter(filter.key)}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                      activityFilter === filter.key
+                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {filter.label} {filter.count > 0 && <span className="opacity-70">({filter.count})</span>}
+                  </button>
+                ))}
               </div>
-              <div className="space-y-3">
-                {/* Fake activity data */}
-                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                  <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
-                    <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white">
-                      New tenant <span className="font-semibold">Happy Paws Clinic</span> registered
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">5 minutes ago</p>
-                  </div>
-                </div>
 
-                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                  <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                    <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              {/* Activity List */}
+              <div className="space-y-2">
+                {isActivityLoading && !activityFeed ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white">
-                      User <span className="font-semibold">john@petcare.com</span> created account
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">12 minutes ago</p>
+                ) : !activityFeed?.activities || activityFeed.activities.length === 0 ? (
+                  <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                    <Clock className="w-6 h-6 mx-auto mb-1.5 opacity-50" />
+                    <p className="text-xs">No activities found</p>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    {activityFeed.activities.slice((activityCurrentPage - 1) * ACTIVITIES_PER_PAGE, activityCurrentPage * ACTIVITIES_PER_PAGE).map((activity, index) => {
+                      const style = getActivityStyle(activity.type)
+                      const IconComponent = style.icon
+                      return (
+                        <div key={index} className="flex items-center gap-2.5 py-2 px-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                          <div className={`p-1 ${style.bgColor} rounded`}>
+                            <IconComponent className={`w-3.5 h-3.5 ${style.iconColor}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-900 dark:text-white truncate">
+                              {activity.description}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {activity.tenant_name && (
+                              <span className="text-xs text-emerald-600 dark:text-emerald-400 truncate max-w-[80px]">
+                                {activity.tenant_name}
+                              </span>
+                            )}
+                            <span className="text-xs text-gray-400 dark:text-gray-500">
+                              {activity.timestamp ? formatRelativeTime(activity.timestamp) : ''}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })}
 
-                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                  <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                    <QrCode className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white">
-                      QR code <span className="font-semibold">PQR-7X9K2M</span> scanned in Vancouver, BC
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">28 minutes ago</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                  <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                    <Key className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white">
-                      Password reset for <span className="font-semibold">admin@vetclinic.com</span>
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">1 hour ago</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                  <div className="p-1.5 bg-pink-100 dark:bg-pink-900/30 rounded-lg">
-                    <PawPrint className="w-4 h-4 text-pink-600 dark:text-pink-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white">
-                      Pet <span className="font-semibold">Buddy</span> profile updated by owner
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">2 hours ago</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                  <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                    <CreditCard className="w-4 h-4 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white">
-                      <span className="font-semibold">PetSmart Downtown</span> upgraded to Premium plan
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">3 hours ago</p>
-                  </div>
-                </div>
+                    {/* Pagination Controls */}
+                    {activityFeed.activities.length > ACTIVITIES_PER_PAGE && (
+                      <div className="pt-3 border-t border-gray-200 dark:border-gray-700 mt-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            Page {activityCurrentPage} of {Math.ceil(activityFeed.activities.length / ACTIVITIES_PER_PAGE)} ({activityFeed.activities.length} items)
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setActivityCurrentPage(1)}
+                              disabled={activityCurrentPage === 1}
+                              className="p-1.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              title="First page"
+                            >
+                              <ChevronsLeft className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+                            </button>
+                            <button
+                              onClick={() => setActivityCurrentPage(prev => Math.max(1, prev - 1))}
+                              disabled={activityCurrentPage === 1}
+                              className="p-1.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              title="Previous page"
+                            >
+                              <ChevronLeft className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+                            </button>
+                            <button
+                              onClick={() => setActivityCurrentPage(prev => Math.min(Math.ceil(activityFeed.activities.length / ACTIVITIES_PER_PAGE), prev + 1))}
+                              disabled={activityCurrentPage === Math.ceil(activityFeed.activities.length / ACTIVITIES_PER_PAGE)}
+                              className="p-1.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              title="Next page"
+                            >
+                              <ChevronRight className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+                            </button>
+                            <button
+                              onClick={() => setActivityCurrentPage(Math.ceil(activityFeed.activities.length / ACTIVITIES_PER_PAGE))}
+                              disabled={activityCurrentPage === Math.ceil(activityFeed.activities.length / ACTIVITIES_PER_PAGE)}
+                              className="p-1.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              title="Last page"
+                            >
+                              <ChevronsRight className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -1041,21 +1492,21 @@ const SuperAdminDashboard: React.FC = () => {
 
       case 'tenants':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Tenant Management</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Tenant Management</h2>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
                   Manage all tenants and their configurations
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 {/* View Mode Toggle */}
                 <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                   <button
                     onClick={() => setTenantsViewMode('grid')}
-                    className={`p-2 rounded-md transition-colors ${
+                    className={`p-2.5 sm:p-2 rounded-md transition-colors min-h-[40px] min-w-[40px] sm:min-h-0 sm:min-w-0 flex items-center justify-center ${
                       tenantsViewMode === 'grid'
                         ? 'bg-white dark:bg-gray-600 shadow-sm'
                         : 'hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -1066,7 +1517,7 @@ const SuperAdminDashboard: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setTenantsViewMode('list')}
-                    className={`p-2 rounded-md transition-colors ${
+                    className={`p-2.5 sm:p-2 rounded-md transition-colors min-h-[40px] min-w-[40px] sm:min-h-0 sm:min-w-0 flex items-center justify-center ${
                       tenantsViewMode === 'list'
                         ? 'bg-white dark:bg-gray-600 shadow-sm'
                         : 'hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -1078,10 +1529,11 @@ const SuperAdminDashboard: React.FC = () => {
                 </div>
                 <button
                   onClick={handleCreateTenant}
-                  className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors"
+                  className="flex items-center gap-2 px-3 sm:px-6 py-2.5 sm:py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors text-sm sm:text-base min-h-[44px]"
                 >
-                  <Building2 className="w-5 h-5" />
-                  Create New Tenant
+                  <Building2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">Create New Tenant</span>
+                  <span className="sm:hidden">New Tenant</span>
                 </button>
               </div>
             </div>
@@ -1116,47 +1568,47 @@ const SuperAdminDashboard: React.FC = () => {
               </div>
             ) : (
               /* List View */
-              <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 overflow-hidden">
-                <table className="w-full">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 overflow-hidden overflow-x-auto">
+                <table className="w-full min-w-[320px] sm:min-w-0">
                   <thead>
                     <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Tenant</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Tier / Users</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Status</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Created</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Expires</th>
-                      <th className="text-right py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Actions</th>
+                      <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Tenant</th>
+                      <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 hidden sm:table-cell">Tier / Users</th>
+                      <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Status</th>
+                      <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">Created</th>
+                      <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell">Expires</th>
+                      <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedTenants.map((tenant) => (
                       <tr key={tenant.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td className="py-3 px-4">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4">
                           <div>
-                            <p className="font-semibold text-gray-900 dark:text-white">{tenant.name}</p>
+                            <p className="font-semibold text-xs sm:text-base text-gray-900 dark:text-white truncate max-w-[80px] sm:max-w-none">{tenant.name}</p>
                             {tenant.subdomain && (
-                              <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                                <Globe className="w-3 h-3" />
+                              <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 truncate max-w-[80px] sm:max-w-none">
+                                <Globe className="w-3 h-3 flex-shrink-0 hidden sm:inline" />
                                 {tenant.subdomain}
                               </p>
                             )}
                           </div>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 hidden sm:table-cell">
                           <div className="space-y-1">
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                               {tenant.tier === 'enterprise' ? 'Enterprise' : 'Standard'}
                             </p>
                             {tenant.user_count !== undefined && (
-                              <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
                                 <Users className="w-3 h-3" />
                                 {tenant.user_count} users
                               </p>
                             )}
                           </div>
                         </td>
-                        <td className="py-3 px-4">
-                          <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                        <td className="py-2 sm:py-3 px-2 sm:px-4">
+                          <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${
                             tenant.is_active
                               ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                               : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
@@ -1164,15 +1616,15 @@ const SuperAdminDashboard: React.FC = () => {
                             {tenant.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </td>
-                        <td className="py-3 px-4">
-                          <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 hidden md:table-cell">
+                          <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             {new Date(tenant.created_at).toLocaleDateString()}
                           </span>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 hidden lg:table-cell">
                           {tenant.subscription_expires_at ? (
-                            <span className={`text-sm flex items-center gap-1 ${
+                            <span className={`text-xs sm:text-sm flex items-center gap-1 ${
                               new Date(tenant.subscription_expires_at) < new Date()
                                 ? 'text-red-600 dark:text-red-400'
                                 : new Date(tenant.subscription_expires_at).getTime() - new Date().getTime() < 30 * 24 * 60 * 60 * 1000
@@ -1183,24 +1635,24 @@ const SuperAdminDashboard: React.FC = () => {
                               {new Date(tenant.subscription_expires_at).toLocaleDateString()}
                             </span>
                           ) : (
-                            <span className="text-sm text-gray-400 dark:text-gray-500">-</span>
+                            <span className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">-</span>
                           )}
                         </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center justify-end gap-1">
+                        <td className="py-2 sm:py-3 px-1 sm:px-4">
+                          <div className="flex items-center justify-end gap-0.5 sm:gap-1">
                             <button
                               onClick={() => handleImpersonateTenant(tenant)}
-                              className="p-1.5 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded transition-colors"
+                              className="p-1.5 sm:p-1.5 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded transition-colors min-h-[32px] min-w-[32px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                               title={`Impersonate ${tenant.name} Admin`}
                             >
-                              <LogIn className="w-4 h-4" />
+                              <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </button>
                             <button
                               onClick={() => handleEditTenant(tenant)}
-                              className="p-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded transition-colors"
+                              className="p-1.5 sm:p-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded transition-colors min-h-[32px] min-w-[32px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                               title={`Edit ${tenant.name}`}
                             >
-                              <Settings className="w-4 h-4" />
+                              <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </button>
                           </div>
                         </td>
@@ -1252,21 +1704,21 @@ const SuperAdminDashboard: React.FC = () => {
 
       case 'qr-factory':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Header with Generate Button */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">QR Code Factory</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Generate and manage QR code batches for the platform
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">QR Code Factory</h2>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Generate and manage QR code batches
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 {/* View Mode Toggle */}
                 <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                   <button
                     onClick={() => setQrViewMode('grid')}
-                    className={`p-2 rounded-md transition-colors ${
+                    className={`p-2.5 sm:p-2 rounded-md transition-colors min-h-[40px] min-w-[40px] sm:min-h-0 sm:min-w-0 flex items-center justify-center ${
                       qrViewMode === 'grid'
                         ? 'bg-white dark:bg-gray-600 shadow-sm'
                         : 'hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -1277,7 +1729,7 @@ const SuperAdminDashboard: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setQrViewMode('list')}
-                    className={`p-2 rounded-md transition-colors ${
+                    className={`p-2.5 sm:p-2 rounded-md transition-colors min-h-[40px] min-w-[40px] sm:min-h-0 sm:min-w-0 flex items-center justify-center ${
                       qrViewMode === 'list'
                         ? 'bg-white dark:bg-gray-600 shadow-sm'
                         : 'hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -1359,32 +1811,33 @@ const SuperAdminDashboard: React.FC = () => {
 
                 <button
                   onClick={handleGenerateQR}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
+                  className="flex items-center gap-2 px-3 sm:px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors text-sm sm:text-base min-h-[44px]"
                 >
-                  <Plus className="w-5 h-5" />
-                  Generate QR Batch
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">Generate QR Batch</span>
+                  <span className="sm:hidden">Generate</span>
                 </button>
               </div>
             </div>
 
             {/* Stats Cards - Clickable to filter */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
               <button
                 onClick={() => {
                   setQrStatusFilter('')
                   setQrAssignmentFilter('')
                 }}
-                className={`bg-white dark:bg-gray-800 rounded-xl p-6 border-2 transition-all hover:shadow-lg text-left ${
+                className={`bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 md:p-6 border-2 transition-all hover:shadow-lg text-left min-h-[44px] ${
                   !qrStatusFilter && !qrAssignmentFilter
                     ? 'border-indigo-500 dark:border-indigo-500 ring-2 ring-indigo-200 dark:ring-indigo-800'
                     : 'border-indigo-200 dark:border-indigo-700 hover:border-indigo-400 dark:hover:border-indigo-500'
                 }`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Generated</h3>
-                  <QrCode className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <div className="flex items-center justify-between mb-1 sm:mb-2">
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total</h3>
+                  <QrCode className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">{qrCodes.length}</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{qrCodes.length}</p>
               </button>
 
               <button
@@ -1392,17 +1845,17 @@ const SuperAdminDashboard: React.FC = () => {
                   setQrStatusFilter('active')
                   setQrAssignmentFilter('')
                 }}
-                className={`bg-white dark:bg-gray-800 rounded-xl p-6 border-2 transition-all hover:shadow-lg text-left ${
+                className={`bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 md:p-6 border-2 transition-all hover:shadow-lg text-left min-h-[44px] ${
                   qrStatusFilter === 'active' && !qrAssignmentFilter
                     ? 'border-green-500 dark:border-green-500 ring-2 ring-green-200 dark:ring-green-800'
                     : 'border-green-200 dark:border-green-700 hover:border-green-400 dark:hover:border-green-500'
                 }`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Active</h3>
-                  <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <div className="flex items-center justify-between mb-1 sm:mb-2">
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Active</h3>
+                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 dark:text-green-400" />
                 </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
                   {qrCodes.filter(qr => qr.status === 'active').length}
                 </p>
               </button>
@@ -1412,17 +1865,17 @@ const SuperAdminDashboard: React.FC = () => {
                   setQrStatusFilter('')
                   setQrAssignmentFilter('assigned')
                 }}
-                className={`bg-white dark:bg-gray-800 rounded-xl p-6 border-2 transition-all hover:shadow-lg text-left ${
+                className={`bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 md:p-6 border-2 transition-all hover:shadow-lg text-left min-h-[44px] ${
                   qrAssignmentFilter === 'assigned'
                     ? 'border-blue-500 dark:border-blue-500 ring-2 ring-blue-200 dark:ring-blue-800'
                     : 'border-blue-200 dark:border-blue-700 hover:border-blue-400 dark:hover:border-blue-500'
                 }`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Assigned to Pets</h3>
-                  <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <div className="flex items-center justify-between mb-1 sm:mb-2">
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Assigned</h3>
+                  <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
                 </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
                   {qrCodes.filter(qr => qr.pet_id).length}
                 </p>
               </button>
@@ -1432,17 +1885,17 @@ const SuperAdminDashboard: React.FC = () => {
                   setQrStatusFilter('')
                   setQrAssignmentFilter('unassigned')
                 }}
-                className={`bg-white dark:bg-gray-800 rounded-xl p-6 border-2 transition-all hover:shadow-lg text-left ${
+                className={`bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 md:p-6 border-2 transition-all hover:shadow-lg text-left min-h-[44px] ${
                   qrAssignmentFilter === 'unassigned'
                     ? 'border-gray-500 dark:border-gray-500 ring-2 ring-gray-200 dark:ring-gray-600'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
                 }`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Unassigned</h3>
-                  <QrCode className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                <div className="flex items-center justify-between mb-1 sm:mb-2">
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Unassigned</h3>
+                  <QrCode className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
                 </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
                   {qrCodes.filter(qr => !qr.pet_id).length}
                 </p>
               </button>
@@ -1597,70 +2050,70 @@ const SuperAdminDashboard: React.FC = () => {
                 </div>
               ) : (
                 /* List View */
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 overflow-hidden overflow-x-auto">
+                  <table className="w-full min-w-[280px] sm:min-w-0">
                     <thead>
-                      <tr className="border-b border-gray-200 dark:border-gray-700">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Code</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">PIN</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Status</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Batch</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Pet</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Created</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Actions</th>
+                      <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                        <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Code</th>
+                        <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Status</th>
+                        <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 hidden sm:table-cell">PIN</th>
+                        <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">Batch</th>
+                        <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell">Pet</th>
+                        <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell">Created</th>
+                        <th className="text-right py-2 sm:py-3 px-1 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {paginatedQRCodes.map((qr) => (
                         <tr key={qr.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                          <td className="py-3 px-4">
-                            <span className="font-mono font-semibold text-gray-900 dark:text-white">{qr.code}</span>
+                          <td className="py-2 sm:py-3 px-2 sm:px-4">
+                            <span className="font-mono font-semibold text-xs sm:text-sm text-gray-900 dark:text-white truncate max-w-[60px] sm:max-w-none block">{qr.code}</span>
                           </td>
-                          <td className="py-3 px-4">
-                            <span className="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-sm">{qr.pin}</span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                          <td className="py-2 sm:py-3 px-2 sm:px-4">
+                            <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${
                               qr.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
                               qr.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
                               'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
                             }`}>{qr.status}</span>
                           </td>
-                          <td className="py-3 px-4">
-                            <span className="text-sm text-gray-600 dark:text-gray-400 font-mono">{qr.batch_id || '-'}</span>
+                          <td className="py-2 sm:py-3 px-2 sm:px-4 hidden sm:table-cell">
+                            <span className="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs sm:text-sm">{qr.pin}</span>
                           </td>
-                          <td className="py-3 px-4">
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                              {qr.pet_name || (qr.pet_id ? `Pet #${qr.pet_id}` : '-')}
+                          <td className="py-2 sm:py-3 px-2 sm:px-4 hidden md:table-cell">
+                            <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-mono">{qr.batch_id || '-'}</span>
+                          </td>
+                          <td className="py-2 sm:py-3 px-2 sm:px-4 hidden lg:table-cell">
+                            <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                              {qr.pet_name || (qr.pet_id ? `#${qr.pet_id}` : '-')}
                             </span>
                           </td>
-                          <td className="py-3 px-4">
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                          <td className="py-2 sm:py-3 px-2 sm:px-4 hidden lg:table-cell">
+                            <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                               {new Date(qr.created_at).toLocaleDateString()}
                             </span>
                           </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center justify-end gap-1">
+                          <td className="py-2 sm:py-3 px-1 sm:px-4">
+                            <div className="flex items-center justify-end gap-0.5 sm:gap-1">
                               <button
                                 onClick={() => handleViewQR(qr)}
-                                className="p-1.5 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded transition-colors"
+                                className="p-1.5 sm:p-1.5 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded transition-colors min-h-[32px] min-w-[32px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                                 title="View"
                               >
-                                <QrCode className="w-4 h-4" />
+                                <QrCode className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                               </button>
                               <button
                                 onClick={() => handleDownloadQR(qr)}
-                                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 rounded transition-colors"
+                                className="p-1.5 sm:p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 rounded transition-colors min-h-[32px] min-w-[32px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                                 title="Download"
                               >
-                                <Download className="w-4 h-4" />
+                                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                               </button>
                               <button
                                 onClick={() => handleDeleteQR(qr)}
-                                className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded transition-colors"
+                                className="p-1.5 sm:p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded transition-colors min-h-[32px] min-w-[32px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                                 title="Delete"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                               </button>
                             </div>
                           </td>
@@ -1724,21 +2177,32 @@ const SuperAdminDashboard: React.FC = () => {
 
       case 'users':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">User Management</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Manage all users across the platform. Filter by role or tenant.
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">User Management</h2>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Manage all users across the platform
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
+                {/* Bulk Delete Button - shown when users are selected */}
+                {selectedUserIds.size > 0 && (
+                  <button
+                    onClick={() => setShowUsersBulkDeleteConfirm(true)}
+                    className="flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors text-sm sm:text-base min-h-[44px]"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Delete ({selectedUserIds.size})</span>
+                    <span className="sm:hidden">{selectedUserIds.size}</span>
+                  </button>
+                )}
                 {/* View Mode Toggle */}
                 <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                   <button
                     onClick={() => setUsersViewMode('grid')}
-                    className={`p-2 rounded-md transition-colors ${
+                    className={`p-2.5 sm:p-2 rounded-md transition-colors min-h-[40px] min-w-[40px] sm:min-h-0 sm:min-w-0 flex items-center justify-center ${
                       usersViewMode === 'grid'
                         ? 'bg-white dark:bg-gray-600 shadow-sm'
                         : 'hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -1749,7 +2213,7 @@ const SuperAdminDashboard: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setUsersViewMode('list')}
-                    className={`p-2 rounded-md transition-colors ${
+                    className={`p-2.5 sm:p-2 rounded-md transition-colors min-h-[40px] min-w-[40px] sm:min-h-0 sm:min-w-0 flex items-center justify-center ${
                       usersViewMode === 'list'
                         ? 'bg-white dark:bg-gray-600 shadow-sm'
                         : 'hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -1761,10 +2225,11 @@ const SuperAdminDashboard: React.FC = () => {
                 </div>
                 <button
                   onClick={handleCreateUser}
-                  className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors"
+                  className="flex items-center gap-2 px-3 sm:px-6 py-2.5 sm:py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors text-sm sm:text-base min-h-[44px]"
                 >
-                  <Plus className="w-5 h-5" />
-                  Create User
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">Create User</span>
+                  <span className="sm:hidden">New User</span>
                 </button>
               </div>
             </div>
@@ -1891,41 +2356,57 @@ const SuperAdminDashboard: React.FC = () => {
               </div>
             ) : (
               /* List View */
-              <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 overflow-hidden">
-                <table className="w-full">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 overflow-hidden overflow-x-auto">
+                <table className="w-full min-w-[320px] sm:min-w-0">
                   <thead>
                     <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">User</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Role</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Tenant</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Status</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Created</th>
-                      <th className="text-right py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Actions</th>
+                      <th className="py-2 sm:py-3 px-2 sm:px-3 w-10">
+                        <input
+                          type="checkbox"
+                          checked={paginatedUsers.length > 0 && selectedUserIds.size === paginatedUsers.length}
+                          onChange={handleSelectAllUsers}
+                          className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 rounded focus:ring-emerald-500 dark:focus:ring-emerald-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                        />
+                      </th>
+                      <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">User</th>
+                      <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Role</th>
+                      <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 hidden sm:table-cell">Tenant</th>
+                      <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">Status</th>
+                      <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell">Created</th>
+                      <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedUsers.map((user) => (
-                      <tr key={user.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td className="py-3 px-4">
-                          <p className="font-semibold text-gray-900 dark:text-white">{user.email}</p>
+                      <tr key={user.id} className={`border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/50 ${selectedUserIds.has(user.id) ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''}`}>
+                        <td className="py-2 sm:py-3 px-2 sm:px-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedUserIds.has(user.id)}
+                            onChange={() => handleToggleUserSelection(user.id)}
+                            className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 rounded focus:ring-emerald-500 dark:focus:ring-emerald-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                          />
                         </td>
-                        <td className="py-3 px-4">
-                          <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                        <td className="py-2 sm:py-3 px-2 sm:px-4">
+                          <p className="font-semibold text-xs sm:text-base text-gray-900 dark:text-white truncate max-w-[80px] sm:max-w-none">{user.email}</p>
+                        </td>
+                        <td className="py-2 sm:py-3 px-2 sm:px-4">
+                          <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${
                             user.role === 'super_admin'
                               ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
                               : user.role === 'tenant_admin'
                               ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
                               : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
                           }`}>
-                            {user.role === 'super_admin' ? 'Super Admin' : user.role === 'tenant_admin' ? 'Tenant Admin' : 'User'}
+                            {user.role === 'super_admin' ? 'Super' : user.role === 'tenant_admin' ? 'Admin' : 'User'}
                           </span>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 hidden sm:table-cell">
                           <span className="text-sm text-gray-600 dark:text-gray-400">
                             {user.tenant_name || '-'}
                           </span>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 hidden md:table-cell">
                           <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
                             user.is_active
                               ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
@@ -1934,28 +2415,28 @@ const SuperAdminDashboard: React.FC = () => {
                             {user.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </td>
-                        <td className="py-3 px-4">
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 hidden lg:table-cell">
+                          <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                             {new Date(user.created_at).toLocaleDateString()}
                           </span>
                         </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center justify-end gap-1">
+                        <td className="py-2 sm:py-3 px-1 sm:px-4">
+                          <div className="flex items-center justify-end gap-0.5 sm:gap-1">
                             {user.role !== 'super_admin' && (
                               <button
                                 onClick={() => handleImpersonateUser(user)}
-                                className="p-1.5 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded transition-colors"
+                                className="p-1.5 sm:p-1.5 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded transition-colors min-h-[32px] min-w-[32px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                                 title={`Impersonate ${user.email}`}
                               >
-                                <LogIn className="w-4 h-4" />
+                                <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                               </button>
                             )}
                             <button
                               onClick={() => handleEditUser(user)}
-                              className="p-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded transition-colors"
+                              className="p-1.5 sm:p-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded transition-colors min-h-[32px] min-w-[32px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                               title={`Edit ${user.email}`}
                             >
-                              <Settings className="w-4 h-4" />
+                              <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </button>
                           </div>
                         </td>
@@ -2015,33 +2496,21 @@ const SuperAdminDashboard: React.FC = () => {
         )
 
       case 'analytics':
-        return (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-indigo-200 dark:border-indigo-700">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Platform Analytics</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-              Analytics charts will be displayed here (real-time data with polling)
-            </p>
-          </div>
-        )
+        return <AnalyticsDashboard platformStats={platformStats} />
 
       case 'settings':
-        return (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-gray-200 dark:border-gray-700">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Platform Settings</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Platform configuration options will be available here
-            </p>
-          </div>
-        )
+        return <PlatformSettingsTab />
 
       case 'subscriptions':
         return (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-green-200 dark:border-green-700">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Subscriptions</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Subscription management and billing features will be implemented in a future phase
-            </p>
-          </div>
+          <SubscriptionsDashboard
+            tenants={tenants.map(t => ({
+              id: t.id,
+              name: t.name,
+              subdomain: t.subdomain,
+              tier: t.tier
+            }))}
+          />
         )
 
       default:
@@ -2059,7 +2528,7 @@ const SuperAdminDashboard: React.FC = () => {
       </div>
 
       {/* Dashboard Navigation */}
-      <div className="bg-white dark:bg-gray-800 border-b border-emerald-200 dark:border-emerald-700">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 relative">
         <div className={`${containerStyles.extraWide} py-4`}>
           {/* Desktop Navigation */}
           <div className="hidden md:flex gap-1 overflow-x-auto">
@@ -2093,35 +2562,59 @@ const SuperAdminDashboard: React.FC = () => {
             })}
           </div>
 
-          {/* Mobile Navigation */}
-          <div className="md:hidden overflow-x-auto hide-scrollbar -mx-4 px-4">
-            <div className="flex gap-2 pb-1">
-              {tabs.map((tab) => {
-                const Icon = tab.icon
-                const isActive = activeTab === tab.id
+          {/* Mobile Navigation - Horizontal scroll */}
+          <div className="md:hidden relative">
+            <div
+              ref={mobileTabsRef}
+              className={`overflow-x-auto hide-scrollbar -mx-4 px-4 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+              onMouseDown={handleMouseDown}
+              onMouseLeave={handleMouseLeave}
+              onMouseUp={handleMouseUp}
+              onMouseMove={handleMouseMove}
+              onScroll={handleScroll}
+            >
+              <div className="flex gap-1.5 pb-1">
+                {tabs.map((tab) => {
+                  const Icon = tab.icon
+                  const isActive = activeTab === tab.id
 
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-300 flex-shrink-0 ${
-                      isActive
-                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-2 border-emerald-500'
-                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 border-2 border-transparent'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span className="text-xs font-medium whitespace-nowrap">{tab.label}</span>
-                  </button>
-                )
-              })}
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl transition-all duration-300 flex-shrink-0 min-h-[60px] min-w-[56px] ${
+                        isActive
+                          ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-2 border-emerald-500'
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 border-2 border-transparent'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="text-[10px] font-medium whitespace-nowrap">{tab.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           </div>
+        </div>
+        {/* Custom scroll indicator - on bottom border line (mobile only) */}
+        <div className="md:hidden absolute bottom-0 left-0 right-0 h-[1.5px]">
+          <div
+            className="h-full bg-gray-300 dark:bg-gray-600 transition-all duration-150"
+            style={{
+              width: mobileTabsRef.current
+                ? `${(mobileTabsRef.current.clientWidth / mobileTabsRef.current.scrollWidth) * 100}%`
+                : '50%',
+              marginLeft: mobileTabsRef.current
+                ? `${(mobileTabsRef.current.scrollLeft / mobileTabsRef.current.scrollWidth) * 100}%`
+                : '0%'
+            }}
+          />
         </div>
       </div>
 
       {/* Main Content */}
-      <div className={`${containerStyles.extraWide} py-6`}>
+      <div className={`${containerStyles.extraWide} py-4 sm:py-6`}>
         {renderContent()}
       </div>
 
@@ -2205,6 +2698,67 @@ const SuperAdminDashboard: React.FC = () => {
         }}
         onSuccess={handleUserSuccess}
       />
+
+      {/* Bulk Delete Users Confirmation Modal */}
+      {showUsersBulkDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full">
+                  <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Delete Users</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Are you sure you want to delete {selectedUserIds.size} user{selectedUserIds.size !== 1 ? 's' : ''}?
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                This action cannot be undone. All selected users and their associated data will be permanently deleted.
+              </p>
+
+              {usersBulkDeleteError && (
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <p className="text-sm text-red-800 dark:text-red-200">{usersBulkDeleteError}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowUsersBulkDeleteConfirm(false)
+                    setUsersBulkDeleteError(null)
+                  }}
+                  disabled={isUsersBulkDeleting}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkDeleteUsers}
+                  disabled={isUsersBulkDeleting}
+                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isUsersBulkDeleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* View QR Modal */}
       {isViewQRModalOpen && selectedQR && (

@@ -1,5 +1,5 @@
 import React from 'react'
-import { Building2, Calendar, Globe, CheckCircle, XCircle, Crown, Star, Clock, AlertTriangle, LogIn, Settings, Users } from 'lucide-react'
+import { Building2, Globe, CheckCircle, XCircle, Clock, AlertTriangle, LogIn, Settings, Users } from 'lucide-react'
 import type { Tenant } from '@/services/superAdminService'
 
 interface TenantCardProps {
@@ -20,13 +20,6 @@ export const TenantCard: React.FC<TenantCardProps> = ({
   onImpersonate,
   onClick,
 }) => {
-  // Format created date
-  const createdDate = new Date(tenant.created_at).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-
   // Format expiration date and check if expired/expiring soon
   const expirationDate = tenant.subscription_expires_at
     ? new Date(tenant.subscription_expires_at)
@@ -108,84 +101,48 @@ export const TenantCard: React.FC<TenantCardProps> = ({
           </div>
         </div>
 
-        {/* Subscription Info */}
-        <div className="mb-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              {tenant.tier === 'enterprise' ? (
-                <Crown className="w-4 h-4 text-purple-500" />
-              ) : (
-                <Star className="w-4 h-4 text-blue-500" />
-              )}
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {tenant.tier === 'enterprise' ? 'Enterprise Plan' : 'Standard Plan'}
-              </span>
-            </div>
-          </div>
-          <div className="space-y-1.5 text-xs">
-            <div className="flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 text-gray-400" />
-              <span className="text-gray-600 dark:text-gray-400">
-                {tenant.user_count || 0} {(tenant.user_count || 0) === 1 ? 'user' : 'users'}
-              </span>
-              <span className="text-gray-400 mx-1">•</span>
-              <span className="text-gray-600 dark:text-gray-400">
-                {tenant.tier === 'enterprise' ? 'Unlimited pets' : 'Up to 100 pets'}
-              </span>
-            </div>
-            {/* Expiration Date */}
-            <div className={`flex items-center gap-1.5 ${
-              isExpired
-                ? 'text-red-600 dark:text-red-400'
-                : isExpiringSoon
-                  ? 'text-amber-600 dark:text-amber-400'
-                  : 'text-gray-600 dark:text-gray-400'
-            }`}>
-              {isExpired ? (
-                <AlertTriangle className="w-3.5 h-3.5" />
-              ) : (
-                <Clock className="w-3.5 h-3.5" />
-              )}
-              <span>
-                {expirationDate ? (
-                  isExpired ? (
-                    `Expired ${formattedExpiration}`
-                  ) : (
-                    `Expires ${formattedExpiration}`
-                  )
-                ) : (
-                  'No expiration set'
-                )}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Tenant Details */}
+        {/* Tenant Details - Simplified */}
         <div className="space-y-2 mb-4">
-          {/* Subdomain */}
+          {/* Users */}
           <div className="flex items-center gap-2 text-sm">
-            <Globe className="w-4 h-4 text-gray-400" />
-            <span className="text-gray-500 dark:text-gray-400">Subdomain:</span>
-            <span className="font-mono font-semibold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-              {tenant.subdomain}
+            <Users className="w-4 h-4 text-gray-400" />
+            <span className="text-gray-700 dark:text-gray-300">
+              {tenant.user_count || 0} {(tenant.user_count || 0) === 1 ? 'user' : 'users'}
             </span>
           </div>
 
-          {/* Custom Domain */}
-          {tenant.custom_domain && (
-            <div className="flex items-center gap-2 text-sm">
-              <Globe className="w-4 h-4 text-gray-400" />
-              <span className="text-gray-500 dark:text-gray-400">Custom Domain:</span>
-              <span className="text-gray-700 dark:text-gray-300">{tenant.custom_domain}</span>
-            </div>
-          )}
-
-          {/* Created Date */}
+          {/* Domain */}
           <div className="flex items-center gap-2 text-sm">
-            <Calendar className="w-4 h-4 text-gray-400" />
-            <span className="text-gray-500 dark:text-gray-400">Created:</span>
-            <span className="text-gray-700 dark:text-gray-300">{createdDate}</span>
+            <Globe className="w-4 h-4 text-gray-400" />
+            <span className="font-mono text-gray-700 dark:text-gray-300">
+              {tenant.custom_domain || `${tenant.subdomain}.petqr.com`}
+            </span>
+          </div>
+
+          {/* Expiration Date */}
+          <div className={`flex items-center gap-2 text-sm ${
+            isExpired
+              ? 'text-red-600 dark:text-red-400'
+              : isExpiringSoon
+                ? 'text-amber-600 dark:text-amber-400'
+                : 'text-gray-600 dark:text-gray-400'
+          }`}>
+            {isExpired ? (
+              <AlertTriangle className="w-4 h-4" />
+            ) : (
+              <Clock className="w-4 h-4" />
+            )}
+            <span>
+              {expirationDate ? (
+                isExpired ? (
+                  `Expired ${formattedExpiration}`
+                ) : (
+                  `Expires ${formattedExpiration}`
+                )
+              ) : (
+                'No expiration'
+              )}
+            </span>
           </div>
         </div>
 

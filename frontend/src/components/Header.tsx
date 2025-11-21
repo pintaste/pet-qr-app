@@ -113,16 +113,18 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <div className={headerClasses} style={headerStyle}>
-      <header className="flex justify-between items-center p-4 transition-all duration-300">
+      <header className="flex justify-between items-center p-4 transition-all duration-300 w-full">
+        {/* Logo - Left aligned */}
         <button
           onClick={handleLogoClick}
-          className="flex items-center gap-2 text-2xl font-bold transition-all duration-200 hover:scale-105 text-gradient"
+          className="flex items-center gap-2 text-xl sm:text-2xl font-bold transition-all duration-200 hover:scale-105 text-gradient flex-shrink-0"
         >
-          <Heart className="w-6 h-6" fill="currentColor" />
+          <Heart className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" />
           <span>PetID</span>
         </button>
 
-        <div className="flex items-center gap-2">
+        {/* Menu items - Right aligned */}
+        <div className="flex items-center gap-1 sm:gap-2">
           <div className="relative">
             <button
               onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}

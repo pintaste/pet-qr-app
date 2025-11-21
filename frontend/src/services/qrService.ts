@@ -70,6 +70,27 @@ interface QRStatusResponse {
   pet_info: any | null
 }
 
+interface BulkDeleteResponse {
+  task_id: string
+  status: string
+  total_items: number
+  message: string
+}
+
+interface BulkDeleteStatusResponse {
+  task_id: string
+  task_type: string
+  status: 'pending' | 'in_progress' | 'completed' | 'failed'
+  total_items: number
+  processed_items: number
+  success_count: number
+  fail_count: number
+  progress: number
+  error_message: string | null
+  created_at: string
+  completed_at: string | null
+}
+
 class QRService {
   async checkQRStatus(qrCode: string): Promise<QRStatusResponse> {
     return await apiClient.get<QRStatusResponse>(`/api/v1/qr-codes/${qrCode}`)
@@ -121,6 +142,16 @@ class QRService {
 
   async deleteQRCode(qrCodeId: number): Promise<{ message: string }> {
     return await apiClient.delete<{ message: string }>(`/api/v1/qr-codes/${qrCodeId}`)
+  }
+
+  async startBulkDelete(qrIds: number[]): Promise<BulkDeleteResponse> {
+    return await apiClient.post<BulkDeleteResponse>('/api/v1/qr-codes/bulk-delete', {
+      qr_ids: qrIds
+    })
+  }
+
+  async getBulkDeleteStatus(taskId: string): Promise<BulkDeleteStatusResponse> {
+    return await apiClient.get<BulkDeleteStatusResponse>(`/api/v1/qr-codes/bulk-delete/${taskId}`)
   }
 
   async recordScanEvent(qrCode: string, data?: {

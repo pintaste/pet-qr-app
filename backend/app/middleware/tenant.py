@@ -112,12 +112,12 @@ class TenantMiddleware(BaseHTTPMiddleware):
             "subdomain": None,
         }
 
-    async def _get_demo_tenant(self, db: Session) -> Optional[Tenant]:
+    async def _get_demo_tenant(self, db) -> Optional[Tenant]:
         """
         Get demo tenant for development purposes.
 
         Args:
-            db: Database session.
+            db: Async database session.
 
         Returns:
             Optional[Tenant]: Demo tenant if exists.
@@ -125,9 +125,11 @@ class TenantMiddleware(BaseHTTPMiddleware):
         try:
             from sqlmodel import select
 
-            demo_tenant = db.exec(
+            # Use execute() for async sessions instead of exec()
+            result = await db.execute(
                 select(Tenant).where(Tenant.subdomain == "demo")
-            ).first()
+            )
+            demo_tenant = result.scalars().first()
             return demo_tenant
         except Exception:
             return None
@@ -158,6 +160,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
             "/api/v1/auth/",  # Auth endpoints with v1 prefix
             "/api/admin/",  # Admin endpoints use shared schema
             "/api/v1/admin/",  # Admin endpoints with v1 prefix
+            "/api/v1/super-admin/",  # Super admin endpoints use shared schema
         ]
 
         # Check exact paths

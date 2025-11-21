@@ -52,6 +52,9 @@ class Tenant(SQLModel, table=True):
     subscription_expires_at: Optional[datetime] = Field(
         default=None, description="Subscription expiration date"
     )
+    created_by_id: Optional[int] = Field(
+        default=None, foreign_key="shared.users.id", description="Super admin who created the tenant"
+    )
     created_at: datetime = Field(
         default_factory=datetime.utcnow, description="Creation timestamp"
     )

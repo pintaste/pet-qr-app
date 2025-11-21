@@ -2,9 +2,11 @@
 QR Code management API endpoints.
 """
 
+import asyncio
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from ...core.dependencies import get_current_user
 from ...models.shared import User, UserRole
@@ -22,6 +24,20 @@ from ...schemas.pet import (
 from ...services.qr_code import QRCodeService
 from ...services.pet import PetService
 from ...services.qr_image import QRImageService
+from ...services.task_manager import task_manager, TaskStatus
+
+
+class BulkDeleteRequest(BaseModel):
+    """Request model for bulk delete operation."""
+    qr_ids: List[int]
+
+
+class BatchGenerateRequest(BaseModel):
+    """Request model for batch QR code generation with background processing."""
+    quantity: int
+    batch_id: str | None = None
+    physical_format: str = "sticker"
+    assigned_to_tenant_id: int | None = None
 
 
 router = APIRouter()
@@ -350,6 +366,137 @@ async def delete_qr_code(
         raise HTTPException(status_code=500, detail="Failed to delete QR code")
 
     return {"message": f"QR code {qr_code.code} deleted successfully"}
+
+
+def _execute_bulk_delete(task_id: str, qr_ids: List[int], qr_service: QRCodeService):
+    """
+    Execute bulk delete operation in background.
+
+    Args:
+        task_id: Task identifier for progress tracking
+        qr_ids: List of QR code IDs to delete
+        qr_service: QR code service instance
+    """
+    task_manager.update_task_progress(task_id, 0, 0, 0, TaskStatus.IN_PROGRESS)
+
+    success_count = 0
+    fail_count = 0
+
+    for i, qr_id in enumerate(qr_ids):
+        try:
+            result = qr_service.delete_qr_code(qr_id)
+            if result:
+                success_count += 1
+            else:
+                fail_count += 1
+        except Exception as e:
+            print(f"[BulkDelete] Failed to delete QR {qr_id}: {e}")
+            fail_count += 1
+
+        # Update progress after each deletion
+        processed = i + 1
+        task_manager.update_task_progress(
+            task_id,
+            processed,
+            success_count,
+            fail_count
+        )
+
+    # Mark task as completed
+    final_status = TaskStatus.COMPLETED if fail_count == 0 else TaskStatus.COMPLETED
+    task_manager.update_task_progress(
+        task_id,
+        len(qr_ids),
+        success_count,
+        fail_count,
+        final_status
+    )
+
+
+@router.post("/bulk-delete")
+async def bulk_delete_qr_codes(
+    request: BulkDeleteRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    qr_service: QRCodeService = Depends(get_qr_service),
+):
+    """
+    Start bulk delete operation for QR codes.
+
+    This endpoint initiates the deletion process and returns a task ID
+    that can be used to poll for progress.
+
+    Args:
+        request: Bulk delete request with QR code IDs
+        background_tasks: FastAPI background tasks
+        current_user: Current authenticated user
+        qr_service: QR code service instance
+
+    Returns:
+        dict: Task ID and initial status
+    """
+    # Only super admins can bulk delete QR codes
+    if current_user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only super admins can bulk delete QR codes"
+        )
+
+    if not request.qr_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No QR code IDs provided"
+        )
+
+    # Create task
+    task = task_manager.create_task("bulk_delete", len(request.qr_ids))
+
+    # Start background task
+    background_tasks.add_task(
+        _execute_bulk_delete,
+        task.task_id,
+        request.qr_ids,
+        qr_service
+    )
+
+    return {
+        "task_id": task.task_id,
+        "status": task.status.value,
+        "total_items": task.total_items,
+        "message": f"Bulk delete started for {len(request.qr_ids)} QR codes"
+    }
+
+
+@router.get("/bulk-delete/{task_id}")
+async def get_bulk_delete_status(
+    task_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get status of a bulk delete operation.
+
+    Args:
+        task_id: Task identifier
+        current_user: Current authenticated user
+
+    Returns:
+        dict: Task status and progress
+    """
+    # Only super admins can check bulk delete status
+    if current_user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only super admins can check bulk delete status"
+        )
+
+    task = task_manager.get_task(task_id)
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+
+    return task.to_dict()
 
 
 @router.post("/batch/generate", response_model=BatchQRCodeResponse)
