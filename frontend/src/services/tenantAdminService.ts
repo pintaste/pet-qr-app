@@ -22,6 +22,8 @@ export interface TenantUser {
   role: string
   is_active: boolean
   created_at: string
+  pet_count?: number
+  qr_count?: number
 }
 
 export interface CreateTenantUserRequest {

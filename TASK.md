@@ -599,7 +599,72 @@
 - Integrate jsQR for image upload QR decoding
 - Implement Edit QR functionality if needed
 
+### 2025-11-22 - Tenant Admin Dashboard Users Tab Enhancements
+
+**Major Achievements:**
+- ✅ Enhanced Users Tab with multi-select and bulk delete functionality
+- ✅ Added pet count and QR code count display for each user
+- ✅ Implemented tabbed Edit User modal with Details, Security, and Danger tabs
+- ✅ Added auto-generate strong password feature with copy functionality
+- ✅ Added password confirmation when password is hidden
+
+**Features Implemented:**
+
+1. **Multi-Select and Bulk Delete**:
+   - Checkbox column in list view table header and rows
+   - Bulk delete button appears when users are selected
+   - Bulk delete confirmation modal with warning and loading state
+   - Selected rows highlighted with purple background
+   - Clears selection after successful bulk delete
+
+2. **User Stats Display**:
+   - Added `pet_count` and `qr_count` fields to `TenantUser` type
+   - Pets and QR Codes columns in list view table
+   - Shows counts with icons (PawPrint and QrCode badges)
+
+3. **Reset Password Enhancements in Edit User Modal**:
+   - **Generate Button**: Creates 12-character strong password with lowercase, uppercase, numbers, and symbols
+   - **Copy Button**: One-click copy to clipboard with green checkmark feedback
+   - **Confirm Password**: Appears when password is hidden (eye off)
+   - **Validation**: Red border and error message when passwords don't match
+   - Auto-shows password when generated for easy copying
+
+4. **Edit User Modal Tabs**:
+   - **Details Tab**: Edit email and active status
+   - **Security Tab**: Reset password with generate/copy/confirm features
+   - **Danger Tab**: Delete user with email confirmation
+
+**Technical Changes:**
+- `frontend/src/services/tenantAdminService.ts`:
+  - Added `pet_count` and `qr_count` optional fields to TenantUser interface
+- `frontend/src/pages/dashboards/TenantAdminDashboard.tsx`:
+  - Added imports: AlertTriangle, Loader2, X
+  - Added state: selectedUserIds, showBulkDeleteConfirm, isBulkDeleting
+  - Added handlers: handleToggleUserSelection, handleSelectAllUsers, handleBulkDelete
+  - Updated list view table with checkbox column and pet/QR count columns
+  - Added bulk delete button in header when users selected
+  - Added bulk delete confirmation modal
+- `frontend/src/components/tenant/TenantUserModals.tsx`:
+  - Added imports: Wand2, Copy
+  - Added generateStrongPassword utility function
+  - Added state: confirmPassword, copied
+  - Added handlers: handleGeneratePassword, handleCopyPassword
+  - Updated handleResetPassword to validate confirmation when password hidden
+  - Enhanced Security tab UI with generate button, copy button, and confirm field
+
+**Files Modified:**
+- `frontend/src/services/tenantAdminService.ts`
+- `frontend/src/pages/dashboards/TenantAdminDashboard.tsx`
+- `frontend/src/components/tenant/TenantUserModals.tsx`
+- `TASK.md`
+
+**Testing Required:**
+- Backend API needs to return `pet_count` and `qr_count` in user list endpoint
+- Test bulk delete with multiple users selected
+- Test password generation and copy functionality
+- Test password confirmation validation
+
 ---
 
-*Last updated: 2025-11-19*
+*Last updated: 2025-11-22*
 *Next review: Production readiness phase*

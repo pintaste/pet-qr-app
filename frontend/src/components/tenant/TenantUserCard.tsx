@@ -1,5 +1,5 @@
 import React from 'react'
-import { User, Calendar, Edit, Trash2, Key, CheckCircle, XCircle } from 'lucide-react'
+import { User, Calendar, Edit, Trash2, Key, CheckCircle, XCircle, UserCog } from 'lucide-react'
 import type { TenantUser } from '@/services/tenantAdminService'
 
 interface TenantUserCardProps {
@@ -7,6 +7,7 @@ interface TenantUserCardProps {
   onEdit?: (user: TenantUser) => void
   onDelete?: (user: TenantUser) => void
   onResetPassword?: (user: TenantUser) => void
+  onImpersonate?: (user: TenantUser) => void
 }
 
 /**
@@ -19,6 +20,7 @@ export const TenantUserCard: React.FC<TenantUserCardProps> = ({
   onEdit,
   onDelete,
   onResetPassword,
+  onImpersonate,
 }) => {
   // Format created date
   const createdDate = new Date(user.created_at).toLocaleDateString('en-US', {
@@ -104,6 +106,16 @@ export const TenantUserCard: React.FC<TenantUserCardProps> = ({
               title="Reset Password"
             >
               <Key className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {onImpersonate && (
+            <button
+              onClick={() => onImpersonate(user)}
+              className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-400 rounded-lg transition-colors text-xs font-medium"
+              title="Impersonate User"
+            >
+              <UserCog className="w-3.5 h-3.5" />
             </button>
           )}
 
