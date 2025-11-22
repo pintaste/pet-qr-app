@@ -481,7 +481,14 @@ const PetsTab: React.FC<PetsTabProps> = ({
 
       {/* Pet Stats Summary */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => setPetFilter('all')}
+          className={`bg-white dark:bg-gray-800 rounded-xl p-4 border-2 transition-all duration-200 text-left hover:shadow-md ${
+            petFilter === 'all'
+              ? 'border-indigo-500 ring-2 ring-indigo-500/20'
+              : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600'
+          }`}
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
               <PawPrint className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
@@ -491,8 +498,15 @@ const PetsTab: React.FC<PetsTabProps> = ({
               <p className="text-xs text-gray-500 dark:text-gray-400">Total Pets</p>
             </div>
           </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+        </button>
+        <button
+          onClick={() => setPetFilter('linked')}
+          className={`bg-white dark:bg-gray-800 rounded-xl p-4 border-2 transition-all duration-200 text-left hover:shadow-md ${
+            petFilter === 'linked'
+              ? 'border-green-500 ring-2 ring-green-500/20'
+              : 'border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-600'
+          }`}
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
               <Link2 className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -504,8 +518,15 @@ const PetsTab: React.FC<PetsTabProps> = ({
               <p className="text-xs text-gray-500 dark:text-gray-400">With QR</p>
             </div>
           </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+        </button>
+        <button
+          onClick={() => setPetFilter('unlinked')}
+          className={`bg-white dark:bg-gray-800 rounded-xl p-4 border-2 transition-all duration-200 text-left hover:shadow-md ${
+            petFilter === 'unlinked'
+              ? 'border-amber-500 ring-2 ring-amber-500/20'
+              : 'border-gray-200 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-600'
+          }`}
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
               <Unlink className="w-5 h-5 text-amber-600 dark:text-amber-400" />
@@ -517,7 +538,7 @@ const PetsTab: React.FC<PetsTabProps> = ({
               <p className="text-xs text-gray-500 dark:text-gray-400">No QR</p>
             </div>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Selection Action Bar */}
