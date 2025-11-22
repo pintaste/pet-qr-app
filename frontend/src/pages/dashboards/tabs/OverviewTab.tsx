@@ -3,7 +3,7 @@ import {
   Building2,
   QrCode,
   Users,
-  BarChart3,
+  CreditCard,
   Loader2,
   Zap,
   Dog,
@@ -116,17 +116,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('analytics')}
+            onClick={() => setActiveTab('subscriptions')}
             className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 md:p-6 border-2 border-indigo-200 dark:border-indigo-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-lg transition-all text-left group min-h-[44px]"
           >
             <div className="flex items-center justify-between mb-1 sm:mb-2">
-              <h3 className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total Scans</h3>
-              <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400" />
+              <h3 className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Subscriptions</h3>
+              <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400" />
             </div>
-            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{platformStats.total_scans}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">All time</p>
+            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{platformStats.active_tenants}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">Active plans</p>
             <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 sm:mt-2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
-              Click to view analytics →
+              Click to manage subscriptions →
             </p>
           </button>
         </div>
