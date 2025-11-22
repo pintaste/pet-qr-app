@@ -63,7 +63,7 @@ class PetService {
     if (params?.search) queryParams.search = params.search
     if (params?.owner_id !== undefined) queryParams.owner_id = params.owner_id
 
-    return await apiClient.get<Pet[]>('/api/v1/pets', { params: queryParams })
+    return await apiClient.get<Pet[]>('/api/v1/pets/', { params: queryParams })
   }
 
   async getPet(petId: number): Promise<Pet> {

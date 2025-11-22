@@ -28,7 +28,9 @@ class QRCodeService:
 
     def _set_search_path(self, session: Session):
         """Set the search path to tenant schema."""
-        session.execute(text(f"SET search_path TO {self.tenant_schema}, public"))
+        # Quote schema name to handle special characters like hyphens
+        # Use connection().execute() to ensure search_path is set on the actual connection
+        session.connection().execute(text(f'SET search_path TO "{self.tenant_schema}", public'))
 
     def _generate_qr_code(self) -> str:
         """Generate a unique QR code."""
@@ -78,6 +80,8 @@ class QRCodeService:
 
             session.add(qr_code)
             session.commit()
+            # Re-set search path after commit as it may be reset
+            self._set_search_path(session)
             session.refresh(qr_code)
             return qr_code
         finally:
@@ -182,6 +186,70 @@ class QRCodeService:
         finally:
             session.close()
 
+    def get_qr_codes_by_owner(
+        self, owner_id: int, skip: int = 0, limit: int = 100
+    ) -> List[QRCode]:
+        """
+        Get QR codes associated with a specific user.
+
+        Returns QR codes that are either:
+        - Linked to pets owned by this user
+        - Activated by this user (even if not yet linked to a pet)
+
+        Args:
+            owner_id: Owner user ID (shared user ID)
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+
+        Returns:
+            List[QRCode]: List of QR codes for the owner
+        """
+        from ..models.tenant import Pet
+        from sqlalchemy import or_
+
+        session = self._get_session()
+        try:
+            self._set_search_path(session)
+
+            # Get tenant user ID from shared user ID
+            shared_user = session.execute(
+                text("SELECT email FROM shared.users WHERE id = :user_id"),
+                {"user_id": owner_id},
+            ).fetchone()
+
+            if not shared_user:
+                return []
+
+            tenant_user = session.execute(
+                text("SELECT id FROM tenant_users WHERE email = :email"),
+                {"email": shared_user[0]},
+            ).fetchone()
+
+            if not tenant_user:
+                return []
+
+            tenant_user_id = tenant_user[0]
+
+            # Get QR codes that are:
+            # 1. Linked to pets owned by this user, OR
+            # 2. Activated by this user (not linked to a pet yet)
+            return (
+                session.query(QRCode)
+                .outerjoin(Pet, QRCode.pet_id == Pet.id)
+                .filter(
+                    or_(
+                        Pet.owner_id == tenant_user_id,
+                        QRCode.activated_by_user_id == tenant_user_id
+                    )
+                )
+                .order_by(QRCode.created_at.desc())
+                .offset(skip)
+                .limit(limit)
+                .all()
+            )
+        finally:
+            session.close()
+
     def assign_qr_code_to_pet(self, qr_id: int, pet_id: int) -> Optional[QRCode]:
         """
         Assign a QR code to a pet.
@@ -206,6 +274,8 @@ class QRCodeService:
             qr_code.activated_at = datetime.utcnow()
 
             session.commit()
+            # Re-set search path after commit as it may be reset
+            self._set_search_path(session)
             session.refresh(qr_code)
             return qr_code
         finally:
@@ -236,6 +306,8 @@ class QRCodeService:
                 setattr(qr_code, field, value)
 
             session.commit()
+            # Re-set search path after commit as it may be reset
+            self._set_search_path(session)
             session.refresh(qr_code)
             return qr_code
         finally:
@@ -265,6 +337,8 @@ class QRCodeService:
             qr_code.activated_at = datetime.utcnow()
 
             session.commit()
+            # Re-set search path after commit as it may be reset
+            self._set_search_path(session)
             session.refresh(qr_code)
             return qr_code
         finally:
@@ -365,8 +439,7 @@ class QRCodeService:
                 generated_codes.append(qr_code)
 
             session.commit()
-
-            # Re-set search path after commit (may be reset)
+            # Re-set search path after commit as it may be reset
             self._set_search_path(session)
 
             # Refresh all objects

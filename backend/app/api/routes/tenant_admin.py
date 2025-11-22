@@ -6,13 +6,32 @@ These endpoints are accessible to TENANT_ADMIN and SUPER_ADMIN roles.
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session, select, text
 from pydantic import BaseModel
 
 from app.core.dependencies import get_current_tenant_admin, get_db
-from app.models.shared import User, UserRole
+from app.models.shared import User, UserRole, Tenant
 
 router = APIRouter()
+
+
+def get_tenant_schema(db: Session, tenant_id: int) -> str:
+    """
+    Get the schema name for a tenant.
+
+    Args:
+        db: Database session
+        tenant_id: Tenant ID
+
+    Returns:
+        Schema name string
+    """
+    tenant = db.exec(select(Tenant).where(Tenant.id == tenant_id)).first()
+    if tenant:
+        # Schema name is derived from subdomain (Tenant model doesn't have schema_name field)
+        # Replace hyphens with underscores for valid PostgreSQL schema names
+        return f"tenant_{tenant.subdomain.replace('-', '_')}"
+    return "tenant_demo"
 
 
 class TenantUserCreate(BaseModel):
@@ -356,15 +375,207 @@ async def get_tenant_analytics(
         db.exec(select(User).where(User.tenant_id == tenant_id, User.is_active == True)).all()
     )
 
-    # TODO: Add more analytics from tenant schema (pets, QR codes, scans)
+    # Get tenant schema name for raw SQL queries
+    schema_name = get_tenant_schema(db, tenant_id)
+
+    # Count pets using schema-qualified raw SQL
+    pets_result = db.execute(
+        text(f'SELECT COUNT(*) FROM "{schema_name}".pets WHERE is_active = true')
+    ).scalar()
+    total_pets = pets_result or 0
+
+    # Count QR codes using schema-qualified raw SQL
+    qr_total_result = db.execute(
+        text(f'SELECT COUNT(*) FROM "{schema_name}".qr_codes')
+    ).scalar()
+    total_qr_codes = qr_total_result or 0
+
+    qr_active_result = db.execute(
+        text(f"SELECT COUNT(*) FROM \"{schema_name}\".qr_codes WHERE status = 'active'")
+    ).scalar()
+    active_qr_codes = qr_active_result or 0
 
     return {
         "tenant_id": tenant_id,
         "total_users": total_users,
         "active_users": active_users,
-        # Placeholders for future implementation
-        "total_pets": 0,
-        "total_qr_codes": 0,
-        "active_qr_codes": 0,
-        "total_scans": 0,
+        "total_pets": total_pets,
+        "total_qr_codes": total_qr_codes,
+        "active_qr_codes": active_qr_codes,
+        "total_scans": 0,  # TODO: Implement scan counting
     }
+
+
+@router.get("/pets", response_model=List[dict])
+async def list_tenant_pets(
+    current_user: User = Depends(get_current_tenant_admin),
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+    search: Optional[str] = None,
+    species: Optional[str] = None,
+):
+    """
+    List all pets in the current tenant.
+
+    Args:
+        current_user: Current tenant admin user
+        db: Database session
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+        search: Search by pet name
+        species: Filter by pet type (dog, cat, etc.)
+
+    Returns:
+        List of pets in this tenant with owner information
+    """
+    tenant_id = current_user.tenant_id
+    schema_name = get_tenant_schema(db, tenant_id)
+
+    # Build SQL query with schema-qualified table name
+    where_clauses = ["is_active = true"]
+    params = {}
+
+    if search:
+        where_clauses.append("name ILIKE :search")
+        params["search"] = f"%{search}%"
+
+    if species and species != 'all':
+        where_clauses.append("pet_type = :species")
+        params["species"] = species
+
+    where_sql = " AND ".join(where_clauses)
+    params["skip"] = skip
+    params["limit"] = limit
+
+    # Query pets using schema-qualified raw SQL
+    pets_sql = f'''
+        SELECT id, name, pet_type, breed, gender, size, color, birth_date,
+               profile_photo_url, is_active, is_lost, owner_id, created_at
+        FROM "{schema_name}".pets
+        WHERE {where_sql}
+        ORDER BY created_at DESC
+        OFFSET :skip LIMIT :limit
+    '''
+
+    pets_result = db.execute(text(pets_sql), params).fetchall()
+
+    # Get owner information for each pet
+    result = []
+    for pet in pets_result:
+        # Get owner email from shared schema
+        owner = db.exec(select(User).where(User.id == pet[11])).first()
+        owner_email = owner.email if owner else "Unknown"
+
+        result.append({
+            "id": pet[0],
+            "name": pet[1],
+            "pet_type": pet[2],
+            "breed": pet[3],
+            "gender": pet[4],
+            "size": pet[5],
+            "color": pet[6],
+            "birth_date": pet[7].isoformat() if pet[7] else None,
+            "profile_photo_url": pet[8],
+            "is_active": pet[9],
+            "is_lost": pet[10],
+            "owner_id": pet[11],
+            "owner_email": owner_email,
+            "created_at": pet[12].isoformat() if pet[12] else None,
+        })
+
+    return result
+
+
+@router.get("/qr-codes", response_model=List[dict])
+async def list_tenant_qr_codes(
+    current_user: User = Depends(get_current_tenant_admin),
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+):
+    """
+    List all QR codes in the current tenant.
+
+    This is a dedicated endpoint for Tenant Admin dashboard.
+
+    Args:
+        current_user: Current tenant admin user
+        db: Database session
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+        status: Filter by status (active, inactive, pending)
+        search: Search by QR code
+
+    Returns:
+        List of QR codes in this tenant with pet and user information
+    """
+    tenant_id = current_user.tenant_id
+    schema_name = get_tenant_schema(db, tenant_id)
+
+    # Build SQL query with schema-qualified table name
+    where_clauses = ["1=1"]
+    params = {}
+
+    if status and status != 'all':
+        where_clauses.append("qr.status = :status")
+        params["status"] = status
+
+    if search:
+        where_clauses.append("qr.code ILIKE :search")
+        params["search"] = f"%{search}%"
+
+    where_sql = " AND ".join(where_clauses)
+    params["skip"] = skip
+    params["limit"] = limit
+
+    # Query QR codes with pet names using schema-qualified raw SQL
+    qr_sql = f'''
+        SELECT
+            qr.id,
+            qr.code,
+            qr.pin,
+            qr.status,
+            qr.pet_id,
+            qr.batch_id,
+            qr.activated_at,
+            qr.activated_by_user_id,
+            qr.created_at,
+            p.name as pet_name
+        FROM "{schema_name}".qr_codes qr
+        LEFT JOIN "{schema_name}".pets p ON qr.pet_id = p.id
+        WHERE {where_sql}
+        ORDER BY qr.created_at DESC
+        OFFSET :skip LIMIT :limit
+    '''
+
+    qr_result = db.execute(text(qr_sql), params).fetchall()
+
+    # Build response with user email information
+    result = []
+    for qr in qr_result:
+        user_email = None
+        if qr[7]:  # activated_by_user_id
+            # Get tenant_user email from tenant schema
+            user_sql = f'SELECT email FROM "{schema_name}".tenant_users WHERE id = :user_id'
+            tenant_user = db.execute(text(user_sql), {"user_id": qr[7]}).fetchone()
+            if tenant_user:
+                user_email = tenant_user[0]
+
+        result.append({
+            "id": qr[0],
+            "code": qr[1],
+            "pin": qr[2],
+            "status": qr[3],
+            "pet_id": qr[4],
+            "pet_name": qr[9],
+            "batch_id": qr[5],
+            "activated_at": qr[6].isoformat() if qr[6] else None,
+            "user_id": qr[7],
+            "user_email": user_email,
+            "created_at": qr[8].isoformat() if qr[8] else None,
+        })
+
+    return result

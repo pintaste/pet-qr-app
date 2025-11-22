@@ -26,7 +26,9 @@ class PetService:
 
     def _set_search_path(self, session: Session):
         """Set the search path to tenant schema."""
-        session.execute(text(f"SET search_path TO {self.tenant_schema}, public"))
+        # Quote schema name to handle special characters like hyphens
+        # Use connection().execute() to ensure search_path is set on the actual connection
+        session.connection().execute(text(f'SET search_path TO "{self.tenant_schema}", public'))
 
     def _get_tenant_user_id(self, shared_user_id: int) -> int:
         """Get tenant user ID from shared user ID."""
@@ -112,6 +114,8 @@ class PetService:
 
             session.add(pet)
             session.commit()
+            # Re-set search path after commit as it may be reset
+            self._set_search_path(session)
             session.refresh(pet)
             return pet
         finally:
@@ -210,6 +214,8 @@ class PetService:
 
             pet.updated_at = datetime.utcnow()
             session.commit()
+            # Re-set search path after commit as it may be reset
+            self._set_search_path(session)
             session.refresh(pet)
             return pet
         finally:
@@ -341,11 +347,37 @@ class PetService:
             # Map shared user ID to tenant user ID
             tenant_user_id = self._get_tenant_user_id(owner_id)
 
-            # Update pet with QR code
+            # First, get the QR code details and verify it belongs to this user
+            qr_result = session.execute(
+                text("""
+                    SELECT id, code, pet_id, activated_by_user_id
+                    FROM qr_codes
+                    WHERE id = :qr_code_id
+                """),
+                {"qr_code_id": qr_code_id}
+            )
+            qr_row = qr_result.fetchone()
+            if not qr_row:
+                session.rollback()
+                return None
+
+            qr_id, qr_code, current_pet_id, activated_by_user_id = qr_row
+
+            # Verify the QR code is activated by this user
+            if activated_by_user_id != tenant_user_id:
+                session.rollback()
+                return None
+
+            # Check if QR code is already linked to another pet
+            if current_pet_id is not None:
+                session.rollback()
+                return None
+
+            # Update pet with QR code (store the code string)
             result = session.execute(
                 text("""
                     UPDATE pets
-                    SET qr_code_id = :qr_code_id,
+                    SET qr_code_id = :qr_code,
                         updated_at = NOW()
                     WHERE id = :pet_id
                       AND owner_id = :owner_id
@@ -355,13 +387,23 @@ class PetService:
                              photos, medical_info, owner_id, is_active, is_pinned,
                              created_at, updated_at
                 """),
-                {"pet_id": pet_id, "qr_code_id": qr_code_id, "owner_id": tenant_user_id}
+                {"pet_id": pet_id, "qr_code": qr_code, "owner_id": tenant_user_id}
             )
 
             updated_row = result.fetchone()
             if not updated_row:
                 session.rollback()
                 return None
+
+            # Also update qr_codes table with pet_id
+            session.execute(
+                text("""
+                    UPDATE qr_codes
+                    SET pet_id = :pet_id
+                    WHERE id = :qr_code_id
+                """),
+                {"pet_id": pet_id, "qr_code_id": qr_code_id}
+            )
 
             session.commit()
 
@@ -409,6 +451,23 @@ class PetService:
             # Map shared user ID to tenant user ID
             tenant_user_id = self._get_tenant_user_id(owner_id)
 
+            # First get the current qr_code_id from pet
+            pet_result = session.execute(
+                text("""
+                    SELECT qr_code_id FROM pets
+                    WHERE id = :pet_id
+                      AND owner_id = :owner_id
+                      AND is_active = true
+                """),
+                {"pet_id": pet_id, "owner_id": tenant_user_id}
+            )
+            pet_row = pet_result.fetchone()
+            if not pet_row:
+                session.rollback()
+                return None
+
+            old_qr_code = pet_row[0]
+
             # Update pet to remove QR code
             result = session.execute(
                 text("""
@@ -430,6 +489,17 @@ class PetService:
             if not updated_row:
                 session.rollback()
                 return None
+
+            # Also update qr_codes table to remove pet_id
+            if old_qr_code:
+                session.execute(
+                    text("""
+                        UPDATE qr_codes
+                        SET pet_id = NULL
+                        WHERE code = :qr_code
+                    """),
+                    {"qr_code": old_qr_code}
+                )
 
             session.commit()
 

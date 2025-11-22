@@ -42,6 +42,51 @@ export interface TenantUserListParams {
   search?: string
 }
 
+export interface TenantQRCode {
+  id: number
+  code: string
+  pin: string
+  status: 'active' | 'inactive' | 'pending'
+  pet_id?: number
+  pet_name?: string
+  user_id?: number
+  user_email?: string
+  batch_id?: string
+  activated_at?: string
+  created_at: string
+}
+
+export interface TenantQRListParams {
+  skip?: number
+  limit?: number
+  status?: string
+  search?: string
+}
+
+export interface TenantPet {
+  id: number
+  name: string
+  pet_type: 'dog' | 'cat' | 'bird' | 'rabbit' | 'fish' | 'reptile' | 'other'
+  breed?: string
+  gender: 'male' | 'female' | 'unknown'
+  size?: 'xs' | 's' | 'm' | 'l' | 'xl'
+  color?: string
+  birth_date?: string
+  profile_photo_url?: string
+  is_active: boolean
+  is_lost: boolean
+  owner_id: number
+  owner_email: string
+  created_at: string
+}
+
+export interface TenantPetListParams {
+  skip?: number
+  limit?: number
+  search?: string
+  species?: string
+}
+
 export const tenantAdminService = {
   /**
    * Get tenant analytics
@@ -94,6 +139,33 @@ export const tenantAdminService = {
   async resetUserPassword(userId: number, newPassword: string): Promise<{ message: string }> {
     return await apiClient.post<{ message: string }>(`/api/v1/admin/users/${userId}/reset-password`, {
       new_password: newPassword
+    })
+  },
+
+  /**
+   * List QR codes in tenant (dedicated endpoint for Tenant Admin)
+   */
+  async listTenantQRCodes(params: TenantQRListParams = {}): Promise<TenantQRCode[]> {
+    const { skip = 0, limit = 100, status, search } = params
+    return await apiClient.get<TenantQRCode[]>('/api/v1/admin/qr-codes', {
+      params: { skip, limit, status, search }
+    })
+  },
+
+  /**
+   * Get QR code by ID
+   */
+  async getQRCode(qrCodeId: number): Promise<TenantQRCode> {
+    return await apiClient.get<TenantQRCode>(`/api/v1/qr-codes/${qrCodeId}`)
+  },
+
+  /**
+   * List pets in tenant
+   */
+  async listTenantPets(params: TenantPetListParams = {}): Promise<TenantPet[]> {
+    const { skip = 0, limit = 100, search, species } = params
+    return await apiClient.get<TenantPet[]>('/api/v1/admin/pets', {
+      params: { skip, limit, search, species }
     })
   },
 }

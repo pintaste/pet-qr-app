@@ -109,7 +109,7 @@ class QRService {
   }
 
   async activateQRCode(request: QRActivationRequest): Promise<QRCode> {
-    return await apiClient.post<QRCode>('/api/qr/activate', request)
+    return await apiClient.post<QRCode>('/api/v1/qr-codes/activate', request)
   }
 
   async getQRCodes(params?: {
