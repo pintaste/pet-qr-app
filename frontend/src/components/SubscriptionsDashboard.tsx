@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Building2, CheckCircle, AlertCircle, Clock, AlertTriangle, DollarSign, Pencil, SlidersHorizontal, Grid3X3, List, Plus } from 'lucide-react'
+import { Building2, CheckCircle, AlertCircle, Clock, AlertTriangle, DollarSign, Pencil, SlidersHorizontal, Grid3X3, List, Plus, XCircle } from 'lucide-react'
 import { superAdminService, SubscriptionOverview, FeatureLimits } from '../services/superAdminService'
 
 interface SubscriptionsDashboardProps {
@@ -65,6 +65,9 @@ export default function SubscriptionsDashboard({ tenants: _tenants }: Subscripti
 
   // View mode state
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
+
+  // Filter state for subscription status
+  const [statusFilter, setStatusFilter] = useState<string>('all')
 
   useEffect(() => {
     loadOverview()
@@ -235,6 +238,29 @@ export default function SubscriptionsDashboard({ tenants: _tenants }: Subscripti
     }
   }
 
+  // Filter tenants based on selected status
+  const filteredTenants = overview?.tenants.filter(tenant => {
+    if (statusFilter === 'all') return true
+    // "active" filter shows all active subscriptions (active, expiring_soon, expiring_month)
+    if (statusFilter === 'active') {
+      return ['active', 'expiring_soon', 'expiring_month'].includes(tenant.subscription_status)
+    }
+    return tenant.subscription_status === statusFilter
+  }) || []
+
+  // Get filter label for display
+  const getFilterLabel = (filter: string) => {
+    switch (filter) {
+      case 'all': return 'All Tenants'
+      case 'active': return 'Active Subscriptions'
+      case 'expiring_soon': return 'Expiring Soon'
+      case 'expiring_month': return 'Expiring This Month'
+      case 'expired': return 'Expired'
+      case 'no_subscription': return 'No Subscription'
+      default: return 'All Tenants'
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -300,133 +326,198 @@ export default function SubscriptionsDashboard({ tenants: _tenants }: Subscripti
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards - Clickable filters */}
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 p-2.5 sm:p-4 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
+        <button
+          onClick={() => setStatusFilter('all')}
+          className={`bg-white dark:bg-gray-800 rounded-xl border-2 p-2.5 sm:p-4 hover:shadow-lg transition-all text-left ${
+            statusFilter === 'all'
+              ? 'border-gray-400 dark:border-gray-500 shadow-md'
+              : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+          }`}
+        >
           <div className="flex items-center justify-between mb-1 sm:mb-2">
             <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Tenants</p>
             <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
           </div>
           <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">{overview?.summary.total_tenants || 0}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-emerald-200 dark:border-emerald-800 p-2.5 sm:p-4 hover:shadow-lg hover:border-emerald-300 dark:hover:border-emerald-700 transition-all">
+        </button>
+        <button
+          onClick={() => setStatusFilter('active')}
+          className={`bg-white dark:bg-gray-800 rounded-xl border-2 p-2.5 sm:p-4 hover:shadow-lg transition-all text-left ${
+            statusFilter === 'active'
+              ? 'border-emerald-400 dark:border-emerald-600 shadow-md'
+              : 'border-emerald-200 dark:border-emerald-800 hover:border-emerald-300 dark:hover:border-emerald-700'
+          }`}
+        >
           <div className="flex items-center justify-between mb-1 sm:mb-2">
             <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Active</p>
             <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />
           </div>
           <p className="text-lg sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">{overview?.summary.active_subscriptions || 0}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-red-200 dark:border-red-800 p-2.5 sm:p-4 hover:shadow-lg hover:border-red-300 dark:hover:border-red-700 transition-all">
+        </button>
+        <button
+          onClick={() => setStatusFilter('expiring_soon')}
+          className={`bg-white dark:bg-gray-800 rounded-xl border-2 p-2.5 sm:p-4 hover:shadow-lg transition-all text-left ${
+            statusFilter === 'expiring_soon'
+              ? 'border-red-400 dark:border-red-600 shadow-md'
+              : 'border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700'
+          }`}
+        >
           <div className="flex items-center justify-between mb-1 sm:mb-2">
             <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Exp. Soon</p>
             <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-500" />
           </div>
           <p className="text-lg sm:text-2xl font-bold text-red-600 dark:text-red-400">{overview?.summary.expiring_soon || 0}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-yellow-200 dark:border-yellow-800 p-2.5 sm:p-4 hover:shadow-lg hover:border-yellow-300 dark:hover:border-yellow-700 transition-all">
+        </button>
+        <button
+          onClick={() => setStatusFilter('expiring_month')}
+          className={`bg-white dark:bg-gray-800 rounded-xl border-2 p-2.5 sm:p-4 hover:shadow-lg transition-all text-left ${
+            statusFilter === 'expiring_month'
+              ? 'border-yellow-400 dark:border-yellow-600 shadow-md'
+              : 'border-yellow-200 dark:border-yellow-800 hover:border-yellow-300 dark:hover:border-yellow-700'
+          }`}
+        >
           <div className="flex items-center justify-between mb-1 sm:mb-2">
             <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Exp. Month</p>
             <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-500" />
           </div>
           <p className="text-lg sm:text-2xl font-bold text-yellow-600 dark:text-yellow-400">{overview?.summary.expiring_month || 0}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 p-2.5 sm:p-4 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
+        </button>
+        <button
+          onClick={() => setStatusFilter('expired')}
+          className={`bg-white dark:bg-gray-800 rounded-xl border-2 p-2.5 sm:p-4 hover:shadow-lg transition-all text-left ${
+            statusFilter === 'expired'
+              ? 'border-gray-400 dark:border-gray-500 shadow-md'
+              : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+          }`}
+        >
           <div className="flex items-center justify-between mb-1 sm:mb-2">
             <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Expired</p>
             <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
           </div>
           <p className="text-lg sm:text-2xl font-bold text-gray-600 dark:text-gray-400">{overview?.summary.expired || 0}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-indigo-200 dark:border-indigo-800 p-2.5 sm:p-4 hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-700 transition-all">
+        </button>
+        <button
+          onClick={() => setStatusFilter('no_subscription')}
+          className={`bg-white dark:bg-gray-800 rounded-xl border-2 p-2.5 sm:p-4 hover:shadow-lg transition-all text-left ${
+            statusFilter === 'no_subscription'
+              ? 'border-gray-400 dark:border-gray-500 shadow-md'
+              : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+          }`}
+        >
           <div className="flex items-center justify-between mb-1 sm:mb-2">
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">MRR</p>
-            <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500" />
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">No Sub</p>
+            <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
           </div>
-          <p className="text-lg sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400">${overview?.summary.estimated_mrr || 0}</p>
-        </div>
+          <p className="text-lg sm:text-2xl font-bold text-gray-600 dark:text-gray-400">{overview?.tenants.filter(t => t.subscription_status === 'no_subscription').length || 0}</p>
+        </button>
       </div>
 
       {/* Tenant Subscriptions Grid/List */}
       {viewMode === 'grid' ? (
-        // Grid View
+        // Grid View - no outer border, matches QR Factory grid style
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {overview?.tenants.map((tenant) => (
+              {filteredTenants.length === 0 ? (
+                <div className="col-span-full text-center py-8 text-gray-500 dark:text-gray-400">
+                  <p>No tenants match the selected filter</p>
+                  <button
+                    onClick={() => setStatusFilter('all')}
+                    className="mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    Clear filter
+                  </button>
+                </div>
+              ) : filteredTenants.map((tenant) => (
             <div
               key={tenant.tenant_id}
-              className={`bg-white dark:bg-gray-800 rounded-xl border-2 p-4 transition-all hover:shadow-lg ${
+              className={`group relative bg-white dark:bg-gray-800 rounded-2xl border-2 transition-all duration-300 hover:shadow-xl ${
                 tenant.is_active
-                  ? 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                  : 'border-gray-200 dark:border-gray-700 opacity-75'
+                  ? 'border-indigo-200 dark:border-indigo-800 hover:border-indigo-400 dark:hover:border-indigo-600'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 opacity-75'
               }`}
             >
-              {/* Card Header */}
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white">{tenant.tenant_name}</h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{tenant.subdomain}</p>
-                </div>
-                <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${tenant.tier === 'enterprise' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'}`}>
-                  {tenant.tier}
-                </span>
-              </div>
-
-              {/* Status & Days */}
-              <div className="flex items-center gap-2 mb-3">
-                <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${getStatusColor(tenant.subscription_status)}`}>
-                  {getStatusLabel(tenant.subscription_status)}
-                </span>
-                {tenant.days_remaining !== null && (
-                  <span className={`text-sm font-medium ${tenant.days_remaining <= 7 ? 'text-red-600 dark:text-red-400' : tenant.days_remaining <= 30 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-600 dark:text-gray-400'}`}>
-                    {tenant.days_remaining}d remaining
+              {/* Card Content */}
+              <div className="p-6">
+                {/* Card Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h4 className="font-semibold text-gray-900 dark:text-white text-lg">{tenant.tenant_name}</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{tenant.subdomain}</p>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${tenant.tier === 'enterprise' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'}`}>
+                    {tenant.tier}
                   </span>
-                )}
-              </div>
+                </div>
 
-              {/* Usage */}
-              <div className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                {tenant.pet_count} pets / {tenant.qr_count} QR / {tenant.user_count} users
-              </div>
+                {/* Status & Days */}
+                <div className="flex items-center gap-2 mb-4">
+                  <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${getStatusColor(tenant.subscription_status)}`}>
+                    {getStatusLabel(tenant.subscription_status)}
+                  </span>
+                  {tenant.days_remaining !== null && (
+                    <span className={`text-sm font-medium ${tenant.days_remaining <= 7 ? 'text-red-600 dark:text-red-400' : tenant.days_remaining <= 30 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                      {tenant.days_remaining}d remaining
+                    </span>
+                  )}
+                </div>
 
-              {/* Actions */}
-              <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={() => handleEditSubscription(tenant)}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
-                >
-                  <Pencil className="w-4 h-4" />
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleViewLimits(tenant)}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  <SlidersHorizontal className="w-4 h-4" />
-                  Limits
-                </button>
+                {/* Usage */}
+                <div className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                  {tenant.pet_count} pets / {tenant.qr_count} QR / {tenant.user_count} users
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => handleEditSubscription(tenant)}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-colors duration-200 text-sm font-medium"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleViewLimits(tenant)}
+                    className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors duration-200 text-sm font-medium"
+                    title="Feature Limits"
+                  >
+                    <SlidersHorizontal className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       ) : (
-        // List View (Table)
+        // List View (Table on desktop, Cards on mobile) - matches QR Factory list style
         <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Tenant Subscriptions</h3>
-          </div>
-          <div className="overflow-x-auto -mx-px">
+          {/* Desktop Table View */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-900/50">
                 <tr>
                   <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tenant</th>
                   <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tier</th>
                   <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden sm:table-cell">Days</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Days</th>
                   <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden md:table-cell">Usage</th>
                   <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {overview?.tenants.map((tenant) => (
+                {filteredTenants.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      <p>No tenants match the selected filter</p>
+                      <button
+                        onClick={() => setStatusFilter('all')}
+                        className="mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                      >
+                        Clear filter
+                      </button>
+                    </td>
+                  </tr>
+                ) : filteredTenants.map((tenant) => (
                   <tr key={tenant.tenant_id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${!tenant.is_active ? 'bg-gray-50 dark:bg-gray-900/30' : ''}`}>
                     <td className="px-3 sm:px-4 py-2 sm:py-3">
                       <div>
@@ -444,7 +535,7 @@ export default function SubscriptionsDashboard({ tenants: _tenants }: Subscripti
                         {getStatusLabel(tenant.subscription_status)}
                       </span>
                     </td>
-                    <td className="px-3 sm:px-4 py-2 sm:py-3 hidden sm:table-cell">
+                    <td className="px-3 sm:px-4 py-2 sm:py-3">
                       {tenant.days_remaining !== null ? (
                         <span className={`font-medium text-xs sm:text-sm ${tenant.days_remaining <= 7 ? 'text-red-600 dark:text-red-400' : tenant.days_remaining <= 30 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-900 dark:text-white'}`}>
                           {tenant.days_remaining}d
@@ -480,6 +571,149 @@ export default function SubscriptionsDashboard({ tenants: _tenants }: Subscripti
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile View - List or Grid based on viewMode */}
+          <div className="sm:hidden">
+            {viewMode === 'list' ? (
+              // Mobile List View
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredTenants.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <p>No tenants match the selected filter</p>
+                    <button
+                      onClick={() => setStatusFilter('all')}
+                      className="mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                    >
+                      Clear filter
+                    </button>
+                  </div>
+                ) : filteredTenants.map((tenant) => (
+                  <div
+                    key={tenant.tenant_id}
+                    className={`p-3 ${!tenant.is_active ? 'bg-gray-50 dark:bg-gray-900/30' : ''}`}
+                  >
+                    {/* Header: Name and Tier */}
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1 min-w-0 mr-2">
+                        <p className="font-medium text-gray-900 dark:text-white text-sm truncate">{tenant.tenant_name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{tenant.subdomain}</p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-lg text-xs font-medium flex-shrink-0 ${tenant.tier === 'enterprise' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'}`}>
+                        {tenant.tier}
+                      </span>
+                    </div>
+
+                    {/* Status and Days */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${getStatusColor(tenant.subscription_status)}`}>
+                        {getStatusLabel(tenant.subscription_status)}
+                      </span>
+                      {tenant.days_remaining !== null && (
+                        <span className={`text-xs font-medium ${tenant.days_remaining <= 7 ? 'text-red-600 dark:text-red-400' : tenant.days_remaining <= 30 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                          {tenant.days_remaining}d left
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Usage */}
+                    <div className="text-xs text-gray-600 dark:text-gray-300 mb-3">
+                      {tenant.pet_count} pets / {tenant.qr_count} QR / {tenant.user_count} users
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditSubscription(tenant)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors border border-indigo-200 dark:border-indigo-800"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleViewLimits(tenant)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-200 dark:border-gray-700"
+                      >
+                        <SlidersHorizontal className="w-3.5 h-3.5" />
+                        Limits
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              // Mobile Grid View
+              <div className="p-3">
+                <div className="grid grid-cols-1 gap-3">
+                  {filteredTenants.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      <p>No tenants match the selected filter</p>
+                      <button
+                        onClick={() => setStatusFilter('all')}
+                        className="mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                      >
+                        Clear filter
+                      </button>
+                    </div>
+                  ) : filteredTenants.map((tenant) => (
+                    <div
+                      key={tenant.tenant_id}
+                      className={`bg-gray-50 dark:bg-gray-700/50 rounded-xl border p-3 transition-all ${
+                        tenant.is_active
+                          ? 'border-gray-200 dark:border-gray-600'
+                          : 'border-gray-200 dark:border-gray-700 opacity-75'
+                      }`}
+                    >
+                      {/* Card Header */}
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 min-w-0 mr-2">
+                          <h4 className="font-semibold text-gray-900 dark:text-white text-sm truncate">{tenant.tenant_name}</h4>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{tenant.subdomain}</p>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${tenant.tier === 'enterprise' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'}`}>
+                          {tenant.tier}
+                        </span>
+                      </div>
+
+                      {/* Status & Days */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${getStatusColor(tenant.subscription_status)}`}>
+                          {getStatusLabel(tenant.subscription_status)}
+                        </span>
+                        {tenant.days_remaining !== null && (
+                          <span className={`text-xs font-medium ${tenant.days_remaining <= 7 ? 'text-red-600 dark:text-red-400' : tenant.days_remaining <= 30 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                            {tenant.days_remaining}d
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Usage */}
+                      <div className="text-xs text-gray-600 dark:text-gray-300 mb-3">
+                        {tenant.pet_count} pets / {tenant.qr_count} QR / {tenant.user_count} users
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                        <button
+                          onClick={() => handleEditSubscription(tenant)}
+                          className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleViewLimits(tenant)}
+                          className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        >
+                          <SlidersHorizontal className="w-3 h-3" />
+                          Limits
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

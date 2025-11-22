@@ -25,9 +25,12 @@ import {
   PieChart,
   Dog,
   Cat,
-  Scan,
-  Zap,
   Image,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react'
 import {
   superAdminService,
@@ -43,16 +46,60 @@ import {
 
 interface AnalyticsDashboardProps {
   platformStats: PlatformStats | null
+  // Activity Log props
+  activityFeed: RealtimeFeed | null
+  isActivityLoading: boolean
+  activityFilter: string
+  setActivityFilter: (filter: string) => void
+  activityTimeRange: number
+  setActivityTimeRange: (range: number) => void
+  showCustomDatePicker: boolean
+  setShowCustomDatePicker: (show: boolean) => void
+  customStartDate: string
+  setCustomStartDate: (date: string) => void
+  customEndDate: string
+  setCustomEndDate: (date: string) => void
+  activityCurrentPage: number
+  setActivityCurrentPage: (page: number | ((prev: number) => number)) => void
+  autoRefreshEnabled: boolean
+  setAutoRefreshEnabled: (enabled: boolean) => void
+  lastActivityUpdate: Date | null
+  fetchActivityFeed: (force?: boolean) => void
+  exportActivityToCSV: () => void
+  formatRelativeTime: (timestamp: string) => string
 }
 
-export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ platformStats }) => {
+const ACTIVITIES_PER_PAGE = 20
+
+export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
+  platformStats,
+  activityFeed,
+  isActivityLoading,
+  activityFilter,
+  setActivityFilter,
+  activityTimeRange,
+  setActivityTimeRange,
+  showCustomDatePicker,
+  setShowCustomDatePicker,
+  customStartDate,
+  setCustomStartDate,
+  customEndDate,
+  setCustomEndDate,
+  activityCurrentPage,
+  setActivityCurrentPage,
+  autoRefreshEnabled,
+  setAutoRefreshEnabled,
+  lastActivityUpdate,
+  fetchActivityFeed,
+  exportActivityToCSV,
+  formatRelativeTime,
+}) => {
   const [growthData, setGrowthData] = useState<GrowthAnalytics | null>(null)
   const [qrStatusData, setQRStatusData] = useState<QRStatusAnalytics | null>(null)
   const [tenantPerformance, setTenantPerformance] = useState<TenantPerformance | null>(null)
   const [recentActivity, setRecentActivity] = useState<RecentActivity | null>(null)
   const [petAnalytics, setPetAnalytics] = useState<PetAnalytics | null>(null)
   const [scanPatterns, setScanPatterns] = useState<ScanPatterns | null>(null)
-  const [realtimeFeed, setRealtimeFeed] = useState<RealtimeFeed | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -61,14 +108,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ platform
     setIsLoading(true)
     setError(null)
     try {
-      const [growth, qrStatus, performance, activity, pets, scans, feed] = await Promise.all([
+      const [growth, qrStatus, performance, activity, pets, scans] = await Promise.all([
         superAdminService.getGrowthAnalytics(),
         superAdminService.getQRStatusAnalytics(),
         superAdminService.getTenantPerformance(),
         superAdminService.getRecentActivity(),
         superAdminService.getPetAnalytics(),
         superAdminService.getScanPatterns(),
-        superAdminService.getRealtimeFeed(),
       ])
       setGrowthData(growth)
       setQRStatusData(qrStatus)
@@ -76,7 +122,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ platform
       setRecentActivity(activity)
       setPetAnalytics(pets)
       setScanPatterns(scans)
-      setRealtimeFeed(feed)
       setLastUpdated(new Date())
     } catch (err) {
       console.error('[AnalyticsDashboard] Failed to fetch analytics:', err)
@@ -601,65 +646,308 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ platform
         </div>
       )}
 
-      {/* Realtime Activity Feed */}
-      {realtimeFeed && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <Zap className="w-5 h-5 text-yellow-500" />
-              Live Activity Feed (24h)
-            </h3>
-            <div className="flex gap-3 text-xs">
-              <span className="text-blue-600 dark:text-blue-400">
-                Users: {realtimeFeed.summary.user_registrations}
+      {/* Activity Log - Full featured */}
+      <div className="space-y-4">
+        {/* Activity Log Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Activity Log
+            </h2>
+            {lastActivityUpdate && (
+              <span className="text-xs text-gray-400 hidden sm:inline">
+                Updated {formatRelativeTime(lastActivityUpdate.toISOString())}
               </span>
-              <span className="text-orange-600 dark:text-orange-400">
-                Pets: {realtimeFeed.summary.pet_registrations}
-              </span>
-              <span className="text-purple-600 dark:text-purple-400">
-                QR: {realtimeFeed.summary.qr_activations}
-              </span>
-              <span className="text-cyan-600 dark:text-cyan-400">
-                Scans: {realtimeFeed.summary.qr_scans}
-              </span>
-            </div>
+            )}
           </div>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {realtimeFeed.activities.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No recent activity</p>
+          <div className="flex items-center gap-1">
+            {/* Auto-refresh toggle */}
+            <button
+              onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+              className={`px-2 py-1.5 sm:py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 min-h-[36px] sm:min-h-0 ${
+                autoRefreshEnabled
+                  ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+              title={autoRefreshEnabled ? 'Auto-refresh ON (30s)' : 'Click to enable auto-refresh'}
+            >
+              <Clock className="w-3 h-3" />
+              <span className="hidden sm:inline">Auto</span>
+            </button>
+            {/* Manual refresh */}
+            <button
+              onClick={() => fetchActivityFeed(true)}
+              disabled={isActivityLoading}
+              className="p-2 sm:p-1.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 min-h-[36px] sm:min-h-0"
+              title="Refresh now"
+            >
+              <Loader2 className={`w-3.5 h-3.5 ${isActivityLoading ? 'animate-spin' : ''}`} />
+            </button>
+            {/* Export CSV */}
+            <button
+              onClick={exportActivityToCSV}
+              disabled={!activityFeed?.activities || activityFeed.activities.length === 0}
+              className="px-2 py-1.5 sm:py-1 rounded text-xs font-medium transition-colors min-h-[36px] sm:min-h-0 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 flex items-center gap-1"
+              title="Export to CSV"
+            >
+              <Download className="w-3 h-3" />
+              <span className="hidden sm:inline">CSV</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Filters Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          {/* Activity Type Filter - Left */}
+          <div className="flex items-center gap-1.5">
+            {[
+              { key: 'all', label: 'All', count: activityFeed?.pagination?.total || activityFeed?.summary?.total_activities_24h || 0 },
+              { key: 'user_registered', label: 'Users', count: activityFeed?.summary?.user_registrations || 0 },
+              { key: 'tenant_created', label: 'Tenants', count: activityFeed?.summary?.tenant_registrations || 0 },
+              { key: 'pet_registered', label: 'Pets', count: activityFeed?.summary?.pet_registrations || 0 },
+              { key: 'qr_activated', label: 'Activated', count: activityFeed?.summary?.qr_activations || 0 },
+              { key: 'qr_scanned', label: 'Scans', count: activityFeed?.summary?.qr_scans || 0 },
+            ].map(filter => (
+              <button
+                key={filter.key}
+                onClick={() => setActivityFilter(filter.key)}
+                className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                  activityFilter === filter.key
+                    ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Time Range Selector - Right */}
+          <div className="flex items-center gap-1.5">
+            {[
+              { value: 1, label: '1h' },
+              { value: 24, label: '24h' },
+              { value: 168, label: '7d' },
+              { value: 720, label: '30d' },
+              { value: 2160, label: '90d' },
+            ].map(range => (
+              <button
+                key={range.value}
+                onClick={() => {
+                  setActivityTimeRange(range.value)
+                  setShowCustomDatePicker(false)
+                  setCustomStartDate('')
+                  setCustomEndDate('')
+                }}
+                className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                  activityTimeRange === range.value && !showCustomDatePicker
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                {range.label}
+              </button>
+            ))}
+            <button
+              onClick={() => setShowCustomDatePicker(!showCustomDatePicker)}
+              className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                showCustomDatePicker
+                  ? 'bg-emerald-600 text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              Custom
+            </button>
+          </div>
+        </div>
+
+        {/* Activity List Container */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 overflow-hidden">
+          {/* Custom Date Picker */}
+          {showCustomDatePicker && (
+            <div className="p-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
+                <div className="w-full sm:w-auto">
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Start Date</label>
+                  <input
+                    type="datetime-local"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="w-full sm:w-auto px-2 py-2.5 sm:py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px] sm:min-h-0"
+                  />
+                </div>
+                <div className="w-full sm:w-auto">
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">End Date</label>
+                  <input
+                    type="datetime-local"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="w-full sm:w-auto px-2 py-2.5 sm:py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px] sm:min-h-0"
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    if (customStartDate && customEndDate) {
+                      const start = new Date(customStartDate)
+                      const end = new Date(customEndDate)
+                      const diffHours = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60))
+                      if (diffHours > 0 && diffHours <= 2160) {
+                        setActivityTimeRange(diffHours)
+                      }
+                    }
+                  }}
+                  disabled={!customStartDate || !customEndDate}
+                  className="px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Activity List Table */}
+          <div className="overflow-hidden">
+            {isActivityLoading && !activityFeed ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+              </div>
+            ) : !activityFeed?.activities || activityFeed.activities.length === 0 ? (
+              <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                <Clock className="w-6 h-6 mx-auto mb-1.5 opacity-50" />
+                <p className="text-xs">No activities found</p>
+              </div>
             ) : (
-              realtimeFeed.activities.slice(0, 20).map((activity, index) => (
-                <div key={index} className="flex items-start gap-3 py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
-                  <div className={`p-1.5 rounded-full flex-shrink-0 ${
-                    activity.type === 'user_registered' ? 'bg-blue-100 dark:bg-blue-900/30' :
-                    activity.type === 'tenant_created' ? 'bg-indigo-100 dark:bg-indigo-900/30' :
-                    activity.type === 'pet_registered' ? 'bg-orange-100 dark:bg-orange-900/30' :
-                    activity.type === 'qr_activated' ? 'bg-purple-100 dark:bg-purple-900/30' :
-                    'bg-cyan-100 dark:bg-cyan-900/30'
-                  }`}>
-                    {activity.type === 'user_registered' && <UserPlus className="w-3 h-3 text-blue-600 dark:text-blue-400" />}
-                    {activity.type === 'tenant_created' && <Building2 className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />}
-                    {activity.type === 'pet_registered' && <Dog className="w-3 h-3 text-orange-600 dark:text-orange-400" />}
-                    {activity.type === 'qr_activated' && <QrCode className="w-3 h-3 text-purple-600 dark:text-purple-400" />}
-                    {activity.type === 'qr_scanned' && <Scan className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white truncate">{activity.description}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {activity.tenant_name && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{activity.tenant_name}</span>
-                      )}
-                      <span className="text-xs text-gray-400 dark:text-gray-500">
-                        {activity.timestamp ? new Date(activity.timestamp).toLocaleTimeString() : '-'}
+              <>
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Timestamp</th>
+                      <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell whitespace-nowrap">Type</th>
+                      <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
+                      <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell whitespace-nowrap">Tenant</th>
+                      <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">Operator</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activityFeed.activities.slice((activityCurrentPage - 1) * ACTIVITIES_PER_PAGE, activityCurrentPage * ACTIVITIES_PER_PAGE).map((activity, index) => {
+                      const typeColors: Record<string, string> = {
+                        user_registered: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                        tenant_created: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+                        pet_registered: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+                        qr_activated: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+                        qr_scanned: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
+                      }
+                      const typeColor = typeColors[activity.type] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                      return (
+                        <tr key={index} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                          <td className="px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap">
+                            <div
+                              className="text-xs text-gray-500 dark:text-gray-400 font-mono"
+                              title={activity.timestamp ? formatRelativeTime(activity.timestamp) : ''}
+                            >
+                              {activity.timestamp ? (() => {
+                                const d = new Date(activity.timestamp)
+                                const year = d.getFullYear()
+                                const month = String(d.getMonth() + 1).padStart(2, '0')
+                                const day = String(d.getDate()).padStart(2, '0')
+                                const hours = String(d.getHours()).padStart(2, '0')
+                                const minutes = String(d.getMinutes()).padStart(2, '0')
+                                const seconds = String(d.getSeconds()).padStart(2, '0')
+                                return (
+                                  <>
+                                    <div>{year}-{month}-{day}</div>
+                                    <div className="text-gray-400 dark:text-gray-500">{hours}:{minutes}:{seconds}</div>
+                                  </>
+                                )
+                              })() : '-'}
+                            </div>
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap hidden sm:table-cell">
+                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${typeColor}`}>
+                              {activity.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </span>
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 sm:py-3">
+                            <div>
+                              <div className="sm:hidden mb-1">
+                                <span className={`inline-flex px-1.5 py-0.5 text-xs font-medium rounded ${typeColor}`}>
+                                  {activity.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </span>
+                              </div>
+                              <p className="text-xs sm:text-sm text-gray-900 dark:text-white">{activity.description}</p>
+                            </div>
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 sm:py-3 hidden md:table-cell whitespace-nowrap">
+                            {activity.tenant_name ? (
+                              <span className="text-xs text-gray-900 dark:text-white">{activity.tenant_name}</span>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 sm:py-3 hidden lg:table-cell">
+                            {activity.user_email ? (
+                              <span className="text-xs text-gray-900 dark:text-white truncate block max-w-[200px]" title={activity.user_email}>
+                                {activity.user_email}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+
+                {/* Pagination Controls */}
+                {activityFeed.activities.length > ACTIVITIES_PER_PAGE && (
+                  <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        Page {activityCurrentPage} of {Math.ceil(activityFeed.activities.length / ACTIVITIES_PER_PAGE)} ({activityFeed.activities.length} items)
                       </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setActivityCurrentPage(1)}
+                          disabled={activityCurrentPage === 1}
+                          className="p-1.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="First page"
+                        >
+                          <ChevronsLeft className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                        <button
+                          onClick={() => setActivityCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={activityCurrentPage === 1}
+                          className="p-1.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Previous page"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                        <button
+                          onClick={() => setActivityCurrentPage(prev => Math.min(Math.ceil(activityFeed.activities.length / ACTIVITIES_PER_PAGE), prev + 1))}
+                          disabled={activityCurrentPage === Math.ceil(activityFeed.activities.length / ACTIVITIES_PER_PAGE)}
+                          className="p-1.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Next page"
+                        >
+                          <ChevronRight className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                        <button
+                          onClick={() => setActivityCurrentPage(Math.ceil(activityFeed.activities.length / ACTIVITIES_PER_PAGE))}
+                          disabled={activityCurrentPage === Math.ceil(activityFeed.activities.length / ACTIVITIES_PER_PAGE)}
+                          className="p-1.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Last page"
+                        >
+                          <ChevronsRight className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                )}
+              </>
             )}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Recent Activity */}
       {recentActivity && (
