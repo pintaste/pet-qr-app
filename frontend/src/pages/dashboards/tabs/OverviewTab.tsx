@@ -139,20 +139,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <Zap className="w-5 h-5 text-yellow-500" />
             Recent Activity (24h)
           </h3>
-          <div className="flex gap-3 text-xs">
-            <span className="text-blue-600 dark:text-blue-400">
-              Users: {activityFeed?.summary?.user_registrations || 0}
-            </span>
-            <span className="text-orange-600 dark:text-orange-400">
-              Pets: {activityFeed?.summary?.pet_registrations || 0}
-            </span>
-            <span className="text-purple-600 dark:text-purple-400">
-              QR: {activityFeed?.summary?.qr_activations || 0}
-            </span>
-            <span className="text-cyan-600 dark:text-cyan-400">
-              Scans: {activityFeed?.summary?.qr_scans || 0}
-            </span>
-          </div>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium transition-colors"
+          >
+            view more →
+          </button>
         </div>
         <div className="space-y-2 max-h-64 overflow-y-auto">
           {isActivityLoading && !activityFeed ? (
