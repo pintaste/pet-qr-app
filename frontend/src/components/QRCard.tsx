@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { QrCode, LinkIcon, Calendar, Download, Eye, Edit, Trash2, Pin } from 'lucide-react'
-import QRCodeLib from 'qrcode'
+import { generateQRDataUrl } from '@/utils/qrDownloadUtils'
 
 export interface QRCodeData {
   id: number
@@ -44,15 +44,7 @@ export const QRCard: React.FC<QRCardProps> = ({
   useEffect(() => {
     const generateQR = async () => {
       try {
-        const qrUrl = `${window.location.origin}/qr/${qr.code}`
-        const dataUrl = await QRCodeLib.toDataURL(qrUrl, {
-          width: 120,
-          margin: 1,
-          color: {
-            dark: '#000000',
-            light: '#ffffff'
-          }
-        })
+        const dataUrl = await generateQRDataUrl(qr.code, 120)
         setQrImageUrl(dataUrl)
       } catch (error) {
         console.error('Error generating QR code:', error)

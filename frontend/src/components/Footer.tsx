@@ -4,7 +4,7 @@ interface FooterProps {
   variant?: 'default' | 'minimal'
 }
 
-const Footer: React.FC<FooterProps> = ({ variant = 'default' }) => {
+const Footer: React.FC<FooterProps> = ({ variant: _variant = 'default' }) => {
   const currentYear = new Date().getFullYear()
 
   return (

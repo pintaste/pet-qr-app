@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Building2, CheckCircle, AlertCircle, Clock, AlertTriangle, DollarSign, Pencil, SlidersHorizontal, Grid3X3, List, Plus, XCircle } from 'lucide-react'
+import { Building2, CheckCircle, AlertCircle, Clock, AlertTriangle, Pencil, SlidersHorizontal, Grid3X3, List, Plus, XCircle } from 'lucide-react'
 import { superAdminService, SubscriptionOverview, FeatureLimits } from '../services/superAdminService'
 
 interface SubscriptionsDashboardProps {
@@ -247,19 +247,6 @@ export default function SubscriptionsDashboard({ tenants: _tenants }: Subscripti
     }
     return tenant.subscription_status === statusFilter
   }) || []
-
-  // Get filter label for display
-  const getFilterLabel = (filter: string) => {
-    switch (filter) {
-      case 'all': return 'All Tenants'
-      case 'active': return 'Active Subscriptions'
-      case 'expiring_soon': return 'Expiring Soon'
-      case 'expiring_month': return 'Expiring This Month'
-      case 'expired': return 'Expired'
-      case 'no_subscription': return 'No Subscription'
-      default: return 'All Tenants'
-    }
-  }
 
   if (loading) {
     return (

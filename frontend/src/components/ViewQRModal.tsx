@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { X, Download, Copy, Check, LinkIcon, Calendar, QrCode as QrIcon } from 'lucide-react'
 import { QRCodeData } from './QRCard'
+import { generateQRImageUrl } from '@/utils/qrDownloadUtils'
 
 interface ViewQRModalProps {
   isOpen: boolean
@@ -26,15 +27,23 @@ export const ViewQRModal: React.FC<ViewQRModalProps> = ({
 
   // Generate QR code image URL when modal opens
   useEffect(() => {
-    if (isOpen && qr) {
-      setIsLoadingImage(true)
-      // In production, this would fetch from: GET /api/v1/qr-codes/{qr.code}/image
-      const url = `/api/v1/qr-codes/${qr.code}/image?size=400`
-      setImageUrl(url)
-      setIsLoadingImage(false)
-    } else {
-      setImageUrl('')
+    const loadQRImage = async () => {
+      if (isOpen && qr) {
+        setIsLoadingImage(true)
+        try {
+          const url = await generateQRImageUrl(qr.code, 400)
+          setImageUrl(url)
+        } catch (error) {
+          console.error('Error generating QR image:', error)
+          setImageUrl('')
+        } finally {
+          setIsLoadingImage(false)
+        }
+      } else {
+        setImageUrl('')
+      }
     }
+    loadQRImage()
   }, [isOpen, qr])
 
   // Reset copied state when modal closes

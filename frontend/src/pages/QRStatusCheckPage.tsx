@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, CheckCircle, XCircle, AlertCircle, UserPlus } from 'lucide-react'
 import { useLanguage } from '@/hooks/useLanguage'
-import { useQRAccessStore } from '@/stores/qrAccessStore'
 import { qrService } from '@/services/qrService'
 
 const QRStatusCheckPage: React.FC = () => {

@@ -34,7 +34,7 @@ export const ActivateQRModal: React.FC<ActivateQRModalProps> = ({
   const [isCameraActive, setIsCameraActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleScan = (data: any) => {
+  const handleScan = (data: { text: string } | null) => {
     if (data && data.text) {
       console.log('[ActivateQRModal] QR code scanned:', data.text)
       setQrCode(data.text)
@@ -44,7 +44,7 @@ export const ActivateQRModal: React.FC<ActivateQRModalProps> = ({
     }
   }
 
-  const handleScanError = (err: any) => {
+  const handleScanError = (err: Error) => {
     console.error('[ActivateQRModal] QR scan error:', err)
     setError('Failed to scan QR code. Please try again or enter manually.')
   }
@@ -56,13 +56,13 @@ export const ActivateQRModal: React.FC<ActivateQRModalProps> = ({
     try {
       // Create image element to read QR code
       const reader = new FileReader()
-      reader.onload = async (event) => {
+      reader.onload = async (_event) => {
         // Use jsQR or similar library to decode QR from image
         // For now, we'll show error that this needs additional library
         setError('Image upload QR scanning requires additional setup. Please use camera or manual entry.')
 
         // TODO: Integrate jsQR library for image-based QR decoding
-        // const imageSrc = event.target?.result as string
+        // const imageSrc = _event.target?.result as string
         // const code = await decodeQRFromImage(imageSrc)
         // if (code) {
         //   setQrCode(code)

@@ -1,14 +1,15 @@
 import React, { useState } from 'react'
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps'
 import { Plus, Minus } from 'lucide-react'
+import { NearbyPlace } from '@/types/petDisplay.types'
 
 interface LocationMapModalProps {
   userCurrentLocation: { lat: number; lng: number }
   selectedLocation: { lat: number; lng: number; name?: string; address?: string } | null
-  nearbyPlaces: any[]
+  nearbyPlaces: NearbyPlace[]
   mapCenter: [number, number] | null
   mapZoom: number
-  onSelectNearbyPlace: (place: any) => void
+  onSelectNearbyPlace: (place: NearbyPlace) => void
 }
 
 // Google Maps API key from environment variable

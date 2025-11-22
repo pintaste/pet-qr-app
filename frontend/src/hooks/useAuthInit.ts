@@ -4,7 +4,7 @@ import { authService } from '@/services/authService'
 
 export function useAuthInit() {
   const [isInitialized, setIsInitialized] = useState(false)
-  const { accessToken, isAuthenticated, clearAuth } = useAuthStore()
+  const { clearAuth } = useAuthStore()
 
   useEffect(() => {
     const initializeAuth = async () => {

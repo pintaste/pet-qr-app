@@ -1,5 +1,5 @@
 import React from 'react'
-import { PawPrint, QrCode, BarChart3, Settings, LayoutDashboard } from 'lucide-react'
+import { QrCode, BarChart3, Settings, LayoutDashboard } from 'lucide-react'
 import Header from '@/components/Header'
 import { containerStyles } from '@/styles/containers'
 

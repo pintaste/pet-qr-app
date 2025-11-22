@@ -1,5 +1,6 @@
 import { useAuthStore } from '@/stores/authStore'
 import { useTenantStore } from '@/stores/tenantStore'
+import { API_CONFIG } from '@/config'
 
 interface ApiConfig {
   baseURL: string
@@ -9,8 +10,8 @@ interface ApiConfig {
 const defaultConfig: ApiConfig = {
   // In development, use empty string to go through Vite proxy
   // In production, use full URL from environment variable
-  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : 'http://localhost:8000'),
-  timeout: 300000, // 5 minutes for large batch operations
+  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : API_CONFIG.BASE_URL),
+  timeout: API_CONFIG.TIMEOUT,
 }
 
 class ApiClient {
@@ -124,7 +125,7 @@ class ApiClient {
   }
 
   // HTTP methods
-  async get<T>(endpoint: string, options?: { params?: Record<string, any> }): Promise<T> {
+  async get<T>(endpoint: string, options?: { params?: Record<string, string | number | boolean | undefined | null> }): Promise<T> {
     let url = endpoint
     if (options?.params) {
       const searchParams = new URLSearchParams()
@@ -138,21 +139,21 @@ class ApiClient {
     return this.request<T>(url, { method: 'GET' })
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<T> {
+  async post<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
     })
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<T> {
+  async put<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
     })
   }
 
-  async patch<T>(endpoint: string, data?: any): Promise<T> {
+  async patch<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PATCH',
       body: data ? JSON.stringify(data) : undefined,

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLanguage } from '@/hooks/useLanguage'
 import { useQRAccessStore } from '@/stores/qrAccessStore'
-import { useSecurityStore, MAX_ATTEMPTS, COOLDOWN_TIMES, BLOCK_AFTER_ATTEMPTS } from '@/stores/securityStore'
+import { useSecurityStore, MAX_ATTEMPTS, BLOCK_AFTER_ATTEMPTS } from '@/stores/securityStore'
 import { useSecurityMonitorStore, SUSPICIOUS_ACTIVITY_TYPES } from '@/stores/securityMonitorStore'
 
 const PINVerificationPage: React.FC = () => {
@@ -436,12 +436,6 @@ const PINVerificationPage: React.FC = () => {
       setPin(digits)
       inputRefs.current[3]?.focus()
     }
-  }
-
-
-  const handleRetry = () => {
-    clearPin()
-    setError('')
   }
 
   // Show QR validation status

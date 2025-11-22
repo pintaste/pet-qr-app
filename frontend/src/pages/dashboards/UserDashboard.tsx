@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { PawPrint, QrCode, Activity, Settings, Filter } from 'lucide-react'
 import DashboardLayout from '@/components/dashboard/DashboardLayout'
 import StatsCard from '@/components/dashboard/StatsCard'
@@ -108,9 +108,31 @@ const UserDashboard: React.FC = () => {
     fetchQRCodes()
   }, [activeTab, pets])
 
-  const handleAddPet = () => {
+  const handleAddPet = useCallback(() => {
     setIsAddPetModalOpen(true)
-  }
+  }, [])
+
+  // Memoize sorted pets to prevent unnecessary re-renders
+  const sortedPets = useMemo(() =>
+    pets.sort((a, b) => {
+      // Sort pinned pets first
+      if (a.is_pinned && !b.is_pinned) return -1
+      if (!a.is_pinned && b.is_pinned) return 1
+      return 0
+    }), [pets])
+
+  // Memoize filtered QR codes
+  const filteredQRCodes = useMemo(() =>
+    qrCodes.filter((qr) => {
+      if (qrFilter === 'linked') return qr.pet_id !== undefined && qr.pet_id !== null
+      if (qrFilter === 'unlinked') return !qr.pet_id
+      return true // 'all'
+    }), [qrCodes, qrFilter])
+
+  // Memoize selected pet
+  const selectedPet = useMemo(() =>
+    selectedPetId ? pets.find(p => p.id === selectedPetId) : null,
+    [selectedPetId, pets])
 
   const handleSubmitPet = async (petData: PetFormData) => {
     try {
@@ -444,22 +466,15 @@ const UserDashboard: React.FC = () => {
                 <NoPetsCard onAddPet={handleAddPet} />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {pets
-                    .sort((a, b) => {
-                      // Sort pinned pets first
-                      if (a.is_pinned && !b.is_pinned) return -1
-                      if (!a.is_pinned && b.is_pinned) return 1
-                      return 0
-                    })
-                    .map((pet) => (
-                      <PetCard
-                        key={pet.id}
-                        pet={pet}
-                        onView={handleViewPet}
-                        onEdit={handleEditPet}
-                        onTogglePin={handleTogglePin}
-                      />
-                    ))}
+                  {sortedPets.map((pet) => (
+                    <PetCard
+                      key={pet.id}
+                      pet={pet}
+                      onView={handleViewPet}
+                      onEdit={handleEditPet}
+                      onTogglePin={handleTogglePin}
+                    />
+                  ))}
                 </div>
               )}
             </div>
@@ -479,13 +494,6 @@ const UserDashboard: React.FC = () => {
         )
 
       case 'qrcodes':
-        // Filter QR codes based on selected filter
-        const filteredQRCodes = qrCodes.filter((qr) => {
-          if (qrFilter === 'linked') return qr.pet_id !== undefined && qr.pet_id !== null
-          if (qrFilter === 'unlinked') return !qr.pet_id
-          return true // 'all'
-        })
-
         return (
           <div>
             {/* Header with Filter and Generate Button */}
@@ -580,8 +588,6 @@ const UserDashboard: React.FC = () => {
         return null
     }
   }
-
-  const selectedPet = selectedPetId ? pets.find(p => p.id === selectedPetId) : null
 
   return (
     <>

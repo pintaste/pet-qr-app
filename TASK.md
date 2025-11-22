@@ -139,6 +139,42 @@
 - [ ] Write frontend component tests
 - [ ] Achieve 70%+ test coverage
 
+### 📝 Code TODO Comments (Collected 2025-11-22)
+
+**Frontend TODOs:**
+
+| File | Line | Description | Priority |
+|------|------|-------------|----------|
+| `src/pages/dashboards/UserDashboard.tsx` | 266 | Implement edit QR code modal | Medium |
+| `src/components/ActivateQRModal.tsx` | 64 | Integrate jsQR library for image-based QR decoding | Low |
+
+**Backend TODOs:**
+
+| File | Line | Description | Priority |
+|------|------|-------------|----------|
+| `app/services/auth.py` | 205 | Send email with reset token | High |
+| `app/core/dependencies.py` | 167 | Implement domain/subdomain-based tenant detection | Medium |
+| `app/api/routes/qr_codes.py` | 48, 54 | Get tenant schema from request context | High |
+| `app/api/routes/qr_codes.py` | 220 | Add lost status to Pet model | Low |
+| `app/api/routes/qr_codes.py` | 532 | Validate tenant exists when assigned_to_tenant_id provided | Medium |
+| `app/api/routes/qr_codes.py` | 540 | Create QRCodeBatch record in shared.qr_code_batches table | Medium |
+| `app/api/routes/qr_codes.py` | 606 | Implement scan logging | Medium |
+| `app/api/routes/qr_codes.py` | 648, 707 | Make landing_url configurable (currently hardcoded localhost) | High |
+| `app/api/routes/pets.py` | 19 | Get tenant schema from request context | High |
+| `app/api/routes/pets.py` | 231 | Add lost status to Pet model | Low |
+| `app/api/routes/impersonation.py` | 79, 116 | Log impersonation start/end to audit table | Medium |
+| `app/api/routes/user_dashboard.py` | 32, 62 | Query tenant schema for user's pets/QR codes/scans | High |
+| `app/api/routes/tenant_admin.py` | 359 | Add more analytics from tenant schema | Medium |
+| `app/api/routes/super_admin.py` | 1744 | Generate actual QR codes and store in appropriate schema | High |
+| `app/api/routes/public.py` | 17 | Get tenant schema from request context | High |
+| `app/api/routes/users.py` | 58 | Get tenant schema from request context (hardcoded tenant_demo) | High |
+| `app/api/routes/users.py` | 79 | In production, require admin approval | Medium |
+
+**Priority Legend:**
+- **High**: Affects core functionality or security
+- **Medium**: Important for production but not blocking
+- **Low**: Nice to have / Future enhancement
+
 ### 📋 Future Tasks
 
 **PHASE 4: Production Readiness (Upcoming)**

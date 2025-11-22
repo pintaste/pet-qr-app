@@ -47,9 +47,11 @@ class TenantService:
             self.redis_client.setex(
                 cache_key, self.cache_timeout, json.dumps(tenant_data)
             )
-        except Exception:
+        except (ConnectionError, TimeoutError, json.JSONDecodeError) as e:
             # Cache failure shouldn't break the application
-            pass
+            # Log for monitoring but continue operation
+            import logging
+            logging.getLogger(__name__).debug(f"Redis cache set failed for {domain}: {e}")
 
     def _get_cached_tenant(self, domain: str) -> Optional[Dict[str, Any]]:
         """
@@ -66,9 +68,10 @@ class TenantService:
             cached_data = self.redis_client.get(cache_key)
             if cached_data:
                 return json.loads(cached_data)
-        except Exception:
+        except (ConnectionError, TimeoutError, json.JSONDecodeError) as e:
             # Cache failure shouldn't break the application
-            pass
+            import logging
+            logging.getLogger(__name__).debug(f"Redis cache get failed for {domain}: {e}")
         return None
 
     def _invalidate_tenant_cache(self, domain: str) -> None:
@@ -81,9 +84,10 @@ class TenantService:
         try:
             cache_key = self._get_cache_key(domain)
             self.redis_client.delete(cache_key)
-        except Exception:
+        except (ConnectionError, TimeoutError) as e:
             # Cache failure shouldn't break the application
-            pass
+            import logging
+            logging.getLogger(__name__).debug(f"Redis cache invalidate failed for {domain}: {e}")
 
     def extract_tenant_from_domain(self, domain: str) -> Dict[str, str]:
         """

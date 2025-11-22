@@ -7,6 +7,7 @@ import { useLanguage } from '@/hooks/useLanguage'
 import Layout from '@/components/Layout'
 import AuthModal from '@/components/AuthModal'
 import { DevTools } from '@/components/DevTools'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 // Pages
 import LandingPage from '@/pages/LandingPage'
@@ -40,15 +41,16 @@ function App() {
   const { language } = useLanguage()
 
   return (
-    <div
-      className={`min-h-screen transition-colors duration-300 ${theme}`}
-      data-theme={theme}
-      data-language={language}
-    >
-      {/* Development Tools - Remove before production */}
-      <DevTools enabled={import.meta.env.DEV} />
+    <ErrorBoundary>
+      <div
+        className={`min-h-screen transition-colors duration-300 ${theme}`}
+        data-theme={theme}
+        data-language={language}
+      >
+        {/* Development Tools - Remove before production */}
+        <DevTools enabled={import.meta.env.DEV} />
 
-      <Routes>
+        <Routes>
         {/* Landing Page - Clean entry point without header */}
         <Route path="/" element={<LandingPage />} />
         {/* Language Selection - For QR code scanning flow */}
@@ -82,8 +84,9 @@ function App() {
             <NotFoundPage />
           </Layout>
         } />
-      </Routes>
-    </div>
+        </Routes>
+      </div>
+    </ErrorBoundary>
   )
 }
 
