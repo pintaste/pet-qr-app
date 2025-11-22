@@ -259,17 +259,39 @@ const PetsTab: React.FC<PetsTabProps> = ({
     }
   }
 
+  const handleLinkQR = (petId: number) => {
+    setSelectedPetId(petId)
+    setIsLinkQRModalOpen(true)
+  }
+
+  const handleUnlinkQR = async (petId: number) => {
+    try {
+      await petService.unlinkQRCode(petId)
+
+      // Refresh data
+      const updatedPets = await petService.getPets()
+      setPets(updatedPets || [])
+
+      const updatedStats = await userDashboardService.getDashboardStats()
+      setStats(updatedStats)
+
+      console.log('[PetsTab] QR code unlinked successfully')
+    } catch (error) {
+      console.error('[PetsTab] Error unlinking QR code:', error)
+      alert(`Failed to unlink QR code: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
   // Helper function to format age
-  const formatAge = (ageMonths: number): string => {
-    if (ageMonths < 12) {
-      return `${ageMonths} month${ageMonths !== 1 ? 's' : ''}`
+  // Note: Backend now returns age in years, not months
+  const formatAge = (age: number): string => {
+    if (age === 0) {
+      return '< 1 year'
     }
-    const years = Math.floor(ageMonths / 12)
-    const months = ageMonths % 12
-    if (months === 0) {
-      return `${years} year${years !== 1 ? 's' : ''}`
+    if (age === 1) {
+      return '1 year'
     }
-    return `${years}y ${months}m`
+    return `${age} years`
   }
 
   // Filter button helper
@@ -743,9 +765,35 @@ const PetsTab: React.FC<PetsTabProps> = ({
                 </div>
 
                 {/* Actions */}
-                <div className="col-span-1 md:col-span-2 flex items-center justify-end gap-2">
+                <div className="col-span-1 md:col-span-2 flex items-center justify-end gap-1">
+                  {pet.qr_code_id ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleUnlinkQR(pet.id)
+                      }}
+                      className="p-2 text-red-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      title="Unlink QR Code"
+                    >
+                      <Unlink className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleLinkQR(pet.id)
+                      }}
+                      className="p-2 text-green-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                      title="Link QR Code"
+                    >
+                      <Link2 className="w-4 h-4" />
+                    </button>
+                  )}
                   <button
-                    onClick={() => handleTogglePin(pet.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleTogglePin(pet.id)
+                    }}
                     className={`p-2 rounded-lg transition-colors ${
                       pet.is_pinned
                         ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
@@ -756,14 +804,20 @@ const PetsTab: React.FC<PetsTabProps> = ({
                     <Pin className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => handleViewPet(pet.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleViewPet(pet.id)
+                    }}
                     className="p-2 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                     title="View"
                   >
                     <Eye className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => handleEditPet(pet.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleEditPet(pet.id)
+                    }}
                     className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                     title="Edit"
                   >
@@ -805,11 +859,11 @@ const PetsTab: React.FC<PetsTabProps> = ({
         onDelete={handleDeletePet}
       />
 
-      {selectedPet && (
+      {selectedPetId && (
         <LinkQRModal
           isOpen={isLinkQRModalOpen}
-          petId={selectedPet.id}
-          petName={selectedPet.name}
+          petId={selectedPetId}
+          petName={pets.find(p => p.id === selectedPetId)?.name || 'Pet'}
           onClose={() => {
             setIsLinkQRModalOpen(false)
             setSelectedPetId(null)

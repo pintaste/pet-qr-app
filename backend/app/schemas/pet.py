@@ -79,6 +79,7 @@ class PetResponse(BaseModel):
     owner_id: int
     is_active: bool
     is_pinned: bool = False
+    qr_code_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -138,6 +139,8 @@ class QRCodeUpdate(BaseModel):
         None, min_length=4, max_length=10, description="PIN for accessing pet info"
     )
     is_active: Optional[bool] = Field(None, description="Is QR code active")
+    status: Optional[str] = Field(None, description="QR code status")
+    activated_by_user_id: Optional[int] = Field(None, description="User ID who activated this QR code")
 
 
 class QRCodeResponse(BaseModel):

@@ -115,6 +115,9 @@ class Pet(SQLModel, table=True):
     owner_id: int = Field(foreign_key="tenant_users.id", description="Owner user ID")
     is_active: bool = Field(default=True, description="Is pet active")
     is_pinned: bool = Field(default=False, description="Is pet pinned to top of list")
+    qr_code_id: Optional[str] = Field(
+        default=None, max_length=255, description="Linked QR code identifier"
+    )
     created_at: datetime = Field(
         default_factory=datetime.utcnow, description="Creation timestamp"
     )
@@ -171,6 +174,9 @@ class QRCode(SQLModel, table=True):
     )
     activated_at: Optional[datetime] = Field(
         default=None, description="Activation timestamp"
+    )
+    activated_by_user_id: Optional[int] = Field(
+        default=None, description="User ID who activated this QR code"
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow, description="Creation timestamp"
