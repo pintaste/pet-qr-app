@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { PawPrint, QrCode, Activity, Settings } from 'lucide-react'
+import { PawPrint, QrCode, Activity, Settings, Eye, Clock, MapPin, Monitor } from 'lucide-react'
 import DashboardLayout from '@/components/dashboard/DashboardLayout'
 import EmptyState from '@/components/dashboard/EmptyState'
 import { userDashboardService, UserDashboardStats } from '@/services/userDashboardService'
@@ -11,6 +11,8 @@ import { EditPetModal } from '@/components/EditPetModal'
 import { ActivateQRModal } from '@/components/ActivateQRModal'
 import PetsTab from '@/pages/dashboards/tabs/PetsTab'
 import QRCodesTab from '@/pages/dashboards/tabs/QRCodesTab'
+import { qrService, ScanEvent } from '@/services/qrService'
+import SearchableSelect from '@/components/common/SearchableSelect'
 
 type UserDashboardTab = 'overview' | 'pets' | 'qrcodes' | 'activity' | 'settings'
 
@@ -34,6 +36,9 @@ const UserDashboard: React.FC = () => {
     total_scans: 0,
     recent_scans: 0,
   })
+  const [scanEvents, setScanEvents] = useState<ScanEvent[]>([])
+  const [isScanEventsLoading, setIsScanEventsLoading] = useState(false)
+  const [scanEventPetFilter, setScanEventPetFilter] = useState<string>('all')
 
   // Fetch pets on component mount
   useEffect(() => {
@@ -52,6 +57,25 @@ const UserDashboard: React.FC = () => {
     fetchPets()
   }, [])
 
+  // Fetch scan events when activity tab is selected
+  useEffect(() => {
+    if (activeTab === 'activity') {
+      const fetchScanEvents = async (): Promise<void> => {
+        try {
+          setIsScanEventsLoading(true)
+          const events = await qrService.getMyScanEvents({ limit: 100 })
+          setScanEvents(events || [])
+        } catch (err) {
+          console.error('[UserDashboard] Error fetching scan events:', err)
+        } finally {
+          setIsScanEventsLoading(false)
+        }
+      }
+
+      fetchScanEvents()
+    }
+  }, [activeTab])
+
   const handleAddPet = useCallback(() => {
     setIsAddPetModalOpen(true)
   }, [])
@@ -69,6 +93,25 @@ const UserDashboard: React.FC = () => {
   const selectedPet = useMemo(() =>
     selectedPetId ? pets.find(p => p.id === selectedPetId) : null,
     [selectedPetId, pets])
+
+  // Memoize filtered scan events
+  const filteredScanEvents = useMemo(() => {
+    if (scanEventPetFilter === 'all') {
+      return scanEvents
+    }
+    return scanEvents.filter(event => event.pet_name === scanEventPetFilter)
+  }, [scanEvents, scanEventPetFilter])
+
+  // Get unique pet names from scan events for filter dropdown
+  const scanEventPetNames = useMemo(() => {
+    const names = new Set<string>()
+    scanEvents.forEach(event => {
+      if (event.pet_name) {
+        names.add(event.pet_name)
+      }
+    })
+    return Array.from(names).sort()
+  }, [scanEvents])
 
   const handleSubmitPet = async (petData: PetFormData) => {
     try {
@@ -349,11 +392,84 @@ const UserDashboard: React.FC = () => {
       case 'activity':
         return (
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border-2 border-gray-200 dark:border-gray-700">
-            <EmptyState
-              icon={Activity}
-              title="No Activity Data"
-              description="Scan events and pet activity will appear here"
-            />
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                QR Code Scan Activity
+              </h2>
+              {scanEventPetNames.length > 0 && (
+                <SearchableSelect
+                  value={scanEventPetFilter}
+                  onChange={setScanEventPetFilter}
+                  options={scanEventPetNames}
+                  placeholder="Search pets..."
+                  allOptionLabel="All Pets"
+                />
+              )}
+            </div>
+
+            {isScanEventsLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="animate-pulse flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-600 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-1/3" />
+                      <div className="h-3 bg-gray-200 dark:bg-gray-600 rounded w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredScanEvents.length === 0 ? (
+              <EmptyState
+                icon={Activity}
+                title={scanEventPetFilter === 'all' ? "No Scan Activity" : `No scans for ${scanEventPetFilter}`}
+                description={scanEventPetFilter === 'all'
+                  ? "When someone scans your pet's QR code, it will appear here"
+                  : "Try selecting a different pet or 'All Pets'"
+                }
+              />
+            ) : (
+              <div className="space-y-3">
+                {filteredScanEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                      <Eye className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {event.pet_name || 'Unknown Pet'}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          QR: {event.qr_code || event.qr_code_id}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" />
+                          {new Date(event.scanned_at).toLocaleString()}
+                        </span>
+                        {event.ip_address && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5" />
+                            {event.ip_address}
+                          </span>
+                        )}
+                      </div>
+                      {event.user_agent && (
+                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-400 dark:text-gray-500 truncate">
+                          <Monitor className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">{event.user_agent}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )
 

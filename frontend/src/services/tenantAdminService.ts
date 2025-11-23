@@ -174,7 +174,124 @@ export interface SupportMetrics {
   recent_tickets: number
 }
 
+// Tenant Settings Types
+export interface BusinessSettings {
+  name: string
+  description: string
+  email: string
+  phone: string
+  address: string
+  business_hours: string
+}
+
+export interface BrandingSettings {
+  logo_url: string
+  primary_color: string
+  secondary_color: string
+  favicon_url: string
+}
+
+export interface QRDefaultSettings {
+  style: 'scanner' | 'rounded'
+  pin_length: number
+  auto_generate_pin: boolean
+}
+
+export interface UserSettingsConfig {
+  allow_self_registration: boolean
+  default_user_role: string
+  session_timeout_minutes: number
+}
+
+export interface NotificationSettings {
+  email_enabled: boolean
+  scan_alerts: boolean
+  new_user_alerts: boolean
+  lost_pet_alerts: boolean
+}
+
+export interface PrivacySettings {
+  default_pet_public: boolean
+  data_retention_days: number
+}
+
+export interface TenantSettings {
+  business: BusinessSettings
+  branding: BrandingSettings
+  qr_defaults: QRDefaultSettings
+  user_settings: UserSettingsConfig
+  notifications: NotificationSettings
+  privacy: PrivacySettings
+}
+
+export interface TenantSettingsResponse {
+  tenant_id: number
+  tenant_name: string
+  settings: TenantSettings
+  message?: string
+}
+
+export interface TenantSettingsUpdate {
+  business?: Partial<BusinessSettings>
+  branding?: Partial<BrandingSettings>
+  qr_defaults?: Partial<QRDefaultSettings>
+  user_settings?: Partial<UserSettingsConfig>
+  notifications?: Partial<NotificationSettings>
+  privacy?: Partial<PrivacySettings>
+}
+
+// Overview Dashboard Types
+export interface KeyMetrics {
+  total_users: number
+  active_qr_codes: number
+  total_pets: number
+  total_scans: number
+}
+
+export interface QuickStats {
+  available_qr_codes: number
+  lost_pets: number
+  new_users_7d: number
+  scans_7d: number
+}
+
+export interface QRDistribution {
+  active: number
+  inactive: number
+  pending: number
+}
+
+export interface ActivityFeedItem {
+  type: 'scan' | 'registration' | 'activation'
+  timestamp: string
+  description: string
+  data: Record<string, unknown>
+}
+
+export interface Alert {
+  type: 'warning' | 'info' | 'error'
+  title: string
+  message: string
+  action: string
+}
+
+export interface TenantOverviewData {
+  key_metrics: KeyMetrics
+  quick_stats: QuickStats
+  qr_distribution: QRDistribution
+  scan_trend: Array<{ date: string; count: number }>
+  activity_feed: ActivityFeedItem[]
+  alerts: Alert[]
+}
+
 export const tenantAdminService = {
+  /**
+   * Get tenant overview dashboard data
+   */
+  async getTenantOverview(): Promise<TenantOverviewData> {
+    return await apiClient.get<TenantOverviewData>('/api/v1/admin/overview')
+  },
+
   /**
    * Get tenant analytics
    */
@@ -273,5 +390,19 @@ export const tenantAdminService = {
     return await apiClient.get<TenantScanEvent[]>('/api/v1/admin/scan-events', {
       params: { skip, limit }
     })
+  },
+
+  /**
+   * Get tenant settings
+   */
+  async getTenantSettings(): Promise<TenantSettingsResponse> {
+    return await apiClient.get<TenantSettingsResponse>('/api/v1/admin/settings')
+  },
+
+  /**
+   * Update tenant settings
+   */
+  async updateTenantSettings(data: TenantSettingsUpdate): Promise<TenantSettingsResponse> {
+    return await apiClient.put<TenantSettingsResponse>('/api/v1/admin/settings', data)
   },
 }

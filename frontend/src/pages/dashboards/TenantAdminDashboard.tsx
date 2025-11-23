@@ -6,16 +6,12 @@ import {
   QrCode,
   BarChart3,
   Settings,
-  HelpCircle,
   Plus,
   Search,
   Grid3X3,
   List,
   Dog,
   Cat,
-  Zap,
-  UserPlus,
-  Scan,
   Filter,
   ChevronLeft,
   ChevronRight,
@@ -35,15 +31,17 @@ import {
 } from 'lucide-react'
 import { containerStyles } from '@/styles/containers'
 import Header from '@/components/Header'
-import { tenantAdminService, TenantStats, TenantUser, TenantQRCode, TenantPet, TenantScanEvent } from '@/services/tenantAdminService'
+import { tenantAdminService, TenantUser, TenantQRCode, TenantPet } from '@/services/tenantAdminService'
 import { TenantUserCard, TenantUserCardSkeleton } from '@/components/tenant/TenantUserCard'
 import { AddTenantUserModal, EditTenantUserModal, DeleteTenantUserModal, ResetTenantUserPasswordModal } from '@/components/tenant/TenantUserModals'
 import { ViewTenantQRModal, LinkToPetModal } from '@/components/tenant/TenantQRModals'
 import { downloadSingleQR } from '@/utils/qrDownloadUtils'
 import SearchableSelect from '@/components/common/SearchableSelect'
 import { AnalyticsTab } from './tabs/AnalyticsTab'
+import SettingsTab from './tabs/SettingsTab'
+import TenantOverviewTab from './tabs/TenantOverviewTab'
 
-type TenantAdminTab = 'overview' | 'users' | 'pets' | 'qrcodes' | 'support' | 'analytics' | 'settings'
+type TenantAdminTab = 'overview' | 'users' | 'pets' | 'qrcodes' | 'analytics' | 'settings'
 
 /**
  * Tenant Admin Dashboard
@@ -52,8 +50,6 @@ type TenantAdminTab = 'overview' | 'users' | 'pets' | 'qrcodes' | 'support' | 'a
  */
 const TenantAdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TenantAdminTab>('overview')
-  const [tenantStats, setTenantStats] = useState<TenantStats | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
 
   // User management states
   const [users, setUsers] = useState<TenantUser[]>([])
@@ -97,74 +93,6 @@ const TenantAdminDashboard: React.FC = () => {
   const [petsUserFilter, setPetsUserFilter] = useState<string>('all')
   const [petsCurrentPage, setPetsCurrentPage] = useState(1)
   const petsPerPage = 12
-
-  // Scan events states
-  const [scanEvents, setScanEvents] = useState<TenantScanEvent[]>([])
-  const [isScanEventsLoading, setIsScanEventsLoading] = useState(false)
-  const [scanEventUserFilter, setScanEventUserFilter] = useState<string>('all')
-  const [scanEventPetFilter, setScanEventPetFilter] = useState<string>('all')
-
-  // Get unique user emails from scan events
-  const scanEventUsers = useMemo(() => {
-    const users = new Set<string>()
-    scanEvents.forEach(event => {
-      if (event.owner_email) {
-        users.add(event.owner_email)
-      }
-    })
-    return Array.from(users).sort()
-  }, [scanEvents])
-
-  // Get unique pet names for the selected user (or all if no user selected)
-  const scanEventPetNames = useMemo(() => {
-    const names = new Set<string>()
-    scanEvents.forEach(event => {
-      if (event.pet_name) {
-        // Only include pets from selected user, or all if no user filter
-        if (scanEventUserFilter === 'all' || event.owner_email === scanEventUserFilter) {
-          names.add(event.pet_name)
-        }
-      }
-    })
-    return Array.from(names).sort()
-  }, [scanEvents, scanEventUserFilter])
-
-  // Memoize filtered scan events
-  const filteredScanEvents = useMemo(() => {
-    return scanEvents.filter(event => {
-      // Filter by user
-      if (scanEventUserFilter !== 'all' && event.owner_email !== scanEventUserFilter) {
-        return false
-      }
-      // Filter by pet
-      if (scanEventPetFilter !== 'all' && event.pet_name !== scanEventPetFilter) {
-        return false
-      }
-      return true
-    })
-  }, [scanEvents, scanEventUserFilter, scanEventPetFilter])
-
-  // Reset pet filter when user filter changes
-  const handleUserFilterChange = (value: string): void => {
-    setScanEventUserFilter(value)
-    setScanEventPetFilter('all') // Reset pet filter when user changes
-  }
-
-  useEffect(() => {
-    const fetchTenantStats = async () => {
-      try {
-        setIsLoading(true)
-        const stats = await tenantAdminService.getTenantStats()
-        setTenantStats(stats)
-      } catch (err) {
-        console.error('Error fetching tenant stats:', err)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchTenantStats()
-  }, [])
 
   // Fetch users when users tab is active
   useEffect(() => {
@@ -268,24 +196,6 @@ const TenantAdminDashboard: React.FC = () => {
     return result
   }, [allPets, petsSearchQuery, petsSpeciesFilter, petsUserFilter])
 
-  // Fetch scan events when analytics tab is active
-  useEffect(() => {
-    const fetchScanEvents = async (): Promise<void> => {
-      if (activeTab === 'analytics') {
-        try {
-          setIsScanEventsLoading(true)
-          const events = await tenantAdminService.listTenantScanEvents({ limit: 100 })
-          setScanEvents(events || [])
-        } catch (err) {
-          console.error('Error fetching scan events:', err)
-        } finally {
-          setIsScanEventsLoading(false)
-        }
-      }
-    }
-
-    fetchScanEvents()
-  }, [activeTab])
 
   // User handlers
   const handleCreateUser = () => setIsAddUserModalOpen(true)
@@ -309,9 +219,6 @@ const TenantAdminDashboard: React.FC = () => {
       })
       setUsers(userList)
       setSelectedUserIds(new Set())
-      // Refresh stats
-      const stats = await tenantAdminService.getTenantStats()
-      setTenantStats(stats)
     } catch (err) {
       console.error('Error refreshing after user operation:', err)
     }
@@ -467,10 +374,10 @@ const TenantAdminDashboard: React.FC = () => {
     // Apply status filter based on lifecycle phases
     if (qrStatusFilter === 'inactive') {
       // Available: allocated to tenant but not activated by user
-      result = result.filter(qr => qr.status === 'INACTIVE')
+      result = result.filter(qr => qr.status === 'inactive')
     } else if (qrStatusFilter === 'active') {
       // Activated: user has activated (with or without pet)
-      result = result.filter(qr => qr.status === 'ACTIVE')
+      result = result.filter(qr => qr.status === 'active')
     } else if (qrStatusFilter === 'linked') {
       // In Use: has pet_id set
       result = result.filter(qr => qr.pet_id !== undefined && qr.pet_id !== null)
@@ -491,12 +398,12 @@ const TenantAdminDashboard: React.FC = () => {
   // - Activated: User has activated (status = 'active')
   // - In Use: Linked to a pet (pet_id is set)
   const qrStats = useMemo(() => {
-    const total = tenantStats?.total_qr_codes ?? qrCodes.length
-    const available = qrCodes.filter(qr => qr.status === 'INACTIVE').length
-    const activated = qrCodes.filter(qr => qr.status === 'ACTIVE').length
+    const total = qrCodes.length
+    const available = qrCodes.filter(qr => qr.status === 'inactive').length
+    const activated = qrCodes.filter(qr => qr.status === 'active').length
     const inUse = qrCodes.filter(qr => qr.pet_id !== undefined && qr.pet_id !== null).length
     return { total, available, activated, inUse }
-  }, [qrCodes, tenantStats])
+  }, [qrCodes])
 
   // Reset QR page when filters change
   useEffect(() => {
@@ -520,7 +427,6 @@ const TenantAdminDashboard: React.FC = () => {
     { id: 'pets' as const, label: 'Pets', icon: PawPrint },
     { id: 'qrcodes' as const, label: 'QR Codes', icon: QrCode },
     { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
-    { id: 'support' as const, label: 'Support', icon: HelpCircle },
     { id: 'settings' as const, label: 'Settings', icon: Settings },
   ]
 
@@ -534,172 +440,7 @@ const TenantAdminDashboard: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
-        return (
-          <div className="space-y-6">
-            {/* Loading State */}
-            {isLoading && (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                  <p className="text-gray-500 dark:text-gray-400">Loading store statistics...</p>
-                </div>
-              </div>
-            )}
-
-            {/* Store Stats & Quick Actions Combined */}
-            {!isLoading && tenantStats && (
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-                <button
-                  onClick={() => {
-                    setUserStatusFilter('all')
-                    setActiveTab('users')
-                  }}
-                  className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 md:p-6 border-2 border-purple-200 dark:border-purple-700 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-lg transition-all text-left group min-h-[44px]"
-                >
-                  <div className="flex items-center justify-between mb-1 sm:mb-2">
-                    <h3 className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total Users</h3>
-                    <Users className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{tenantStats.total_users}</p>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setUserStatusFilter('active')
-                      setActiveTab('users')
-                    }}
-                    className="text-xs text-purple-600 dark:text-purple-400 hover:underline mt-0.5 sm:mt-1"
-                  >
-                    {tenantStats.active_users} active →
-                  </button>
-                  <p className="text-xs text-purple-600 dark:text-purple-400 mt-1 sm:mt-2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
-                    Click to manage users →
-                  </p>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('pets')}
-                  className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 md:p-6 border-2 border-blue-200 dark:border-blue-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-lg transition-all text-left group min-h-[44px]"
-                >
-                  <div className="flex items-center justify-between mb-1 sm:mb-2">
-                    <h3 className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total Pets</h3>
-                    <PawPrint className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{tenantStats.total_pets}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">Registered in your store</p>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 sm:mt-2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
-                    Click to view pets →
-                  </p>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setQRStatusFilter('all')
-                    setActiveTab('qrcodes')
-                  }}
-                  className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 md:p-6 border-2 border-indigo-200 dark:border-indigo-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-lg transition-all text-left group min-h-[44px]"
-                >
-                  <div className="flex items-center justify-between mb-1 sm:mb-2">
-                    <h3 className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">QR Codes</h3>
-                    <QrCode className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{tenantStats.total_qr_codes}</p>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setQRStatusFilter('active')
-                      setActiveTab('qrcodes')
-                    }}
-                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline mt-0.5 sm:mt-1"
-                  >
-                    {tenantStats.active_qr_codes} active →
-                  </button>
-                  <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 sm:mt-2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
-                    Click to view inventory →
-                  </p>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('analytics')}
-                  className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 md:p-6 border-2 border-green-200 dark:border-green-700 hover:border-green-400 dark:hover:border-green-500 hover:shadow-lg transition-all text-left group min-h-[44px]"
-                >
-                  <div className="flex items-center justify-between mb-1 sm:mb-2">
-                    <h3 className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total Scans</h3>
-                    <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 dark:text-green-400" />
-                  </div>
-                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{tenantStats.total_scans}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">From your store</p>
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-1 sm:mt-2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
-                    Click to view analytics →
-                  </p>
-                </button>
-              </div>
-            )}
-
-            {/* Recent Activity Feed */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-yellow-500" />
-                  Recent Activity (24h)
-                </h3>
-                <button
-                  onClick={() => setActiveTab('analytics')}
-                  className="text-xs text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium transition-colors"
-                >
-                  view more →
-                </button>
-              </div>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {/* Placeholder activity items - will be replaced with real data */}
-                <div className="flex items-start gap-3 py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
-                  <div className="p-1.5 rounded-full flex-shrink-0 bg-blue-100 dark:bg-blue-900/30">
-                    <UserPlus className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white truncate">New user registered</p>
-                    <span className="text-xs text-gray-400 dark:text-gray-500">Just now</span>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
-                  <div className="p-1.5 rounded-full flex-shrink-0 bg-orange-100 dark:bg-orange-900/30">
-                    <PawPrint className="w-3 h-3 text-orange-600 dark:text-orange-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white truncate">Pet "Buddy" registered</p>
-                    <span className="text-xs text-gray-400 dark:text-gray-500">5 min ago</span>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
-                  <div className="p-1.5 rounded-full flex-shrink-0 bg-purple-100 dark:bg-purple-900/30">
-                    <QrCode className="w-3 h-3 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white truncate">QR code activated for "Max"</p>
-                    <span className="text-xs text-gray-400 dark:text-gray-500">15 min ago</span>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
-                  <div className="p-1.5 rounded-full flex-shrink-0 bg-cyan-100 dark:bg-cyan-900/30">
-                    <Scan className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white truncate">QR scanned for "Luna" from San Francisco</p>
-                    <span className="text-xs text-gray-400 dark:text-gray-500">1 hour ago</span>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
-                  <div className="p-1.5 rounded-full flex-shrink-0 bg-cyan-100 dark:bg-cyan-900/30">
-                    <Scan className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white truncate">QR scanned for "Buddy" from New York</p>
-                    <span className="text-xs text-gray-400 dark:text-gray-500">2 hours ago</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
+        return <TenantOverviewTab onNavigate={(tab) => setActiveTab(tab as TenantAdminTab)} />
 
       case 'users':
         return (
@@ -1687,13 +1428,13 @@ const TenantAdminDashboard: React.FC = () => {
                     {/* Status Badge */}
                     <div className="flex items-center justify-between mb-2">
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                        qr.status === 'ACTIVE'
+                        qr.status === 'active'
                           ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                          : qr.status === 'INACTIVE'
+                          : qr.status === 'inactive'
                           ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
                           : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                       }`}>
-                        {qr.status}
+                        {qr.status.charAt(0).toUpperCase() + qr.status.slice(1)}
                       </span>
                       {qr.pet_id && <PawPrint className="w-3 h-3 text-blue-500" />}
                     </div>
@@ -1782,9 +1523,9 @@ const TenantAdminDashboard: React.FC = () => {
                         </td>
                         <td className="py-2 sm:py-3 px-2 sm:px-4 hidden md:table-cell">
                           <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                            qr.status === 'ACTIVE'
+                            qr.status === 'active'
                               ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                              : qr.status === 'INACTIVE'
+                              : qr.status === 'inactive'
                               ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
                               : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                           }`}>
@@ -1907,84 +1648,7 @@ const TenantAdminDashboard: React.FC = () => {
         return <AnalyticsTab />
 
       case 'settings':
-        return (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-gray-200 dark:border-gray-700">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Store Settings</h2>
-
-            <div className="max-w-2xl space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Store Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="My Pet Store"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Subdomain
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="mystore"
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                  <span className="text-gray-500 dark:text-gray-400">.petqr.app</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Branding Color
-                </label>
-                <input
-                  type="color"
-                  defaultValue="#8B5CF6"
-                  className="w-full h-12 rounded-lg border border-gray-300 dark:border-gray-600"
-                />
-              </div>
-
-              <button className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
-                Save Settings
-              </button>
-            </div>
-          </div>
-        )
-
-      case 'support':
-        return (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-2 border-orange-200 dark:border-orange-700">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Support Tickets</h2>
-              <button className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors">
-                + New Ticket
-              </button>
-            </div>
-
-            <div className="flex gap-2 mb-6">
-              <button className="px-4 py-2 bg-orange-600 text-white rounded-lg font-medium text-sm">
-                All
-              </button>
-              <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm">
-                Open
-              </button>
-              <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm">
-                In Progress
-              </button>
-              <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm">
-                Closed
-              </button>
-            </div>
-
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-              No support tickets. Create a new ticket if you need help.
-            </p>
-          </div>
-        )
+        return <SettingsTab />
 
       default:
         return null

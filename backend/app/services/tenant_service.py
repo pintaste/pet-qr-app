@@ -144,16 +144,19 @@ class TenantService:
         # Query database based on tenant type
         tenant = None
         if tenant_info["type"] == "custom_domain":
-            tenant = db.exec(
+            result = await db.execute(
                 select(Tenant).where(Tenant.custom_domain == domain)
-            ).first()
+            )
+            tenant = result.scalars().first()
         elif tenant_info["type"] == "subdomain":
-            tenant = db.exec(
+            result = await db.execute(
                 select(Tenant).where(Tenant.subdomain == tenant_info["identifier"])
-            ).first()
+            )
+            tenant = result.scalars().first()
         else:
             # Default tenant for localhost/development
-            tenant = db.exec(select(Tenant).where(Tenant.subdomain == "demo")).first()
+            result = await db.execute(select(Tenant).where(Tenant.subdomain == "demo"))
+            tenant = result.scalars().first()
 
         # Cache the result if found
         if tenant:
@@ -169,7 +172,7 @@ class TenantService:
                 "is_active": tenant.is_active,
                 "created_at": tenant.created_at.isoformat(),
                 "updated_at": tenant.updated_at.isoformat(),
-                "schema_name": tenant.schema_name,
+                # Note: Don't cache schema_name since Tenant model doesn't have it
             }
             self._cache_tenant(domain, tenant_data)
 
@@ -185,7 +188,9 @@ class TenantService:
         Returns:
             str: Schema name.
         """
-        return tenant.schema_name or f"tenant_{tenant.subdomain}"
+        # Schema name is derived from subdomain (Tenant model doesn't have schema_name field)
+        # Replace hyphens with underscores for valid PostgreSQL schema names
+        return f"tenant_{tenant.subdomain.replace('-', '_')}"
 
     async def create_tenant_schema(self, schema_name: str, db: Session) -> bool:
         """
@@ -202,11 +207,11 @@ class TenantService:
             HTTPException: If schema creation fails.
         """
         try:
-            # Create schema
-            db.exec(text(f"CREATE SCHEMA IF NOT EXISTS {schema_name}"))
+            # Create schema - quote to handle special characters
+            db.exec(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
 
-            # Set search path and create tables
-            db.exec(text(f"SET search_path TO {schema_name}"))
+            # Set search path and create tables - quote to handle special characters
+            db.exec(text(f'SET search_path TO "{schema_name}"'))
 
             # Import models to ensure they're registered
 
@@ -272,13 +277,14 @@ class TenantService:
 
         try:
             # Create tenant
-            schema_name = f"tenant_{subdomain}"
+            # Replace hyphens with underscores for valid PostgreSQL schema names
+            schema_name = f"tenant_{subdomain.replace('-', '_')}"
             tenant = Tenant(
                 name=name,
                 subdomain=subdomain,
                 custom_domain=custom_domain,
                 tier=tier,
-                schema_name=schema_name,
+                # Note: schema_name is derived from subdomain, not stored in database
                 settings=settings or {},
                 is_active=True,
             )
@@ -334,8 +340,8 @@ class TenantService:
         """
         try:
             schema_name = self.get_tenant_schema_name(tenant)
-            # Set search path to tenant schema
-            db.exec(text(f"SET search_path TO {schema_name}"))
+            # Set search path to tenant schema - quote to handle special characters
+            db.exec(text(f'SET search_path TO "{schema_name}"'))
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

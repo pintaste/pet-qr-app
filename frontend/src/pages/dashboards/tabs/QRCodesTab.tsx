@@ -443,7 +443,7 @@ const QRCodesTab: React.FC<QRCodesTabProps> = ({
                 {/* Status */}
                 <div className="hidden md:block col-span-2">
                   <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${
-                    qr.status === 'active'
+                    qr.status === 'ACTIVE'
                       ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                       : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
                   }`}>
@@ -477,7 +477,7 @@ const QRCodesTab: React.FC<QRCodesTabProps> = ({
 
                 {/* Mobile Info */}
                 <div className="md:hidden flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                  <span className={qr.status === 'active' ? 'text-green-600' : ''}>{qr.status}</span>
+                  <span className={qr.status === 'ACTIVE' ? 'text-green-600' : ''}>{qr.status}</span>
                   {qr.pet_name && <span className="text-indigo-600">{qr.pet_name}</span>}
                 </div>
 

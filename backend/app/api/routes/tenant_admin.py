@@ -15,6 +15,45 @@ from app.models.shared import User, UserRole, Tenant
 router = APIRouter()
 
 
+# Default settings structure for tenants
+DEFAULT_TENANT_SETTINGS = {
+    "business": {
+        "name": "",
+        "description": "",
+        "email": "",
+        "phone": "",
+        "address": "",
+        "business_hours": "",
+    },
+    "branding": {
+        "logo_url": "",
+        "primary_color": "#6366F1",
+        "secondary_color": "#10B981",
+        "favicon_url": "",
+    },
+    "qr_defaults": {
+        "style": "scanner",
+        "pin_length": 4,
+        "auto_generate_pin": True,
+    },
+    "user_settings": {
+        "allow_self_registration": True,
+        "default_user_role": "user",
+        "session_timeout_minutes": 60,
+    },
+    "notifications": {
+        "email_enabled": True,
+        "scan_alerts": False,
+        "new_user_alerts": True,
+        "lost_pet_alerts": True,
+    },
+    "privacy": {
+        "default_pet_public": True,
+        "data_retention_days": 365,
+    },
+}
+
+
 def get_tenant_schema(db: Session, tenant_id: int) -> str:
     """
     Get the schema name for a tenant.
@@ -428,6 +467,203 @@ async def reset_tenant_user_password(
 
     return {
         "message": f"Password reset successfully for user '{user.email}'",
+    }
+
+
+@router.get("/overview")
+async def get_tenant_overview(
+    current_user: User = Depends(get_current_tenant_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Get overview dashboard data for the tenant admin.
+
+    Args:
+        current_user: Current tenant admin user
+        db: Database session
+
+    Returns:
+        Overview data including metrics, recent activity, and alerts
+    """
+    tenant_id = current_user.tenant_id
+    schema_name = get_tenant_schema(db, tenant_id)
+
+    # Key Metrics
+    total_users = db.execute(
+        text("SELECT COUNT(*) FROM shared.users WHERE tenant_id = :tenant_id"),
+        {"tenant_id": tenant_id}
+    ).scalar() or 0
+
+    active_users = db.execute(
+        text("SELECT COUNT(*) FROM shared.users WHERE tenant_id = :tenant_id AND is_active = true"),
+        {"tenant_id": tenant_id}
+    ).scalar() or 0
+
+    total_pets = db.execute(
+        text(f'SELECT COUNT(*) FROM "{schema_name}".pets')
+    ).scalar() or 0
+
+    total_qr = db.execute(
+        text(f'SELECT COUNT(*) FROM "{schema_name}".qr_codes')
+    ).scalar() or 0
+
+    active_qr = db.execute(
+        text(f"SELECT COUNT(*) FROM \"{schema_name}\".qr_codes WHERE status = 'ACTIVE'")
+    ).scalar() or 0
+
+    inactive_qr = db.execute(
+        text(f"SELECT COUNT(*) FROM \"{schema_name}\".qr_codes WHERE status = 'INACTIVE'")
+    ).scalar() or 0
+
+    pending_qr = db.execute(
+        text(f"SELECT COUNT(*) FROM \"{schema_name}\".qr_codes WHERE status = 'PENDING'")
+    ).scalar() or 0
+
+    total_scans = db.execute(
+        text(f'SELECT COUNT(*) FROM "{schema_name}".scan_events')
+    ).scalar() or 0
+
+    # Quick Stats (7 days)
+    new_users_7d = db.execute(
+        text("""
+            SELECT COUNT(*) FROM shared.users
+            WHERE tenant_id = :tenant_id
+            AND created_at >= NOW() - INTERVAL '7 days'
+        """),
+        {"tenant_id": tenant_id}
+    ).scalar() or 0
+
+    scans_7d = db.execute(
+        text(f"""
+            SELECT COUNT(*) FROM "{schema_name}".scan_events
+            WHERE scanned_at >= NOW() - INTERVAL '7 days'
+        """)
+    ).scalar() or 0
+
+    lost_pets = db.execute(
+        text(f'SELECT COUNT(*) FROM "{schema_name}".pets WHERE is_pinned = true')
+    ).scalar() or 0
+
+    # Recent Activity (last 10 events)
+    recent_scans = db.execute(
+        text(f"""
+            SELECT se.id, se.scanned_at, qr.code, p.name as pet_name, se.location_data
+            FROM "{schema_name}".scan_events se
+            JOIN "{schema_name}".qr_codes qr ON se.qr_code_id = qr.id
+            LEFT JOIN "{schema_name}".pets p ON qr.pet_id = p.id
+            ORDER BY se.scanned_at DESC
+            LIMIT 5
+        """)
+    ).fetchall()
+
+    recent_users = db.execute(
+        text("""
+            SELECT id, email, created_at
+            FROM shared.users
+            WHERE tenant_id = :tenant_id
+            ORDER BY created_at DESC
+            LIMIT 5
+        """),
+        {"tenant_id": tenant_id}
+    ).fetchall()
+
+    recent_activations = db.execute(
+        text(f"""
+            SELECT qr.id, qr.code, qr.activated_at, p.name as pet_name
+            FROM "{schema_name}".qr_codes qr
+            LEFT JOIN "{schema_name}".pets p ON qr.pet_id = p.id
+            WHERE qr.activated_at IS NOT NULL
+            ORDER BY qr.activated_at DESC
+            LIMIT 5
+        """)
+    ).fetchall()
+
+    # Scan trend (last 7 days)
+    scan_trend = db.execute(
+        text(f"""
+            SELECT DATE(scanned_at) as scan_date, COUNT(*) as count
+            FROM "{schema_name}".scan_events
+            WHERE scanned_at >= NOW() - INTERVAL '7 days'
+            GROUP BY DATE(scanned_at)
+            ORDER BY scan_date
+        """)
+    ).fetchall()
+
+    # Build activity feed
+    activity_feed = []
+
+    for scan in recent_scans:
+        activity_feed.append({
+            "type": "scan",
+            "timestamp": scan[1].isoformat() if scan[1] else None,
+            "description": f"QR code {scan[2]} was scanned" + (f" ({scan[3]})" if scan[3] else ""),
+            "data": {"qr_code": scan[2], "pet_name": scan[3]}
+        })
+
+    for user in recent_users:
+        activity_feed.append({
+            "type": "registration",
+            "timestamp": user[2].isoformat() if user[2] else None,
+            "description": f"New user registered: {user[1]}",
+            "data": {"email": user[1]}
+        })
+
+    for activation in recent_activations:
+        if activation[2]:  # activated_at
+            activity_feed.append({
+                "type": "activation",
+                "timestamp": activation[2].isoformat(),
+                "description": f"QR code {activation[1]} activated" + (f" for {activation[3]}" if activation[3] else ""),
+                "data": {"qr_code": activation[1], "pet_name": activation[3]}
+            })
+
+    # Sort by timestamp descending
+    activity_feed.sort(key=lambda x: x["timestamp"] or "", reverse=True)
+    activity_feed = activity_feed[:10]
+
+    # Alerts
+    alerts = []
+    if lost_pets > 0:
+        alerts.append({
+            "type": "warning",
+            "title": "Lost Pets",
+            "message": f"{lost_pets} pet(s) currently marked as lost",
+            "action": "View lost pets"
+        })
+
+    available_qr = inactive_qr
+    if available_qr < 10:
+        alerts.append({
+            "type": "info",
+            "title": "Low QR Inventory",
+            "message": f"Only {available_qr} QR codes available for activation",
+            "action": "Create more QR codes"
+        })
+
+    return {
+        "key_metrics": {
+            "total_users": total_users,
+            "active_qr_codes": active_qr,
+            "total_pets": total_pets,
+            "total_scans": total_scans,
+        },
+        "quick_stats": {
+            "available_qr_codes": available_qr,
+            "lost_pets": lost_pets,
+            "new_users_7d": new_users_7d,
+            "scans_7d": scans_7d,
+        },
+        "qr_distribution": {
+            "active": active_qr,
+            "inactive": inactive_qr,
+            "pending": pending_qr,
+        },
+        "scan_trend": [
+            {"date": row[0].isoformat(), "count": row[1]}
+            for row in scan_trend
+        ],
+        "activity_feed": activity_feed,
+        "alerts": alerts,
     }
 
 
@@ -1058,6 +1294,113 @@ async def list_tenant_qr_codes(
         })
 
     return result
+
+
+class TenantSettingsUpdate(BaseModel):
+    """Request model for updating tenant settings."""
+    business: Optional[dict] = None
+    branding: Optional[dict] = None
+    qr_defaults: Optional[dict] = None
+    user_settings: Optional[dict] = None
+    notifications: Optional[dict] = None
+    privacy: Optional[dict] = None
+
+
+@router.get("/settings")
+async def get_tenant_settings(
+    current_user: User = Depends(get_current_tenant_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Get settings for the current tenant.
+
+    Args:
+        current_user: Current tenant admin user
+        db: Database session
+
+    Returns:
+        Tenant settings
+    """
+    tenant = db.exec(
+        select(Tenant).where(Tenant.id == current_user.tenant_id)
+    ).first()
+
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant not found",
+        )
+
+    # Merge default settings with tenant's saved settings
+    settings = {**DEFAULT_TENANT_SETTINGS}
+    if tenant.settings:
+        for key, value in tenant.settings.items():
+            if key in settings and isinstance(value, dict):
+                settings[key] = {**settings[key], **value}
+            else:
+                settings[key] = value
+
+    return {
+        "tenant_id": tenant.id,
+        "tenant_name": tenant.name,
+        "settings": settings,
+    }
+
+
+@router.put("/settings")
+async def update_tenant_settings(
+    settings_data: TenantSettingsUpdate,
+    current_user: User = Depends(get_current_tenant_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Update settings for the current tenant.
+
+    Args:
+        settings_data: Settings to update
+        current_user: Current tenant admin user
+        db: Database session
+
+    Returns:
+        Updated tenant settings
+    """
+    tenant = db.exec(
+        select(Tenant).where(Tenant.id == current_user.tenant_id)
+    ).first()
+
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant not found",
+        )
+
+    # Get current settings or start with defaults
+    current_settings = tenant.settings if tenant.settings else {**DEFAULT_TENANT_SETTINGS}
+
+    # Update each section if provided
+    update_data = settings_data.model_dump(exclude_none=True)
+    for key, value in update_data.items():
+        if key in current_settings and isinstance(value, dict):
+            # Merge nested dictionaries
+            if isinstance(current_settings[key], dict):
+                current_settings[key] = {**current_settings[key], **value}
+            else:
+                current_settings[key] = value
+        else:
+            current_settings[key] = value
+
+    # Save updated settings
+    tenant.settings = current_settings
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
+    return {
+        "tenant_id": tenant.id,
+        "tenant_name": tenant.name,
+        "settings": current_settings,
+        "message": "Settings updated successfully",
+    }
 
 
 @router.get("/scan-events", response_model=List[dict])

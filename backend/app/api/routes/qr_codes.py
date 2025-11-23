@@ -4,14 +4,16 @@ QR Code management API endpoints.
 
 import asyncio
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 from sqlmodel import Session, select
+from sqlalchemy import text
 
 from ...core.dependencies import get_current_user, get_db
 from ...models.shared import User, UserRole, Tenant
+from ...models.tenant import QRCodeStatus
 from ...schemas.pet import (
     QRCodeCreate,
     QRCodeUpdate,
@@ -22,6 +24,7 @@ from ...schemas.pet import (
     BatchQRCodeGenerate,
     BatchQRCodeResponse,
     PetPublicResponse,
+    ScanEventResponse,
 )
 from ...services.qr_code import QRCodeService
 from ...services.pet import PetService
@@ -182,25 +185,57 @@ async def get_qr_codes(
 
 @router.get("/{qr_code}", response_model=QRCodePublicResponse)
 async def get_qr_info(
-    qr_code: str, qr_service: QRCodeService = Depends(get_qr_service)
+    qr_code: str, request: Request, db: Session = Depends(get_db)
 ):
     """
     Get QR code information (public endpoint).
 
+    Searches across all tenant schemas to find the QR code.
+    Records a scan event when the QR code is accessed.
+
     Args:
         qr_code: QR code string
-        qr_service: QR code service instance
+        request: HTTP request object
+        db: Database session
 
     Returns:
         QRCodePublicResponse: Public QR code information
     """
-    qr_obj = qr_service.get_qr_code_by_code(qr_code)
+    # Get all tenant schemas
+    tenants = db.exec(select(Tenant)).all()
+
+    qr_obj = None
+    qr_service = None
+
+    # Search across all tenant schemas
+    for tenant in tenants:
+        schema_name = f"tenant_{tenant.subdomain.replace('-', '_')}"
+        temp_service = QRCodeService(tenant_schema=schema_name)
+        qr_obj = temp_service.get_qr_code_by_code(qr_code)
+        if qr_obj:
+            qr_service = temp_service
+            break
+
     if not qr_obj:
         raise HTTPException(status_code=404, detail="QR code not found")
 
+    # Record scan event
+    try:
+        ip_address = request.client.host if request.client else None
+        user_agent = request.headers.get("user-agent")
+        qr_service.record_scan_event(
+            qr_code_id=qr_obj.id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+    except Exception as e:
+        # Log error but don't fail the request
+        import logging
+        logging.error(f"Failed to record scan event: {e}")
+
     return QRCodePublicResponse(
         code=qr_obj.code,
-        is_active=qr_obj.status.value == "active",
+        is_active=qr_obj.status == QRCodeStatus.ACTIVE,
         is_assigned=qr_obj.pet_id is not None,
         requires_pin=True,
         pet_info=None,  # Don't show pet info until PIN is verified
@@ -210,29 +245,51 @@ async def get_qr_info(
 @router.post("/verify", response_model=QRCodeVerifyResponse)
 async def verify_qr_pin(
     request: QRCodeVerifyRequest,
-    qr_service: QRCodeService = Depends(get_qr_service),
-    pet_service: PetService = Depends(get_pet_service),
+    db: Session = Depends(get_db),
 ):
     """
     Verify PIN for QR code and return pet information.
 
+    Searches across all tenant schemas to find the QR code.
+
     Args:
         request: QR code verification request
-        qr_service: QR code service instance
-        pet_service: Pet service instance
+        db: Database session
 
     Returns:
         QRCodeVerifyResponse: Verification result with pet info
     """
+    # Get all tenant schemas
+    tenants = db.exec(select(Tenant)).all()
+
+    qr_service = None
+    pet_service = None
+    qr_obj = None
+
+    # Search across all tenant schemas
+    for tenant in tenants:
+        schema_name = f"tenant_{tenant.subdomain.replace('-', '_')}"
+        temp_qr_service = QRCodeService(tenant_schema=schema_name)
+        temp_qr_obj = temp_qr_service.get_qr_code_by_code(request.qr_code)
+        if temp_qr_obj:
+            qr_service = temp_qr_service
+            pet_service = PetService(tenant_schema=schema_name)
+            qr_obj = temp_qr_obj
+            break
+
+    if not qr_obj:
+        return QRCodeVerifyResponse(
+            success=False, message="QR code not found", pet_info=None
+        )
+
     # Verify PIN
     if not qr_service.verify_qr_code_pin(request.qr_code, request.pin):
         return QRCodeVerifyResponse(
             success=False, message="Invalid PIN code", pet_info=None
         )
 
-    # Get QR code and pet information
-    qr_obj = qr_service.get_qr_code_by_code(request.qr_code)
-    if not qr_obj or not qr_obj.pet_id:
+    # Check if QR code is assigned to a pet
+    if not qr_obj.pet_id:
         return QRCodeVerifyResponse(
             success=False, message="QR code not assigned to a pet", pet_info=None
         )
@@ -271,6 +328,79 @@ async def verify_qr_pin(
         pet_id=pet.id,
         pet_info=pet_info,
     )
+
+
+@router.get("/scan-events/my", response_model=List[ScanEventResponse])
+async def get_my_scan_events(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    """
+    Get scan events for the current user's QR codes.
+
+    Returns scan events for all QR codes linked to pets owned by the user.
+
+    Args:
+        current_user: Current authenticated user
+        db: Database session
+        skip: Number of records to skip
+        limit: Maximum number of records
+
+    Returns:
+        List[ScanEventResponse]: List of scan events
+    """
+    from ...models.tenant import Pet, QRCode as QRCodeModel
+
+    tenant_schema = get_tenant_schema_for_user(db, current_user)
+    qr_service = QRCodeService(tenant_schema=tenant_schema)
+
+    # Get tenant user ID
+    session = qr_service._get_session()
+    try:
+        qr_service._set_search_path(session)
+
+        # Get user's email to find tenant user
+        user_email = current_user.email
+        result = session.execute(
+            text("SELECT id FROM tenant_users WHERE email = :email"),
+            {"email": user_email}
+        )
+        tenant_user = result.fetchone()
+        if not tenant_user:
+            return []
+
+        tenant_user_id = tenant_user[0]
+
+        # Get scan events with QR code and pet info
+        from ...models.tenant import ScanEvent
+        events = (
+            session.query(ScanEvent, QRCodeModel.code, Pet.name)
+            .join(QRCodeModel, ScanEvent.qr_code_id == QRCodeModel.id)
+            .outerjoin(Pet, QRCodeModel.pet_id == Pet.id)
+            .filter(Pet.owner_id == tenant_user_id)
+            .order_by(ScanEvent.scanned_at.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+        return [
+            ScanEventResponse(
+                id=event.id,
+                qr_code_id=event.qr_code_id,
+                ip_address=event.ip_address,
+                user_agent=event.user_agent,
+                location_data=event.location_data,
+                scanned_at=event.scanned_at,
+                qr_code=qr_code,
+                pet_name=pet_name,
+            )
+            for event, qr_code, pet_name in events
+        ]
+    finally:
+        session.close()
 
 
 @router.post("/{qr_id}/assign/{pet_id}", response_model=QRCodeResponse)
@@ -344,29 +474,53 @@ async def activate_qr_code(
     if not qr_service.verify_qr_code_pin(request.qr_code.upper(), request.pin):
         raise HTTPException(status_code=400, detail="Invalid PIN")
 
-    # Check if already activated/assigned to a pet
-    if qr_obj.pet_id:
-        raise HTTPException(status_code=400, detail="QR code is already assigned to a pet")
+    # Check if already activated
+    from ...models.tenant import QRCodeStatus
+    if qr_obj.status == QRCodeStatus.ACTIVE.value:
+        raise HTTPException(status_code=400, detail="QR code is already activated")
 
     # Get tenant user ID for the current user
     tenant_user_id = pet_service._get_tenant_user_id(current_user.id)
 
     # Mark QR code as active (without pet assignment) and track activating user
+    # Use raw SQL to also increment activation_count
     from datetime import datetime
-    from ...models.tenant import QRCodeStatus
+    from sqlalchemy import text
 
-    updated_qr = qr_service.update_qr_code(
-        qr_obj.id,
-        QRCodeUpdate(
-            status=QRCodeStatus.ACTIVE.value,
-            activated_by_user_id=tenant_user_id
+    session = qr_service._get_session()
+    try:
+        qr_service._set_search_path(session)
+
+        session.execute(
+            text("""
+                UPDATE qr_codes
+                SET
+                    status = :status,
+                    activated_by_user_id = :user_id,
+                    activated_at = :activated_at,
+                    activation_count = activation_count + 1
+                WHERE id = :qr_id
+            """),
+            {
+                "status": QRCodeStatus.ACTIVE.value,
+                "user_id": tenant_user_id,
+                "activated_at": datetime.utcnow(),
+                "qr_id": qr_obj.id
+            }
         )
-    )
+        session.commit()
 
-    if not updated_qr:
-        raise HTTPException(status_code=500, detail="Failed to activate QR code")
+        # Get updated QR code
+        qr_service._set_search_path(session)
+        from ...models.tenant import QRCode
+        updated_qr = session.query(QRCode).filter(QRCode.id == qr_obj.id).first()
 
-    return QRCodeResponse.from_orm(updated_qr)
+        if not updated_qr:
+            raise HTTPException(status_code=500, detail="Failed to activate QR code")
+
+        return QRCodeResponse.from_orm(updated_qr)
+    finally:
+        session.close()
 
 
 @router.post("/{qr_code}/activate", response_model=QRCodeResponse)
@@ -397,8 +551,11 @@ async def activate_qr_code_with_pet(
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
 
-    # Activate QR code
-    qr_obj = qr_service.activate_qr_code(qr_code, pet_id)
+    # Get tenant user ID for the current user
+    tenant_user_id = pet_service._get_tenant_user_id(current_user.id)
+
+    # Activate QR code with user tracking
+    qr_obj = qr_service.activate_qr_code(qr_code, pet_id, tenant_user_id)
     if not qr_obj:
         raise HTTPException(
             status_code=404, detail="QR code not found or already active"

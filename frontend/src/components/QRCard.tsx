@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { QrCode, LinkIcon, Calendar, Download, Eye, Edit, Trash2, Pin } from 'lucide-react'
+import { QrCode, LinkIcon, Calendar, Download, Eye, Edit, Trash2, Pin, Link2, Unlink } from 'lucide-react'
 import { generateQRDataUrl } from '@/utils/qrDownloadUtils'
 
 export interface QRCodeData {
@@ -21,6 +21,8 @@ interface QRCardProps {
   onDownload?: (qr: QRCodeData) => void
   onEdit?: (qr: QRCodeData) => void
   onDelete?: (qr: QRCodeData) => void
+  onLink?: () => void
+  onUnlink?: () => void
   onClick?: (qr: QRCodeData) => void
 }
 
@@ -35,6 +37,8 @@ export const QRCard: React.FC<QRCardProps> = ({
   onDownload,
   onEdit,
   onDelete,
+  onLink,
+  onUnlink,
   onClick,
 }) => {
   const [qrImageUrl, setQrImageUrl] = useState<string>('')
@@ -223,6 +227,32 @@ export const QRCard: React.FC<QRCardProps> = ({
               title="Delete QR Code"
             >
               <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+
+          {onLink && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onLink()
+              }}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 rounded-lg transition-colors duration-200 text-sm font-medium"
+              title="Link to Pet"
+            >
+              <Link2 className="w-4 h-4" />
+            </button>
+          )}
+
+          {onUnlink && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onUnlink()
+              }}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-400 rounded-lg transition-colors duration-200 text-sm font-medium"
+              title="Unlink from Pet"
+            >
+              <Unlink className="w-4 h-4" />
             </button>
           )}
         </div>

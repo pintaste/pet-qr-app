@@ -357,7 +357,19 @@ const Header: React.FC<HeaderProps> = ({
                   <User className="w-8 h-8" style={{ color: 'var(--primary-color)' }} />
                 </div>
                 <h4 className="font-medium" style={{ color: 'var(--text-primary)' }}>{user?.email}</h4>
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Logged in</p>
+                {user?.role === 'super_admin' || user?.role === 'tenant_admin' ? (
+                  <span
+                    className={`inline-block mt-1 px-3 py-1 rounded-full text-xs font-semibold ${
+                      user?.role === 'super_admin'
+                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                        : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                    }`}
+                  >
+                    {user?.role === 'super_admin' ? 'Super Admin' : 'Tenant Admin'}
+                  </span>
+                ) : (
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Logged in</p>
+                )}
               </div>
 
               <div className="space-y-3">

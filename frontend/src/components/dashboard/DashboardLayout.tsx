@@ -1,17 +1,18 @@
 import React from 'react'
-import { QrCode, BarChart3, Settings, LayoutDashboard } from 'lucide-react'
+import { QrCode, BarChart3, Settings, LayoutDashboard, PawPrint } from 'lucide-react'
 import Header from '@/components/Header'
 import { containerStyles } from '@/styles/containers'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
-  activeTab: 'overview' | 'qrcodes' | 'activity' | 'settings'
-  onTabChange: (tab: 'overview' | 'qrcodes' | 'activity' | 'settings') => void
+  activeTab: 'overview' | 'pets' | 'qrcodes' | 'activity' | 'settings'
+  onTabChange: (tab: 'overview' | 'pets' | 'qrcodes' | 'activity' | 'settings') => void
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, activeTab, onTabChange }) => {
   const tabs = [
     { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
+    { id: 'pets' as const, label: 'Pets', icon: PawPrint },
     { id: 'qrcodes' as const, label: 'QR Codes', icon: QrCode },
     { id: 'activity' as const, label: 'Activity', icon: BarChart3 },
     { id: 'settings' as const, label: 'Settings', icon: Settings },

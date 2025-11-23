@@ -36,6 +36,8 @@ interface QRCode {
   batch_id?: string
   batch_name?: string
   activated_at?: string
+  activated_by_user_id?: number
+  activation_count: number
   created_at: string
   image?: string
   url?: string
@@ -89,6 +91,17 @@ interface BulkDeleteStatusResponse {
   error_message: string | null
   created_at: string
   completed_at: string | null
+}
+
+export interface ScanEvent {
+  id: number
+  qr_code_id: number
+  ip_address?: string
+  user_agent?: string
+  location_data?: Record<string, unknown>
+  scanned_at: string
+  qr_code?: string
+  pet_name?: string
 }
 
 class QRService {
@@ -168,6 +181,22 @@ class QRService {
     } catch {
       // Don't let scan recording failures break the main flow
     }
+  }
+
+  /**
+   * Get scan events for the current user's QR codes
+   */
+  async getMyScanEvents(params?: {
+    skip?: number
+    limit?: number
+  }): Promise<ScanEvent[]> {
+    const queryParams: Record<string, number> = {}
+    if (params?.skip !== undefined) queryParams.skip = params.skip
+    if (params?.limit !== undefined) queryParams.limit = params.limit
+
+    return await apiClient.get<ScanEvent[]>('/api/v1/qr-codes/scan-events/my', {
+      params: queryParams
+    })
   }
 
   // Generate QR code URL for display/sharing

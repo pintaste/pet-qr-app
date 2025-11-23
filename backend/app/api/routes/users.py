@@ -56,7 +56,8 @@ async def update_current_user(
     try:
         # Set search path to tenant schema
         tenant_schema = "tenant_demo"  # TODO: Get from request context
-        session.execute(text(f"SET search_path TO {tenant_schema}, public"))
+        # Quote schema name to handle special characters like hyphens
+        session.execute(text(f'SET search_path TO "{tenant_schema}", public'))
 
         # Fetch the user from database
         statement = select(User).where(User.id == current_user.id)

@@ -88,6 +88,8 @@ export interface QRCode {
   batchId?: string
   printData?: PrintData
   activatedAt?: string
+  activatedByUserId?: number
+  activationCount: number
   createdAt: string
 }
 
