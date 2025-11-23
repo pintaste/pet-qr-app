@@ -17,7 +17,6 @@ interface Pet {
   medical_info: Record<string, unknown>
   contact_info?: Record<string, unknown>
   owner_id: number
-  is_active: boolean
   is_pinned?: boolean
   created_at: string
   updated_at: string

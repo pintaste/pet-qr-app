@@ -13,9 +13,9 @@ from enum import Enum
 class QRCodeStatus(str, Enum):
     """QR code status enumeration."""
 
-    INACTIVE = "inactive"
-    ACTIVE = "active"
-    EXPIRED = "expired"
+    INACTIVE = "INACTIVE"
+    ACTIVE = "ACTIVE"
+    EXPIRED = "EXPIRED"
 
 
 class TicketStatus(str, Enum):
@@ -113,7 +113,6 @@ class Pet(SQLModel, table=True):
         default_factory=dict, sa_column=Column(JSON), description="Medical information"
     )
     owner_id: int = Field(foreign_key="tenant_users.id", description="Owner user ID")
-    is_active: bool = Field(default=True, description="Is pet active")
     is_pinned: bool = Field(default=False, description="Is pet pinned to top of list")
     qr_code_id: Optional[str] = Field(
         default=None, max_length=255, description="Linked QR code identifier"
@@ -177,6 +176,9 @@ class QRCode(SQLModel, table=True):
     )
     activated_by_user_id: Optional[int] = Field(
         default=None, description="User ID who activated this QR code"
+    )
+    activation_count: int = Field(
+        default=0, description="Number of times this QR code has been activated"
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow, description="Creation timestamp"

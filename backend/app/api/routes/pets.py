@@ -191,7 +191,7 @@ async def delete_pet(
     db: Session = Depends(get_db),
 ):
     """
-    Delete a pet (soft delete).
+    Delete a pet.
 
     Args:
         pet_id: Pet ID
@@ -220,6 +220,7 @@ async def get_public_pet_info(pet_id: int, db: Session = Depends(get_db)):
 
     This endpoint provides basic pet information that can be safely shared
     publicly, such as through QR codes or direct links.
+    Searches across all tenant schemas to find the pet.
 
     Args:
         pet_id: Pet ID
@@ -231,9 +232,17 @@ async def get_public_pet_info(pet_id: int, db: Session = Depends(get_db)):
     Raises:
         HTTPException: If pet not found
     """
-    # For public endpoint, use tenant_demo as default
-    pet_service = PetService(tenant_schema="tenant_demo")
-    pet = pet_service.get_pet(pet_id)
+    # Get all tenant schemas and search for the pet
+    tenants = db.exec(select(Tenant)).all()
+
+    pet = None
+    for tenant in tenants:
+        schema_name = f"tenant_{tenant.subdomain.replace('-', '_')}"
+        pet_service = PetService(tenant_schema=schema_name)
+        pet = pet_service.get_pet(pet_id)
+        if pet:
+            break
+
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
 

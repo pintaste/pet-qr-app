@@ -107,7 +107,6 @@ class PetService:
                 photos=pet_data.photos or [],
                 medical_info=pet_data.medical_info or {},
                 owner_id=tenant_user_id,  # Use tenant user ID
-                is_active=True,
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
             )
@@ -136,7 +135,7 @@ class PetService:
             self._set_search_path(session)
             return (
                 session.query(Pet)
-                .filter(Pet.id == pet_id, Pet.is_active == True)
+                .filter(Pet.id == pet_id)
                 .first()
             )
         finally:
@@ -165,7 +164,7 @@ class PetService:
 
             return (
                 session.query(Pet)
-                .filter(Pet.owner_id == tenant_user_id, Pet.is_active == True)
+                .filter(Pet.owner_id == tenant_user_id)
                 .offset(skip)
                 .limit(limit)
                 .all()
@@ -199,7 +198,6 @@ class PetService:
                 .filter(
                     Pet.id == pet_id,
                     Pet.owner_id == tenant_user_id,
-                    Pet.is_active == True,
                 )
                 .first()
             )
@@ -223,7 +221,7 @@ class PetService:
 
     def delete_pet(self, pet_id: int, owner_id: int) -> bool:
         """
-        Delete a pet (soft delete).
+        Delete a pet (hard delete).
 
         Args:
             pet_id: Pet ID
@@ -244,7 +242,6 @@ class PetService:
                 .filter(
                     Pet.id == pet_id,
                     Pet.owner_id == tenant_user_id,
-                    Pet.is_active == True,
                 )
                 .first()
             )
@@ -252,8 +249,7 @@ class PetService:
             if not pet:
                 return False
 
-            pet.is_active = False
-            pet.updated_at = datetime.utcnow()
+            session.delete(pet)
             session.commit()
             return True
         finally:
@@ -285,10 +281,9 @@ class PetService:
                         updated_at = NOW()
                     WHERE id = :pet_id
                       AND owner_id = :owner_id
-                      AND is_active = true
                     RETURNING id, name, breed, age, sex, color, size, weight,
                              microchip_id, is_spayed_neutered, birthday, description,
-                             photos, medical_info, owner_id, is_active, is_pinned,
+                             photos, medical_info, owner_id, is_pinned,
                              created_at, updated_at
                 """),
                 {"pet_id": pet_id, "owner_id": tenant_user_id}
@@ -319,10 +314,9 @@ class PetService:
                 photos=updated_row[12] or [],
                 medical_info=updated_row[13] or {},
                 owner_id=updated_row[14],
-                is_active=updated_row[15],
-                is_pinned=updated_row[16],
-                created_at=updated_row[17],
-                updated_at=updated_row[18]
+                is_pinned=updated_row[15],
+                created_at=updated_row[16],
+                updated_at=updated_row[17]
             )
             return pet
         finally:
@@ -381,10 +375,9 @@ class PetService:
                         updated_at = NOW()
                     WHERE id = :pet_id
                       AND owner_id = :owner_id
-                      AND is_active = true
                     RETURNING id, name, breed, age, sex, color, size, weight,
                              microchip_id, is_spayed_neutered, birthday, description,
-                             photos, medical_info, owner_id, is_active, is_pinned,
+                             photos, medical_info, owner_id, is_pinned,
                              created_at, updated_at
                 """),
                 {"pet_id": pet_id, "qr_code": qr_code, "owner_id": tenant_user_id}
@@ -424,10 +417,9 @@ class PetService:
                 photos=updated_row[12] or [],
                 medical_info=updated_row[13] or {},
                 owner_id=updated_row[14],
-                is_active=updated_row[15],
-                is_pinned=updated_row[16],
-                created_at=updated_row[17],
-                updated_at=updated_row[18]
+                is_pinned=updated_row[15],
+                created_at=updated_row[16],
+                updated_at=updated_row[17]
             )
             return pet
         finally:
@@ -457,7 +449,6 @@ class PetService:
                     SELECT qr_code_id FROM pets
                     WHERE id = :pet_id
                       AND owner_id = :owner_id
-                      AND is_active = true
                 """),
                 {"pet_id": pet_id, "owner_id": tenant_user_id}
             )
@@ -476,10 +467,9 @@ class PetService:
                         updated_at = NOW()
                     WHERE id = :pet_id
                       AND owner_id = :owner_id
-                      AND is_active = true
                     RETURNING id, name, breed, age, sex, color, size, weight,
                              microchip_id, is_spayed_neutered, birthday, description,
-                             photos, medical_info, owner_id, is_active, is_pinned,
+                             photos, medical_info, owner_id, is_pinned,
                              created_at, updated_at
                 """),
                 {"pet_id": pet_id, "owner_id": tenant_user_id}
@@ -520,10 +510,9 @@ class PetService:
                 photos=updated_row[12] or [],
                 medical_info=updated_row[13] or {},
                 owner_id=updated_row[14],
-                is_active=updated_row[15],
-                is_pinned=updated_row[16],
-                created_at=updated_row[17],
-                updated_at=updated_row[18]
+                is_pinned=updated_row[15],
+                created_at=updated_row[16],
+                updated_at=updated_row[17]
             )
             return pet
         finally:
@@ -548,12 +537,9 @@ class PetService:
             return (
                 session.query(Pet)
                 .filter(
-                    Pet.is_active == True,
-                    (
-                        Pet.name.ilike(search_term)
-                        | Pet.breed.ilike(search_term)
-                        | Pet.description.ilike(search_term)
-                    ),
+                    Pet.name.ilike(search_term)
+                    | Pet.breed.ilike(search_term)
+                    | Pet.description.ilike(search_term)
                 )
                 .offset(skip)
                 .limit(limit)
