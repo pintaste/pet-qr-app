@@ -53,6 +53,8 @@ export interface TenantQRCode {
   user_email?: string
   batch_id?: string
   activated_at?: string
+  activated_by_user_id?: number
+  activation_count: number
   created_at: string
 }
 
@@ -78,6 +80,7 @@ export interface TenantPet {
   owner_id: number
   owner_email: string
   created_at: string
+  qr_code_id?: string
 }
 
 export interface TenantPetListParams {
@@ -87,12 +90,105 @@ export interface TenantPetListParams {
   species?: string
 }
 
+export interface TenantScanEvent {
+  id: number
+  qr_code_id: number
+  ip_address?: string
+  user_agent?: string
+  location_data?: Record<string, unknown>
+  scanned_at: string
+  qr_code?: string
+  pet_name?: string
+  owner_id?: number
+  owner_email?: string
+}
+
+export interface TenantScanEventListParams {
+  skip?: number
+  limit?: number
+}
+
+// Comprehensive Analytics Types
+export interface ComprehensiveAnalytics {
+  overview: OverviewSummary
+  qr_activity: QRActivity
+  user_engagement: UserEngagement
+  pet_statistics: PetStatistics
+  qr_inventory: QRInventory
+  support_metrics: SupportMetrics
+}
+
+export interface OverviewSummary {
+  total_users: number
+  active_users: number
+  inactive_users: number
+  total_qr_codes: number
+  active_qr_codes: number
+  inactive_qr_codes: number
+  total_pets: number
+  total_scans: number
+}
+
+export interface QRActivity {
+  scans_over_time: Array<{ date: string; count: number }>
+  top_scanned_qr_codes: Array<{
+    code: string
+    id: number
+    pet_name: string | null
+    scan_count: number
+  }>
+  scan_locations: Array<Record<string, unknown>>
+  activation_rate: number
+}
+
+export interface UserEngagement {
+  registrations_over_time: Array<{ date: string; count: number }>
+  total_users: number
+  active_users: number
+  inactive_users: number
+  pet_to_user_ratio: number
+  users_with_pets: number
+  users_without_pets: number
+}
+
+export interface PetStatistics {
+  pets_by_species: Array<{ species: string; count: number }>
+  top_breeds: Array<{ breed: string; count: number }>
+  total_pets: number
+  pets_with_qr: number
+  pets_without_qr: number
+  lost_pets: number
+}
+
+export interface QRInventory {
+  qr_by_status: Array<{ status: string; count: number }>
+  qr_by_batch: Array<{ batch: string; count: number }>
+  available_qr_codes: number
+  recent_qr_codes: number
+}
+
+export interface SupportMetrics {
+  tickets_by_status: Array<{ status: string; count: number }>
+  tickets_by_priority: Array<{ priority: string; count: number }>
+  open_tickets: number
+  recent_tickets: number
+}
+
 export const tenantAdminService = {
   /**
    * Get tenant analytics
    */
   async getTenantStats(): Promise<TenantStats> {
     return await apiClient.get<TenantStats>('/api/v1/admin/analytics/tenant')
+  },
+
+  /**
+   * Get comprehensive analytics for the dashboard
+   */
+  async getComprehensiveAnalytics(days: number = 30): Promise<ComprehensiveAnalytics> {
+    return await apiClient.get<ComprehensiveAnalytics>('/api/v1/admin/analytics/comprehensive', {
+      params: { days }
+    })
   },
 
   /**
@@ -166,6 +262,16 @@ export const tenantAdminService = {
     const { skip = 0, limit = 100, search, species } = params
     return await apiClient.get<TenantPet[]>('/api/v1/admin/pets', {
       params: { skip, limit, search, species }
+    })
+  },
+
+  /**
+   * List scan events for the tenant
+   */
+  async listTenantScanEvents(params: TenantScanEventListParams = {}): Promise<TenantScanEvent[]> {
+    const { skip = 0, limit = 100 } = params
+    return await apiClient.get<TenantScanEvent[]>('/api/v1/admin/scan-events', {
+      params: { skip, limit }
     })
   },
 }

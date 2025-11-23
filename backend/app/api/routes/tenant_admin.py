@@ -492,6 +492,394 @@ async def get_tenant_analytics(
     }
 
 
+@router.get("/analytics/comprehensive")
+async def get_comprehensive_analytics(
+    current_user: User = Depends(get_current_tenant_admin),
+    db: Session = Depends(get_db),
+    days: int = 30,
+):
+    """
+    Get comprehensive analytics for the tenant admin dashboard.
+
+    Args:
+        current_user: Current tenant admin user
+        db: Database session
+        days: Number of days for time-based analytics (default 30)
+
+    Returns:
+        Comprehensive analytics data including trends and breakdowns
+    """
+    tenant_id = current_user.tenant_id
+    schema_name = get_tenant_schema(db, tenant_id)
+
+    # Overview Summary
+    overview = _get_overview_summary(db, tenant_id, schema_name)
+
+    # QR Code Activity
+    qr_activity = _get_qr_activity(db, schema_name, days)
+
+    # User Engagement
+    user_engagement = _get_user_engagement(db, tenant_id, schema_name, days)
+
+    # Pet Statistics
+    pet_stats = _get_pet_statistics(db, schema_name)
+
+    # QR Code Inventory
+    qr_inventory = _get_qr_inventory(db, schema_name)
+
+    # Support Metrics
+    support_metrics = _get_support_metrics(db, schema_name)
+
+    return {
+        "overview": overview,
+        "qr_activity": qr_activity,
+        "user_engagement": user_engagement,
+        "pet_statistics": pet_stats,
+        "qr_inventory": qr_inventory,
+        "support_metrics": support_metrics,
+    }
+
+
+def _get_overview_summary(db: Session, tenant_id: int, schema_name: str) -> dict:
+    """Get overview summary statistics."""
+    # Users
+    total_users = db.execute(
+        text("SELECT COUNT(*) FROM shared.users WHERE tenant_id = :tenant_id"),
+        {"tenant_id": tenant_id}
+    ).scalar() or 0
+
+    active_users = db.execute(
+        text("SELECT COUNT(*) FROM shared.users WHERE tenant_id = :tenant_id AND is_active = true"),
+        {"tenant_id": tenant_id}
+    ).scalar() or 0
+
+    # QR Codes
+    total_qr = db.execute(
+        text(f'SELECT COUNT(*) FROM "{schema_name}".qr_codes')
+    ).scalar() or 0
+
+    active_qr = db.execute(
+        text(f"SELECT COUNT(*) FROM \"{schema_name}\".qr_codes WHERE status = 'ACTIVE'")
+    ).scalar() or 0
+
+    inactive_qr = db.execute(
+        text(f"SELECT COUNT(*) FROM \"{schema_name}\".qr_codes WHERE status = 'INACTIVE'")
+    ).scalar() or 0
+
+    # Pets
+    total_pets = db.execute(
+        text(f'SELECT COUNT(*) FROM "{schema_name}".pets')
+    ).scalar() or 0
+
+    # Scans
+    total_scans = db.execute(
+        text(f'SELECT COUNT(*) FROM "{schema_name}".scan_events')
+    ).scalar() or 0
+
+    return {
+        "total_users": total_users,
+        "active_users": active_users,
+        "inactive_users": total_users - active_users,
+        "total_qr_codes": total_qr,
+        "active_qr_codes": active_qr,
+        "inactive_qr_codes": inactive_qr,
+        "total_pets": total_pets,
+        "total_scans": total_scans,
+    }
+
+
+def _get_qr_activity(db: Session, schema_name: str, days: int) -> dict:
+    """Get QR code activity analytics."""
+    # Scans over time (daily for last N days)
+    scans_over_time = db.execute(
+        text(f"""
+            SELECT DATE(scanned_at) as scan_date, COUNT(*) as scan_count
+            FROM "{schema_name}".scan_events
+            WHERE scanned_at >= NOW() - INTERVAL '{days} days'
+            GROUP BY DATE(scanned_at)
+            ORDER BY scan_date
+        """)
+    ).fetchall()
+
+    # Top scanned QR codes
+    top_scanned = db.execute(
+        text(f"""
+            SELECT qr.code, qr.id, p.name as pet_name, COUNT(se.id) as scan_count
+            FROM "{schema_name}".qr_codes qr
+            LEFT JOIN "{schema_name}".scan_events se ON qr.id = se.qr_code_id
+            LEFT JOIN "{schema_name}".pets p ON qr.pet_id = p.id
+            GROUP BY qr.id, qr.code, p.name
+            ORDER BY scan_count DESC
+            LIMIT 10
+        """)
+    ).fetchall()
+
+    # Scan locations (if location data available)
+    scan_locations = db.execute(
+        text(f"""
+            SELECT location_data
+            FROM "{schema_name}".scan_events
+            WHERE location_data IS NOT NULL
+            AND location_data::text != '{{}}'
+            ORDER BY scanned_at DESC
+            LIMIT 100
+        """)
+    ).fetchall()
+
+    # QR Code activation rate
+    total_qr = db.execute(
+        text(f'SELECT COUNT(*) FROM "{schema_name}".qr_codes')
+    ).scalar() or 1
+
+    activated_qr = db.execute(
+        text(f"SELECT COUNT(*) FROM \"{schema_name}\".qr_codes WHERE status = 'ACTIVE'")
+    ).scalar() or 0
+
+    activation_rate = round((activated_qr / total_qr) * 100, 1) if total_qr > 0 else 0
+
+    return {
+        "scans_over_time": [
+            {"date": row[0].isoformat(), "count": row[1]}
+            for row in scans_over_time
+        ],
+        "top_scanned_qr_codes": [
+            {
+                "code": row[0],
+                "id": row[1],
+                "pet_name": row[2],
+                "scan_count": row[3]
+            }
+            for row in top_scanned
+        ],
+        "scan_locations": [
+            row[0] for row in scan_locations if row[0]
+        ],
+        "activation_rate": activation_rate,
+    }
+
+
+def _get_user_engagement(db: Session, tenant_id: int, schema_name: str, days: int) -> dict:
+    """Get user engagement analytics."""
+    # New registrations over time
+    registrations_over_time = db.execute(
+        text("""
+            SELECT DATE(created_at) as reg_date, COUNT(*) as reg_count
+            FROM shared.users
+            WHERE tenant_id = :tenant_id
+            AND created_at >= NOW() - INTERVAL :days
+            GROUP BY DATE(created_at)
+            ORDER BY reg_date
+        """),
+        {"tenant_id": tenant_id, "days": f"{days} days"}
+    ).fetchall()
+
+    # Total and active users
+    total_users = db.execute(
+        text("SELECT COUNT(*) FROM shared.users WHERE tenant_id = :tenant_id"),
+        {"tenant_id": tenant_id}
+    ).scalar() or 0
+
+    active_users = db.execute(
+        text("SELECT COUNT(*) FROM shared.users WHERE tenant_id = :tenant_id AND is_active = true"),
+        {"tenant_id": tenant_id}
+    ).scalar() or 0
+
+    # Pet to user ratio
+    total_pets = db.execute(
+        text(f'SELECT COUNT(*) FROM "{schema_name}".pets')
+    ).scalar() or 0
+
+    pet_to_user_ratio = round(total_pets / total_users, 2) if total_users > 0 else 0
+
+    # Users with pets
+    users_with_pets = db.execute(
+        text(f'SELECT COUNT(DISTINCT owner_id) FROM "{schema_name}".pets')
+    ).scalar() or 0
+
+    return {
+        "registrations_over_time": [
+            {"date": row[0].isoformat(), "count": row[1]}
+            for row in registrations_over_time
+        ],
+        "total_users": total_users,
+        "active_users": active_users,
+        "inactive_users": total_users - active_users,
+        "pet_to_user_ratio": pet_to_user_ratio,
+        "users_with_pets": users_with_pets,
+        "users_without_pets": total_users - users_with_pets,
+    }
+
+
+def _get_pet_statistics(db: Session, schema_name: str) -> dict:
+    """Get pet statistics analytics."""
+    # Pets by species
+    pets_by_species = db.execute(
+        text(f"""
+            SELECT species, COUNT(*) as count
+            FROM "{schema_name}".pets
+            GROUP BY species
+            ORDER BY count DESC
+        """)
+    ).fetchall()
+
+    # Top breeds
+    top_breeds = db.execute(
+        text(f"""
+            SELECT breed, COUNT(*) as count
+            FROM "{schema_name}".pets
+            WHERE breed IS NOT NULL AND breed != ''
+            GROUP BY breed
+            ORDER BY count DESC
+            LIMIT 10
+        """)
+    ).fetchall()
+
+    # Pets with QR codes linked
+    total_pets = db.execute(
+        text(f'SELECT COUNT(*) FROM "{schema_name}".pets')
+    ).scalar() or 0
+
+    pets_with_qr = db.execute(
+        text(f"""
+            SELECT COUNT(*) FROM "{schema_name}".pets
+            WHERE qr_code_id IS NOT NULL AND qr_code_id != ''
+        """)
+    ).scalar() or 0
+
+    # Lost pets count
+    lost_pets = db.execute(
+        text(f'SELECT COUNT(*) FROM "{schema_name}".pets WHERE is_pinned = true')
+    ).scalar() or 0
+
+    return {
+        "pets_by_species": [
+            {"species": row[0] or "Unknown", "count": row[1]}
+            for row in pets_by_species
+        ],
+        "top_breeds": [
+            {"breed": row[0], "count": row[1]}
+            for row in top_breeds
+        ],
+        "total_pets": total_pets,
+        "pets_with_qr": pets_with_qr,
+        "pets_without_qr": total_pets - pets_with_qr,
+        "lost_pets": lost_pets,
+    }
+
+
+def _get_qr_inventory(db: Session, schema_name: str) -> dict:
+    """Get QR code inventory analytics."""
+    # QR codes by status
+    qr_by_status = db.execute(
+        text(f"""
+            SELECT status, COUNT(*) as count
+            FROM "{schema_name}".qr_codes
+            GROUP BY status
+            ORDER BY count DESC
+        """)
+    ).fetchall()
+
+    # QR codes by batch
+    qr_by_batch = db.execute(
+        text(f"""
+            SELECT COALESCE(batch_id, 'No Batch') as batch, COUNT(*) as count
+            FROM "{schema_name}".qr_codes
+            GROUP BY batch_id
+            ORDER BY count DESC
+            LIMIT 10
+        """)
+    ).fetchall()
+
+    # Available (unassigned) QR codes
+    available_qr = db.execute(
+        text(f"""
+            SELECT COUNT(*) FROM "{schema_name}".qr_codes
+            WHERE status = 'INACTIVE' AND pet_id IS NULL
+        """)
+    ).scalar() or 0
+
+    # Recently created QR codes (last 7 days)
+    recent_qr = db.execute(
+        text(f"""
+            SELECT COUNT(*) FROM "{schema_name}".qr_codes
+            WHERE created_at >= NOW() - INTERVAL '7 days'
+        """)
+    ).scalar() or 0
+
+    return {
+        "qr_by_status": [
+            {"status": row[0], "count": row[1]}
+            for row in qr_by_status
+        ],
+        "qr_by_batch": [
+            {"batch": row[0], "count": row[1]}
+            for row in qr_by_batch
+        ],
+        "available_qr_codes": available_qr,
+        "recent_qr_codes": recent_qr,
+    }
+
+
+def _get_support_metrics(db: Session, schema_name: str) -> dict:
+    """Get support ticket metrics."""
+    # Check if support_tickets table exists
+    try:
+        # Tickets by status
+        tickets_by_status = db.execute(
+            text(f"""
+                SELECT status, COUNT(*) as count
+                FROM "{schema_name}".support_tickets
+                GROUP BY status
+            """)
+        ).fetchall()
+
+        # Tickets by priority
+        tickets_by_priority = db.execute(
+            text(f"""
+                SELECT priority, COUNT(*) as count
+                FROM "{schema_name}".support_tickets
+                GROUP BY priority
+            """)
+        ).fetchall()
+
+        # Open tickets count
+        open_tickets = db.execute(
+            text(f"""
+                SELECT COUNT(*) FROM "{schema_name}".support_tickets
+                WHERE status = 'open'
+            """)
+        ).scalar() or 0
+
+        # Recent tickets (last 7 days)
+        recent_tickets = db.execute(
+            text(f"""
+                SELECT COUNT(*) FROM "{schema_name}".support_tickets
+                WHERE created_at >= NOW() - INTERVAL '7 days'
+            """)
+        ).scalar() or 0
+
+        return {
+            "tickets_by_status": [
+                {"status": row[0], "count": row[1]}
+                for row in tickets_by_status
+            ],
+            "tickets_by_priority": [
+                {"priority": row[0], "count": row[1]}
+                for row in tickets_by_priority
+            ],
+            "open_tickets": open_tickets,
+            "recent_tickets": recent_tickets,
+        }
+    except Exception:
+        # Table might not exist
+        return {
+            "tickets_by_status": [],
+            "tickets_by_priority": [],
+            "open_tickets": 0,
+            "recent_tickets": 0,
+        }
+
+
 @router.get("/pets", response_model=List[dict])
 async def list_tenant_pets(
     current_user: User = Depends(get_current_tenant_admin),
