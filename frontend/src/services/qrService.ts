@@ -33,12 +33,14 @@ interface QRCode {
   pin: string
   status: string
   pet_id?: number
+  pet_name?: string
   batch_id?: string
   batch_name?: string
   activated_at?: string
   activated_by_user_id?: number
-  activation_count: number
-  created_at: string
+  activation_count?: number
+  created_at?: string
+  updated_at?: string
   image?: string
   url?: string
 }

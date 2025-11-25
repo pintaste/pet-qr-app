@@ -30,7 +30,7 @@ const UserDashboard: React.FC = () => {
   const [isActivateQRModalOpen, setIsActivateQRModalOpen] = useState(false)
   const [selectedPetId, setSelectedPetId] = useState<number | null>(null)
   const [pets, setPets] = useState<Pet[]>([])
-  const [stats, setStats] = useState<UserDashboardStats>({
+  const [_stats, setStats] = useState<UserDashboardStats>({
     total_pets: 0,
     active_qr_codes: 0,
     total_scans: 0,

@@ -13,6 +13,7 @@ export interface QRCodeData {
   activated_at?: string
   created_at: string
   updated_at?: string
+  activation_count?: number
 }
 
 interface QRCardProps {

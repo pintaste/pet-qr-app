@@ -1,5 +1,21 @@
 import { apiClient } from './api'
 
+interface MedicalInfo {
+  microchip_id?: string
+  spayed_neutered?: string
+  medical_conditions?: string
+  medications?: string
+  allergies?: string
+  veterinarian?: string
+  vet_clinic?: string
+  vet_phone?: string
+}
+
+interface ContactInfo {
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+}
+
 interface Pet {
   id: number
   name: string
@@ -14,8 +30,8 @@ interface Pet {
   birthday?: string
   description?: string
   photos: string[]
-  medical_info: Record<string, unknown>
-  contact_info?: Record<string, unknown>
+  medical_info?: MedicalInfo
+  contact_info?: ContactInfo
   owner_id: number
   is_pinned?: boolean
   created_at: string
