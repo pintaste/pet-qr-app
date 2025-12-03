@@ -1484,7 +1484,7 @@ async def get_realtime_feed(
     skip: int = 0,
     limit: int = 50,
     hours: int = 24,
-    activity_type: str | None = None,
+    activity_type: Optional[str] = None,
 ):
     """
     Get real-time activity feed across all tenants with pagination.
@@ -2452,17 +2452,17 @@ class PlatformSettingsResponse(BaseModel):
 class PlatformSettingsUpdate(BaseModel):
     """Request model for updating platform settings."""
     # Platform Configuration
-    maintenance_mode: bool | None = None
+    maintenance_mode: Optional[bool] = None
 
     # Security Settings
-    access_token_expire_minutes: int | None = None
-    refresh_token_expire_days: int | None = None
-    cors_origins: list[str] | None = None
-    rate_limit_per_minute: int | None = None
-    scan_rate_limit_per_hour: int | None = None
+    access_token_expire_minutes: Optional[int] = None
+    refresh_token_expire_days: Optional[int] = None
+    cors_origins: Optional[List[str]] = None
+    rate_limit_per_minute: Optional[int] = None
+    scan_rate_limit_per_hour: Optional[int] = None
 
     # Tenant Defaults
-    tenant_defaults: dict | None = None
+    tenant_defaults: Optional[dict] = None
 
 
 class TenantDefaultsConfig(BaseModel):

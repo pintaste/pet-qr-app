@@ -117,7 +117,6 @@ class Pet(SQLModel, table=True):
     )
 
     # Status and Visibility
-    is_active: bool = Field(default=True, description="Is pet profile active")
     is_lost: bool = Field(default=False, description="Is pet currently lost")
     is_public: bool = Field(
         default=True, description="Is pet profile visible to public via QR"

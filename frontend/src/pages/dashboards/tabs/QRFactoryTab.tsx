@@ -253,7 +253,7 @@ export const QRFactoryTab: React.FC<QRFactoryTabProps> = ({
             <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 dark:text-green-400" />
           </div>
           <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
-            {qrCodes.filter(qr => qr.status === 'active').length}
+            {qrCodes.filter(qr => qr.status === 'ACTIVE').length}
           </p>
         </button>
 
@@ -466,7 +466,7 @@ export const QRFactoryTab: React.FC<QRFactoryTabProps> = ({
                     </td>
                     <td className="py-2 sm:py-3 px-2 sm:px-4">
                       <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${
-                        qr.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                        qr.status === 'ACTIVE' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
                         qr.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
                         'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
                       }`}>{qr.status}</span>

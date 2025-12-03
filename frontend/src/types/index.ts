@@ -84,11 +84,21 @@ export interface QRCode {
   code: string
   pin: string
   petId?: number
-  status: 'inactive' | 'active' | 'expired'
+  pet_id?: number
+  pet_name?: string
+  status: 'inactive' | 'active' | 'expired' | string
   batchId?: string
+  batch_id?: string
   printData?: PrintData
   activatedAt?: string
-  createdAt: string
+  activated_at?: string
+  activatedByUserId?: number
+  activationCount?: number
+  activation_count?: number
+  createdAt?: string
+  created_at?: string
+  updated_at?: string
+  image?: string
 }
 
 export interface PrintData {

@@ -163,6 +163,64 @@ async def get_pets(tenant: Tenant = Depends(get_current_tenant)):
     # 业务逻辑
 ```
 
+### 异常处理
+
+后端使用自定义异常类实现统一的错误处理：
+
+```python
+# app/core/exceptions.py 中定义的异常
+from app.core.exceptions import (
+    PetQRException,          # 基础异常
+    AuthenticationError,     # 认证错误 (401)
+    AuthorizationError,      # 授权错误 (403)
+    TenantNotFoundError,     # 租户未找到 (404)
+    QRCodeNotFoundError,     # QR码未找到 (404)
+    PetNotFoundError,        # 宠物未找到 (404)
+    UserNotFoundError,       # 用户未找到 (404)
+    InvalidPINError,         # 无效PIN码 (400)
+    ValidationError,         # 验证错误 (422)
+    DatabaseError,           # 数据库错误 (500)
+    DuplicateEntryError,     # 重复条目 (409)
+)
+
+# 使用示例
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+
+try:
+    # 数据库操作
+except IntegrityError:
+    raise DuplicateEntryError("该记录已存在")
+except SQLAlchemyError as e:
+    logger.error(f"数据库错误: {e}")
+    raise DatabaseError("数据库操作失败")
+```
+
+### Redis 缓存
+
+Redis用于租户数据缓存，提升多租户路由性能：
+
+```python
+# tenant_service.py 中的缓存流程
+1. 请求进来 → 从域名识别租户
+2. 先查 Redis 缓存 (key: "tenant:{domain}")
+3. 有缓存 → 直接使用 (TTL: 1小时)
+4. 无缓存 → 查数据库 → 存入 Redis
+```
+
+**注意**: 开发环境使用 `localhost` 时会走 demo tenant 逻辑，不触发缓存。Redis 缓存在生产环境多租户场景下才会真正发挥作用。
+
+### 环境变量配置
+
+**重要**: 确保 `.env` 文件使用异步数据库驱动：
+
+```bash
+# 正确 ✅ - 使用 asyncpg 驱动
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/pet_qr_system
+
+# 错误 ❌ - 同步驱动会导致启动失败
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pet_qr_system
+```
+
 ## 部署
 
 ### 开发环境

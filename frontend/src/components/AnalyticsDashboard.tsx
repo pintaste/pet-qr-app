@@ -10,27 +10,9 @@
 
 import React, { useState, useEffect } from 'react'
 import {
-  TrendingUp,
-  Users,
-  Building2,
-  QrCode,
-  Activity,
-  Award,
   RefreshCw,
   Loader2,
   AlertCircle,
-  UserPlus,
-  Clock,
-  BarChart3,
-  PieChart,
-  Dog,
-  Cat,
-  Image,
-  Download,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
 } from 'lucide-react'
 import {
   superAdminService,
@@ -43,10 +25,15 @@ import {
   ScanPatterns,
   RealtimeFeed,
 } from '@/services/superAdminService'
+import { StatCards } from './analytics/StatCards'
+import { GrowthCharts, QRStatusCards } from './analytics/ChartComponents'
+import { TenantPerformanceTable } from './analytics/TenantPerformanceTable'
+import { PetAnalyticsCards } from './analytics/PetAnalyticsCards'
+import { ScanPatternsCharts } from './analytics/ScanPatternsCharts'
+import { ActivityLog } from './analytics/ActivityLog'
 
 interface AnalyticsDashboardProps {
   platformStats: PlatformStats | null
-  // Activity Log props
   activityFeed: RealtimeFeed | null
   isActivityLoading: boolean
   activityFilter: string
@@ -68,8 +55,6 @@ interface AnalyticsDashboardProps {
   exportActivityToCSV: () => void
   formatRelativeTime: (timestamp: string) => string
 }
-
-const ACTIVITIES_PER_PAGE = 20
 
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   platformStats,
@@ -104,7 +89,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = async (): Promise<void> => {
     setIsLoading(true)
     setError(null)
     try {
@@ -134,59 +119,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   useEffect(() => {
     fetchAnalytics()
   }, [])
-
-  // Simple bar chart component
-  const SimpleBarChart: React.FC<{ data: Array<{ date: string; count: number }>; color: string }> = ({ data, color }) => {
-    const maxCount = Math.max(...data.map(d => d.count), 1)
-    const recentData = data.slice(-14) // Last 14 days
-
-    return (
-      <div className="flex items-end gap-0.5 h-20">
-        {recentData.map((item) => (
-          <div
-            key={item.date}
-            className={`flex-1 ${color} rounded-t transition-all hover:opacity-80`}
-            style={{ height: `${(item.count / maxCount) * 100}%`, minHeight: item.count > 0 ? '4px' : '0' }}
-            title={`${item.date}: ${item.count}`}
-          />
-        ))}
-      </div>
-    )
-  }
-
-  // Progress ring component
-  const ProgressRing: React.FC<{ percentage: number; size?: number; color: string }> = ({ percentage, size = 60, color }) => {
-    const strokeWidth = 6
-    const radius = (size - strokeWidth) / 2
-    const circumference = radius * 2 * Math.PI
-    const strokeDashoffset = circumference - (percentage / 100) * circumference
-
-    return (
-      <svg width={size} height={size} className="transform -rotate-90">
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          className="text-gray-200 dark:text-gray-700"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          className={color}
-        />
-      </svg>
-    )
-  }
 
   if (isLoading) {
     return (
@@ -240,802 +172,52 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       </div>
 
       {/* Overview Stats */}
-      {platformStats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <div className="flex items-center gap-2 mb-1">
-              <Building2 className="w-4 h-4 text-indigo-500" />
-              <span className="text-xs text-gray-500 dark:text-gray-400">Tenants</span>
-            </div>
-            <p className="text-lg sm:text-lg sm:text-xl font-bold text-gray-900 dark:text-white">{platformStats.total_tenants}</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <div className="flex items-center gap-2 mb-1">
-              <Users className="w-4 h-4 text-blue-500" />
-              <span className="text-xs text-gray-500 dark:text-gray-400">Users</span>
-            </div>
-            <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">{platformStats.total_users}</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <div className="flex items-center gap-2 mb-1">
-              <Activity className="w-4 h-4 text-green-500" />
-              <span className="text-xs text-gray-500 dark:text-gray-400">Active Users</span>
-            </div>
-            <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">{platformStats.active_users}</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <div className="flex items-center gap-2 mb-1">
-              <QrCode className="w-4 h-4 text-purple-500" />
-              <span className="text-xs text-gray-500 dark:text-gray-400">QR Codes</span>
-            </div>
-            <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">{platformStats.total_qr_codes}</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <div className="flex items-center gap-2 mb-1">
-              <BarChart3 className="w-4 h-4 text-orange-500" />
-              <span className="text-xs text-gray-500 dark:text-gray-400">Pets</span>
-            </div>
-            <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">{platformStats.total_pets}</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="w-4 h-4 text-cyan-500" />
-              <span className="text-xs text-gray-500 dark:text-gray-400">Scans</span>
-            </div>
-            <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">{platformStats.total_scans}</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <div className="flex items-center gap-2 mb-1">
-              <Building2 className="w-4 h-4 text-emerald-500" />
-              <span className="text-xs text-gray-500 dark:text-gray-400">Active</span>
-            </div>
-            <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">{platformStats.active_tenants}</p>
-          </div>
-        </div>
-      )}
+      <StatCards platformStats={platformStats} />
 
       {/* Growth Charts Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-        {/* User Growth */}
-        {growthData && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-blue-500" />
-                User Growth
-              </h3>
-              <div className="text-right">
-                <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  +{growthData.user_growth.last_30_days}
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 block">last 30 days</span>
-              </div>
-            </div>
-            <SimpleBarChart data={growthData.user_growth.daily_trend} color="bg-blue-500" />
-            <div className="flex justify-between mt-3 text-xs text-gray-500 dark:text-gray-400">
-              <span>7d: +{growthData.user_growth.last_7_days}</span>
-              <span>90d: +{growthData.user_growth.last_90_days}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Tenant Growth */}
-        {growthData && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-indigo-500" />
-                Tenant Growth
-              </h3>
-              <div className="text-right">
-                <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                  +{growthData.tenant_growth.last_30_days}
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 block">last 30 days</span>
-              </div>
-            </div>
-            <SimpleBarChart data={growthData.tenant_growth.daily_trend} color="bg-indigo-500" />
-            <div className="flex justify-between mt-3 text-xs text-gray-500 dark:text-gray-400">
-              <span>7d: +{growthData.tenant_growth.last_7_days}</span>
-              <span>90d: +{growthData.tenant_growth.last_90_days}</span>
-            </div>
-          </div>
-        )}
-      </div>
+      <GrowthCharts growthData={growthData} />
 
       {/* QR Status & Distribution Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-        {/* QR Status Distribution */}
-        {qrStatusData && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <PieChart className="w-5 h-5 text-purple-500" />
-              QR Status
-            </h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Active</span>
-                <span className="font-semibold text-green-600 dark:text-green-400">
-                  {qrStatusData.status_distribution.active}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Inactive</span>
-                <span className="font-semibold text-gray-600 dark:text-gray-400">
-                  {qrStatusData.status_distribution.inactive}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Expired</span>
-                <span className="font-semibold text-red-600 dark:text-red-400">
-                  {qrStatusData.status_distribution.expired}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
+      <QRStatusCards
+        qrStatusData={qrStatusData}
+        userRoleDistribution={growthData?.user_role_distribution}
+      />
 
-        {/* QR Assignment */}
-        {qrStatusData && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <QrCode className="w-5 h-5 text-blue-500" />
-              QR Assignment
-            </h3>
-            <div className="flex items-center justify-center">
-              <div className="relative">
-                <ProgressRing
-                  percentage={
-                    qrStatusData.assignment.assigned + qrStatusData.assignment.unassigned > 0
-                      ? (qrStatusData.assignment.assigned / (qrStatusData.assignment.assigned + qrStatusData.assignment.unassigned)) * 100
-                      : 0
-                  }
-                  size={80}
-                  color="text-blue-500"
-                />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-sm font-bold text-gray-900 dark:text-white">
-                    {qrStatusData.assignment.assigned + qrStatusData.assignment.unassigned > 0
-                      ? Math.round((qrStatusData.assignment.assigned / (qrStatusData.assignment.assigned + qrStatusData.assignment.unassigned)) * 100)
-                      : 0}%
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-between mt-3 text-xs">
-              <span className="text-blue-600 dark:text-blue-400">
-                Assigned: {qrStatusData.assignment.assigned}
-              </span>
-              <span className="text-gray-500 dark:text-gray-400">
-                Unassigned: {qrStatusData.assignment.unassigned}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* User Role Distribution */}
-        {growthData && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5 text-green-500" />
-              User Roles
-            </h3>
-            <div className="space-y-3">
-              {Object.entries(growthData.user_role_distribution).map(([role, count]) => (
-                <div key={role} className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400 capitalize">
-                    {role.replace('_', ' ')}
-                  </span>
-                  <span className="font-semibold text-gray-900 dark:text-white">{count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Tenant Performance Rankings */}
-      {tenantPerformance && tenantPerformance.tenant_rankings.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <Award className="w-5 h-5 text-yellow-500" />
-            Tenant Performance Rankings
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Rank</th>
-                  <th className="text-left py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Tenant</th>
-                  <th className="text-center py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Users</th>
-                  <th className="text-center py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Pets</th>
-                  <th className="text-center py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">QR Codes</th>
-                  <th className="text-center py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Scans</th>
-                  <th className="text-center py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tenantPerformance.tenant_rankings.slice(0, 10).map((tenant, index) => (
-                  <tr key={tenant.tenant_id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td className="py-2 px-3">
-                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
-                        index === 0 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                        index === 1 ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' :
-                        index === 2 ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
-                        'bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-                      }`}>
-                        {index + 1}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3">
-                      <div>
-                        <span className="font-medium text-gray-900 dark:text-white">{tenant.tenant_name}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 block">{tenant.subdomain}</span>
-                      </div>
-                    </td>
-                    <td className="py-2 px-3 text-center text-sm text-gray-600 dark:text-gray-400">{tenant.total_users}</td>
-                    <td className="py-2 px-3 text-center text-sm text-gray-600 dark:text-gray-400">{tenant.total_pets}</td>
-                    <td className="py-2 px-3 text-center text-sm text-gray-600 dark:text-gray-400">{tenant.total_qr_codes}</td>
-                    <td className="py-2 px-3 text-center text-sm text-gray-600 dark:text-gray-400">{tenant.total_scans}</td>
-                    <td className="py-2 px-3 text-center">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        tenant.engagement_score >= 70 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                        tenant.engagement_score >= 40 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
-                      }`}>
-                        {tenant.engagement_score}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {/* Tenant Performance Rankings & Recent Activity */}
+      <TenantPerformanceTable
+        tenantPerformance={tenantPerformance}
+        recentActivity={recentActivity}
+      />
 
       {/* Pet Analytics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-        {/* Species Distribution */}
-        {petAnalytics && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Dog className="w-5 h-5 text-orange-500" />
-              Pet Species
-            </h3>
-            <div className="space-y-3">
-              {Object.entries(petAnalytics.species_distribution).map(([species, count]) => (
-                <div key={species} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {species.toLowerCase() === 'dog' ? (
-                      <Dog className="w-4 h-4 text-orange-400" />
-                    ) : species.toLowerCase() === 'cat' ? (
-                      <Cat className="w-4 h-4 text-purple-400" />
-                    ) : (
-                      <Activity className="w-4 h-4 text-gray-400" />
-                    )}
-                    <span className="text-sm text-gray-600 dark:text-gray-400 capitalize">{species}</span>
-                  </div>
-                  <span className="font-semibold text-gray-900 dark:text-white">{count}</span>
-                </div>
-              ))}
-              {Object.keys(petAnalytics.species_distribution).length === 0 && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">No pet data</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Top Breeds */}
-        {petAnalytics && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Award className="w-5 h-5 text-yellow-500" />
-              Top Breeds
-            </h3>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {Object.entries(petAnalytics.breed_distribution).slice(0, 8).map(([breed, count]) => (
-                <div key={breed} className="flex items-center justify-between py-1">
-                  <span className="text-sm text-gray-600 dark:text-gray-400 truncate pr-2">{breed}</span>
-                  <span className="font-medium text-gray-900 dark:text-white text-sm">{count}</span>
-                </div>
-              ))}
-              {Object.keys(petAnalytics.breed_distribution).length === 0 && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">No breed data</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Pet Photo Stats */}
-        {petAnalytics && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Image className="w-5 h-5 text-pink-500" />
-              Photo Coverage
-            </h3>
-            <div className="flex items-center justify-center mb-4">
-              <div className="relative">
-                <ProgressRing
-                  percentage={petAnalytics.summary.photo_percentage}
-                  size={80}
-                  color="text-pink-500"
-                />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-sm font-bold text-gray-900 dark:text-white">
-                    {petAnalytics.summary.photo_percentage}%
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="text-center text-xs text-gray-500 dark:text-gray-400">
-              {petAnalytics.summary.pets_with_photos} of {petAnalytics.summary.total_pets} pets have photos
-            </div>
-          </div>
-        )}
-      </div>
+      <PetAnalyticsCards petAnalytics={petAnalytics} />
 
       {/* Scan Patterns Row */}
-      {scanPatterns && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-          {/* Hourly Pattern */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <Clock className="w-5 h-5 text-cyan-500" />
-                Scan Hours (30 days)
-              </h3>
-              <div className="text-right">
-                <span className="text-sm font-bold text-cyan-600 dark:text-cyan-400">
-                  Peak: {scanPatterns.summary.peak_hours.slice(0, 2).map(h => `${h}:00`).join(', ')}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-end gap-0.5 h-20">
-              {scanPatterns.hourly_pattern.map((item) => {
-                const maxCount = Math.max(...scanPatterns.hourly_pattern.map(d => d.count), 1)
-                return (
-                  <div
-                    key={item.hour}
-                    className="flex-1 bg-cyan-500 rounded-t transition-all hover:opacity-80"
-                    style={{ height: `${(item.count / maxCount) * 100}%`, minHeight: item.count > 0 ? '2px' : '0' }}
-                    title={`${item.hour}:00 - ${item.count} scans`}
-                  />
-                )
-              })}
-            </div>
-            <div className="flex justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
-              <span>0:00</span>
-              <span>12:00</span>
-              <span>23:00</span>
-            </div>
-          </div>
+      <ScanPatternsCharts scanPatterns={scanPatterns} />
 
-          {/* Daily Pattern */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-emerald-500" />
-                Scan Days (30 days)
-              </h3>
-              {scanPatterns.summary.busiest_day && (
-                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                  Busiest: {scanPatterns.summary.busiest_day}
-                </span>
-              )}
-            </div>
-            <div className="flex items-end gap-1 h-20">
-              {scanPatterns.daily_pattern.map((item) => {
-                const maxCount = Math.max(...scanPatterns.daily_pattern.map(d => d.count), 1)
-                return (
-                  <div key={item.day} className="flex-1 flex flex-col items-center">
-                    <div
-                      className="w-full bg-emerald-500 rounded-t transition-all hover:opacity-80"
-                      style={{ height: `${(item.count / maxCount) * 100}%`, minHeight: item.count > 0 ? '4px' : '0' }}
-                      title={`${item.day}: ${item.count} scans`}
-                    />
-                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{item.day.slice(0, 2)}</span>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="mt-3 text-center text-sm text-gray-600 dark:text-gray-400">
-              Total: <span className="font-semibold">{scanPatterns.summary.total_scans_30d}</span> scans in 30 days
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Activity Log - Full featured */}
-      <div className="space-y-4">
-        {/* Activity Log Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Activity Log
-            </h2>
-            {lastActivityUpdate && (
-              <span className="text-xs text-gray-400 hidden sm:inline">
-                Updated {formatRelativeTime(lastActivityUpdate.toISOString())}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            {/* Auto-refresh toggle */}
-            <button
-              onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
-              className={`px-2 py-1.5 sm:py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 min-h-[36px] sm:min-h-0 ${
-                autoRefreshEnabled
-                  ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-              title={autoRefreshEnabled ? 'Auto-refresh ON (30s)' : 'Click to enable auto-refresh'}
-            >
-              <Clock className="w-3 h-3" />
-              <span className="hidden sm:inline">Auto</span>
-            </button>
-            {/* Manual refresh */}
-            <button
-              onClick={() => fetchActivityFeed(true)}
-              disabled={isActivityLoading}
-              className="p-2 sm:p-1.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 min-h-[36px] sm:min-h-0"
-              title="Refresh now"
-            >
-              <Loader2 className={`w-3.5 h-3.5 ${isActivityLoading ? 'animate-spin' : ''}`} />
-            </button>
-            {/* Export CSV */}
-            <button
-              onClick={exportActivityToCSV}
-              disabled={!activityFeed?.activities || activityFeed.activities.length === 0}
-              className="px-2 py-1.5 sm:py-1 rounded text-xs font-medium transition-colors min-h-[36px] sm:min-h-0 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 flex items-center gap-1"
-              title="Export to CSV"
-            >
-              <Download className="w-3 h-3" />
-              <span className="hidden sm:inline">CSV</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Filters Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          {/* Activity Type Filter - Left */}
-          <div className="flex items-center gap-1.5">
-            {[
-              { key: 'all', label: 'All', count: activityFeed?.pagination?.total || activityFeed?.summary?.total_activities_24h || 0 },
-              { key: 'user_registered', label: 'Users', count: activityFeed?.summary?.user_registrations || 0 },
-              { key: 'tenant_created', label: 'Tenants', count: activityFeed?.summary?.tenant_registrations || 0 },
-              { key: 'pet_registered', label: 'Pets', count: activityFeed?.summary?.pet_registrations || 0 },
-              { key: 'qr_activated', label: 'Activated', count: activityFeed?.summary?.qr_activations || 0 },
-              { key: 'qr_scanned', label: 'Scans', count: activityFeed?.summary?.qr_scans || 0 },
-            ].map(filter => (
-              <button
-                key={filter.key}
-                onClick={() => setActivityFilter(filter.key)}
-                className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
-                  activityFilter === filter.key
-                    ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Time Range Selector - Right */}
-          <div className="flex items-center gap-1.5">
-            {[
-              { value: 1, label: '1h' },
-              { value: 24, label: '24h' },
-              { value: 168, label: '7d' },
-              { value: 720, label: '30d' },
-              { value: 2160, label: '90d' },
-            ].map(range => (
-              <button
-                key={range.value}
-                onClick={() => {
-                  setActivityTimeRange(range.value)
-                  setShowCustomDatePicker(false)
-                  setCustomStartDate('')
-                  setCustomEndDate('')
-                }}
-                className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
-                  activityTimeRange === range.value && !showCustomDatePicker
-                    ? 'bg-emerald-600 text-white'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-              >
-                {range.label}
-              </button>
-            ))}
-            <button
-              onClick={() => setShowCustomDatePicker(!showCustomDatePicker)}
-              className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
-                showCustomDatePicker
-                  ? 'bg-emerald-600 text-white'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              Custom
-            </button>
-          </div>
-        </div>
-
-        {/* Activity List Container */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 overflow-hidden">
-          {/* Custom Date Picker */}
-          {showCustomDatePicker && (
-            <div className="p-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
-                <div className="w-full sm:w-auto">
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Start Date</label>
-                  <input
-                    type="datetime-local"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="w-full sm:w-auto px-2 py-2.5 sm:py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px] sm:min-h-0"
-                  />
-                </div>
-                <div className="w-full sm:w-auto">
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">End Date</label>
-                  <input
-                    type="datetime-local"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="w-full sm:w-auto px-2 py-2.5 sm:py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px] sm:min-h-0"
-                  />
-                </div>
-                <button
-                  onClick={() => {
-                    if (customStartDate && customEndDate) {
-                      const start = new Date(customStartDate)
-                      const end = new Date(customEndDate)
-                      const diffHours = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60))
-                      if (diffHours > 0 && diffHours <= 2160) {
-                        setActivityTimeRange(diffHours)
-                      }
-                    }
-                  }}
-                  disabled={!customStartDate || !customEndDate}
-                  className="px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Apply
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Activity List Table */}
-          <div className="overflow-hidden">
-            {isActivityLoading && !activityFeed ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
-              </div>
-            ) : !activityFeed?.activities || activityFeed.activities.length === 0 ? (
-              <div className="text-center py-6 text-gray-500 dark:text-gray-400">
-                <Clock className="w-6 h-6 mx-auto mb-1.5 opacity-50" />
-                <p className="text-xs">No activities found</p>
-              </div>
-            ) : (
-              <>
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-700">
-                      <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Timestamp</th>
-                      <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell whitespace-nowrap">Type</th>
-                      <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
-                      <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell whitespace-nowrap">Tenant</th>
-                      <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">Operator</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activityFeed.activities.slice((activityCurrentPage - 1) * ACTIVITIES_PER_PAGE, activityCurrentPage * ACTIVITIES_PER_PAGE).map((activity, index) => {
-                      const typeColors: Record<string, string> = {
-                        user_registered: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-                        tenant_created: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-                        pet_registered: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-                        qr_activated: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-                        qr_scanned: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
-                      }
-                      const typeColor = typeColors[activity.type] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                      return (
-                        <tr key={index} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                          <td className="px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap">
-                            <div
-                              className="text-xs text-gray-500 dark:text-gray-400 font-mono"
-                              title={activity.timestamp ? formatRelativeTime(activity.timestamp) : ''}
-                            >
-                              {activity.timestamp ? (() => {
-                                const d = new Date(activity.timestamp)
-                                const year = d.getFullYear()
-                                const month = String(d.getMonth() + 1).padStart(2, '0')
-                                const day = String(d.getDate()).padStart(2, '0')
-                                const hours = String(d.getHours()).padStart(2, '0')
-                                const minutes = String(d.getMinutes()).padStart(2, '0')
-                                const seconds = String(d.getSeconds()).padStart(2, '0')
-                                return (
-                                  <>
-                                    <div>{year}-{month}-{day}</div>
-                                    <div className="text-gray-400 dark:text-gray-500">{hours}:{minutes}:{seconds}</div>
-                                  </>
-                                )
-                              })() : '-'}
-                            </div>
-                          </td>
-                          <td className="px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap hidden sm:table-cell">
-                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${typeColor}`}>
-                              {activity.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                            </span>
-                          </td>
-                          <td className="px-2 sm:px-3 py-2 sm:py-3">
-                            <div>
-                              <div className="sm:hidden mb-1">
-                                <span className={`inline-flex px-1.5 py-0.5 text-xs font-medium rounded ${typeColor}`}>
-                                  {activity.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                </span>
-                              </div>
-                              <p className="text-xs sm:text-sm text-gray-900 dark:text-white">{activity.description}</p>
-                            </div>
-                          </td>
-                          <td className="px-2 sm:px-3 py-2 sm:py-3 hidden md:table-cell whitespace-nowrap">
-                            {activity.tenant_name ? (
-                              <span className="text-xs text-gray-900 dark:text-white">{activity.tenant_name}</span>
-                            ) : (
-                              <span className="text-xs text-gray-400">-</span>
-                            )}
-                          </td>
-                          <td className="px-2 sm:px-3 py-2 sm:py-3 hidden lg:table-cell">
-                            {activity.user_email ? (
-                              <span className="text-xs text-gray-900 dark:text-white truncate block max-w-[200px]" title={activity.user_email}>
-                                {activity.user_email}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-gray-400">-</span>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-
-                {/* Pagination Controls */}
-                {activityFeed.activities.length > ACTIVITIES_PER_PAGE && (
-                  <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        Page {activityCurrentPage} of {Math.ceil(activityFeed.activities.length / ACTIVITIES_PER_PAGE)} ({activityFeed.activities.length} items)
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setActivityCurrentPage(1)}
-                          disabled={activityCurrentPage === 1}
-                          className="p-1.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          title="First page"
-                        >
-                          <ChevronsLeft className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
-                        </button>
-                        <button
-                          onClick={() => setActivityCurrentPage(prev => Math.max(1, prev - 1))}
-                          disabled={activityCurrentPage === 1}
-                          className="p-1.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          title="Previous page"
-                        >
-                          <ChevronLeft className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
-                        </button>
-                        <button
-                          onClick={() => setActivityCurrentPage(prev => Math.min(Math.ceil(activityFeed.activities.length / ACTIVITIES_PER_PAGE), prev + 1))}
-                          disabled={activityCurrentPage === Math.ceil(activityFeed.activities.length / ACTIVITIES_PER_PAGE)}
-                          className="p-1.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          title="Next page"
-                        >
-                          <ChevronRight className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
-                        </button>
-                        <button
-                          onClick={() => setActivityCurrentPage(Math.ceil(activityFeed.activities.length / ACTIVITIES_PER_PAGE))}
-                          disabled={activityCurrentPage === Math.ceil(activityFeed.activities.length / ACTIVITIES_PER_PAGE)}
-                          className="p-1.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          title="Last page"
-                        >
-                          <ChevronsRight className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      {recentActivity && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-          {/* Recent Users */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-blue-500" />
-              Recent Users ({recentActivity.summary.new_users_7d} in 7 days)
-            </h3>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {recentActivity.recent_users.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No recent users</p>
-              ) : (
-                recentActivity.recent_users.map(user => (
-                  <div key={user.id} className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
-                    <div>
-                      <span className="text-sm text-gray-900 dark:text-white">{user.email}</span>
-                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${
-                        user.role === 'super_admin' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                        user.role === 'tenant_admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
-                        'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                      }`}>
-                        {user.role}
-                      </span>
-                    </div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Recent Tenants */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-indigo-500" />
-              Recent Tenants ({recentActivity.summary.new_tenants_30d} in 30 days)
-            </h3>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {recentActivity.recent_tenants.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No recent tenants</p>
-              ) : (
-                recentActivity.recent_tenants.map(tenant => (
-                  <div key={tenant.id} className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
-                    <div>
-                      <span className="text-sm text-gray-900 dark:text-white">{tenant.name}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">({tenant.subdomain})</span>
-                    </div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {tenant.created_at ? new Date(tenant.created_at).toLocaleDateString() : '-'}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tier Distribution */}
-      {tenantPerformance && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Subscription Tiers</h3>
-          <div className="flex gap-4">
-            {Object.entries(tenantPerformance.tier_distribution).map(([tier, count]) => (
-              <div key={tier} className="flex-1 text-center">
-                <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full mb-2 ${
-                  tier === 'enterprise' ? 'bg-purple-100 dark:bg-purple-900/30' :
-                  tier === 'standard' ? 'bg-blue-100 dark:bg-blue-900/30' :
-                  'bg-gray-100 dark:bg-gray-700'
-                }`}>
-                  <span className={`text-lg font-bold ${
-                    tier === 'enterprise' ? 'text-purple-600 dark:text-purple-400' :
-                    tier === 'standard' ? 'text-blue-600 dark:text-blue-400' :
-                    'text-gray-600 dark:text-gray-400'
-                  }`}>
-                    {count}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 capitalize">{tier}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Activity Log */}
+      <ActivityLog
+        activityFeed={activityFeed}
+        isActivityLoading={isActivityLoading}
+        activityFilter={activityFilter}
+        setActivityFilter={setActivityFilter}
+        activityTimeRange={activityTimeRange}
+        setActivityTimeRange={setActivityTimeRange}
+        showCustomDatePicker={showCustomDatePicker}
+        setShowCustomDatePicker={setShowCustomDatePicker}
+        customStartDate={customStartDate}
+        setCustomStartDate={setCustomStartDate}
+        customEndDate={customEndDate}
+        setCustomEndDate={setCustomEndDate}
+        activityCurrentPage={activityCurrentPage}
+        setActivityCurrentPage={setActivityCurrentPage}
+        autoRefreshEnabled={autoRefreshEnabled}
+        setAutoRefreshEnabled={setAutoRefreshEnabled}
+        lastActivityUpdate={lastActivityUpdate}
+        fetchActivityFeed={fetchActivityFeed}
+        exportActivityToCSV={exportActivityToCSV}
+        formatRelativeTime={formatRelativeTime}
+      />
     </div>
   )
 }

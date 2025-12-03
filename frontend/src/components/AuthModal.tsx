@@ -469,6 +469,77 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
                   </button>
                 </div>
               )}
+
+              {/* DEV ONLY: Quick Login Buttons - Remove in production */}
+              {import.meta.env.DEV && mode === 'login' && (
+                <div className="mt-4 pt-4 border-t-2 border-dashed border-orange-300 dark:border-orange-700">
+                  <p className="text-xs text-orange-600 dark:text-orange-400 text-center mb-3 font-medium">
+                    🚧 DEV QUICK LOGIN (Remove before deploy)
+                  </p>
+                  <div className="grid grid-cols-1 gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setIsLoading(true)
+                        try {
+                          await authService.login({ email: 'user@qq.com', password: '12345678' })
+                          onClose()
+                          navigate('/dashboard')
+                        } catch (error) {
+                          setErrors({ general: 'User login failed' })
+                        } finally {
+                          setIsLoading(false)
+                        }
+                      }}
+                      disabled={isLoading}
+                      className="flex items-center justify-center gap-2 py-2 px-3 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
+                    >
+                      <User className="w-4 h-4" />
+                      User (user@qq.com)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setIsLoading(true)
+                        try {
+                          await authService.login({ email: 'test@qq.com', password: '12345678' })
+                          onClose()
+                          navigate('/dashboard')
+                        } catch (error) {
+                          setErrors({ general: 'Tenant Admin login failed' })
+                        } finally {
+                          setIsLoading(false)
+                        }
+                      }}
+                      disabled={isLoading}
+                      className="flex items-center justify-center gap-2 py-2 px-3 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-sm font-medium hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors disabled:opacity-50"
+                    >
+                      <Shield className="w-4 h-4" />
+                      Tenant Admin (test@qq.com)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setIsLoading(true)
+                        try {
+                          await authService.login({ email: 'admin@qq.com', password: 'qq1025520' })
+                          onClose()
+                          navigate('/dashboard')
+                        } catch (error) {
+                          setErrors({ general: 'Super Admin login failed' })
+                        } finally {
+                          setIsLoading(false)
+                        }
+                      }}
+                      disabled={isLoading}
+                      className="flex items-center justify-center gap-2 py-2 px-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-sm font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50"
+                    >
+                      <Shield className="w-4 h-4" />
+                      Super Admin (admin@qq.com)
+                    </button>
+                  </div>
+                </div>
+              )}
             </form>
           </div>
         </div>

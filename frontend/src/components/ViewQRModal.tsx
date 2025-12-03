@@ -183,7 +183,7 @@ export const ViewQRModal: React.FC<ViewQRModalProps> = ({
                 </label>
                 <span
                   className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
-                    qr.status === 'active'
+                    qr.status === 'ACTIVE'
                       ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                       : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
                   }`}

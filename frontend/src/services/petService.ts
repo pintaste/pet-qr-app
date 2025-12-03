@@ -1,20 +1,42 @@
 import { apiClient } from './api'
 
+interface MedicalInfo {
+  microchip_id?: string
+  spayed_neutered?: string
+  medical_conditions?: string
+  medications?: string
+  allergies?: string
+  veterinarian?: string
+  vet_clinic?: string
+  vet_phone?: string
+}
+
+interface ContactInfo {
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+}
+
 interface Pet {
   id: number
   name: string
   breed: string
-  age: number  // Age in months
+  age: number  // Age in years (from backend)
+  sex?: string
+  color?: string
+  size?: string
+  weight?: string
+  microchip_id?: string
+  is_spayed_neutered?: boolean
+  birthday?: string
   description?: string
   photos: string[]
-  medical_info: any
-  contact_info?: any
+  medical_info?: MedicalInfo
+  contact_info?: ContactInfo
   owner_id: number
-  is_active: boolean
   is_pinned?: boolean
   created_at: string
   updated_at: string
-  qr_code_id?: number
+  qr_code_id?: string  // String QR code identifier
 }
 
 interface CreatePetRequest {
@@ -63,7 +85,7 @@ class PetService {
     if (params?.search) queryParams.search = params.search
     if (params?.owner_id !== undefined) queryParams.owner_id = params.owner_id
 
-    return await apiClient.get<Pet[]>('/api/v1/pets', { params: queryParams })
+    return await apiClient.get<Pet[]>('/api/v1/pets/', { params: queryParams })
   }
 
   async getPet(petId: number): Promise<Pet> {

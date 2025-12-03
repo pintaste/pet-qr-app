@@ -13,7 +13,7 @@ interface QRCodeOption {
   id: number
   code: string
   status: string
-  created_at: string
+  created_at?: string
 }
 
 interface LinkQRModalProps {
@@ -203,7 +203,7 @@ export const LinkQRModal: React.FC<LinkQRModalProps> = ({
                             ? 'text-indigo-700 dark:text-indigo-300'
                             : 'text-gray-500 dark:text-gray-400'
                         }`}>
-                          Created: {new Date(qr.created_at).toLocaleDateString()}
+                          Created: {qr.created_at ? new Date(qr.created_at).toLocaleDateString() : 'N/A'}
                         </p>
                       </div>
                       {selectedQRId === qr.id && (

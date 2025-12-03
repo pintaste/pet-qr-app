@@ -14,15 +14,15 @@ interface PetCardProps {
     breed: string
     age: number  // Age in months
     photos: string[]
-    qr_code_id?: number
+    qr_code_id?: string | number
     is_pinned?: boolean
     medical_info?: {
       microchip_id?: string
       medical_conditions?: string
     }
   }
-  onView: (petId: number) => void
-  onEdit: (petId: number) => void
+  onView?: (petId: number) => void
+  onEdit?: (petId: number) => void
   onTogglePin?: (petId: number) => void
 }
 
@@ -125,22 +125,28 @@ export const PetCard: React.FC<PetCardProps> = ({ pet, onView, onEdit, onToggleP
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => onView(pet.id)}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg border border-indigo-500 transition-all duration-300"
-          >
-            <Eye className="w-4 h-4" />
-            <span className="text-sm">View</span>
-          </button>
-          <button
-            onClick={() => onEdit(pet.id)}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 transition-all duration-300"
-          >
-            <Edit className="w-4 h-4" />
-            <span className="text-sm">Edit</span>
-          </button>
-        </div>
+        {(onView || onEdit) && (
+          <div className="flex gap-2">
+            {onView && (
+              <button
+                onClick={() => onView(pet.id)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg border border-indigo-500 transition-all duration-300"
+              >
+                <Eye className="w-4 h-4" />
+                <span className="text-sm">View</span>
+              </button>
+            )}
+            {onEdit && (
+              <button
+                onClick={() => onEdit(pet.id)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 transition-all duration-300"
+              >
+                <Edit className="w-4 h-4" />
+                <span className="text-sm">Edit</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

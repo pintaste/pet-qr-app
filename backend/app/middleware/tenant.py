@@ -2,14 +2,18 @@
 Tenant identification and routing middleware with database integration.
 """
 
+import logging
 from typing import Optional
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlmodel import Session
+from sqlalchemy.exc import SQLAlchemyError
 from app.core.database import AsyncSessionLocal
 from app.core.exceptions import TenantNotFoundError
 from app.services.tenant_service import tenant_service
 from app.models.shared import Tenant
+
+logger = logging.getLogger(__name__)
 
 
 class TenantMiddleware(BaseHTTPMiddleware):
@@ -100,9 +104,12 @@ class TenantMiddleware(BaseHTTPMiddleware):
                             "subdomain": demo_tenant.subdomain,
                         }
 
-        except Exception as e:
-            # Log error but don't break the application
-            print(f"Error identifying tenant: {e}")
+        except SQLAlchemyError as e:
+            # Database error during tenant identification - log and continue
+            logger.warning(f"Database error identifying tenant: {e}")
+        except (ValueError, AttributeError) as e:
+            # Data or attribute error - log and continue
+            logger.warning(f"Error identifying tenant: {e}")
 
         # Default to shared schema for unknown requests
         return {
@@ -131,7 +138,11 @@ class TenantMiddleware(BaseHTTPMiddleware):
             )
             demo_tenant = result.scalars().first()
             return demo_tenant
-        except Exception:
+        except SQLAlchemyError as e:
+            logger.debug(f"Demo tenant lookup failed: {e}")
+            return None
+        except (ValueError, AttributeError):
+            # Unexpected data format - silently return None
             return None
 
     def _should_skip_tenant_check(self, path: str) -> bool:

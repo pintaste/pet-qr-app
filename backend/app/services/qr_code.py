@@ -9,7 +9,7 @@ from datetime import datetime
 from sqlmodel import Session
 from sqlalchemy import text
 
-from ..models.tenant import QRCode, QRCodeStatus
+from ..models.tenant import QRCode, QRCodeStatus, ScanEvent
 from ..schemas.pet import QRCodeCreate, QRCodeUpdate
 from ..database import get_engine
 
@@ -28,7 +28,9 @@ class QRCodeService:
 
     def _set_search_path(self, session: Session):
         """Set the search path to tenant schema."""
-        session.execute(text(f"SET search_path TO {self.tenant_schema}, public"))
+        # Quote schema name to handle special characters like hyphens
+        # Use connection().execute() to ensure search_path is set on the actual connection
+        session.connection().execute(text(f'SET search_path TO "{self.tenant_schema}", public'))
 
     def _generate_qr_code(self) -> str:
         """Generate a unique QR code."""
@@ -78,6 +80,8 @@ class QRCodeService:
 
             session.add(qr_code)
             session.commit()
+            # Re-set search path after commit as it may be reset
+            self._set_search_path(session)
             session.refresh(qr_code)
             return qr_code
         finally:
@@ -182,6 +186,70 @@ class QRCodeService:
         finally:
             session.close()
 
+    def get_qr_codes_by_owner(
+        self, owner_id: int, skip: int = 0, limit: int = 100
+    ) -> List[QRCode]:
+        """
+        Get QR codes associated with a specific user.
+
+        Returns QR codes that are either:
+        - Linked to pets owned by this user
+        - Activated by this user (even if not yet linked to a pet)
+
+        Args:
+            owner_id: Owner user ID (shared user ID)
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+
+        Returns:
+            List[QRCode]: List of QR codes for the owner
+        """
+        from ..models.tenant import Pet
+        from sqlalchemy import or_
+
+        session = self._get_session()
+        try:
+            self._set_search_path(session)
+
+            # Get tenant user ID from shared user ID
+            shared_user = session.execute(
+                text("SELECT email FROM shared.users WHERE id = :user_id"),
+                {"user_id": owner_id},
+            ).fetchone()
+
+            if not shared_user:
+                return []
+
+            tenant_user = session.execute(
+                text("SELECT id FROM tenant_users WHERE email = :email"),
+                {"email": shared_user[0]},
+            ).fetchone()
+
+            if not tenant_user:
+                return []
+
+            tenant_user_id = tenant_user[0]
+
+            # Get QR codes that are:
+            # 1. Linked to pets owned by this user, OR
+            # 2. Activated by this user (not linked to a pet yet)
+            return (
+                session.query(QRCode)
+                .outerjoin(Pet, QRCode.pet_id == Pet.id)
+                .filter(
+                    or_(
+                        Pet.owner_id == tenant_user_id,
+                        QRCode.activated_by_user_id == tenant_user_id
+                    )
+                )
+                .order_by(QRCode.created_at.desc())
+                .offset(skip)
+                .limit(limit)
+                .all()
+            )
+        finally:
+            session.close()
+
     def assign_qr_code_to_pet(self, qr_id: int, pet_id: int) -> Optional[QRCode]:
         """
         Assign a QR code to a pet.
@@ -206,6 +274,8 @@ class QRCodeService:
             qr_code.activated_at = datetime.utcnow()
 
             session.commit()
+            # Re-set search path after commit as it may be reset
+            self._set_search_path(session)
             session.refresh(qr_code)
             return qr_code
         finally:
@@ -236,18 +306,26 @@ class QRCodeService:
                 setattr(qr_code, field, value)
 
             session.commit()
+            # Re-set search path after commit as it may be reset
+            self._set_search_path(session)
             session.refresh(qr_code)
             return qr_code
         finally:
             session.close()
 
-    def activate_qr_code(self, code: str, pet_id: int) -> Optional[QRCode]:
+    def activate_qr_code(
+        self, code: str, pet_id: int, user_id: Optional[int] = None
+    ) -> Optional[QRCode]:
         """
         Activate a QR code and associate it with a pet.
+
+        Increments activation_count each time the QR code is activated.
+        This tracks how many times a QR code has been reused (recycled).
 
         Args:
             code: QR code string
             pet_id: Pet ID
+            user_id: Optional tenant user ID who is activating the code
 
         Returns:
             QRCode: Activated QR code instance or None if not found
@@ -263,8 +341,13 @@ class QRCodeService:
             qr_code.pet_id = pet_id
             qr_code.status = QRCodeStatus.ACTIVE
             qr_code.activated_at = datetime.utcnow()
+            qr_code.activation_count += 1
+            if user_id:
+                qr_code.activated_by_user_id = user_id
 
             session.commit()
+            # Re-set search path after commit as it may be reset
+            self._set_search_path(session)
             session.refresh(qr_code)
             return qr_code
         finally:
@@ -365,8 +448,7 @@ class QRCodeService:
                 generated_codes.append(qr_code)
 
             session.commit()
-
-            # Re-set search path after commit (may be reset)
+            # Re-set search path after commit as it may be reset
             self._set_search_path(session)
 
             # Refresh all objects
@@ -374,5 +456,131 @@ class QRCodeService:
                 session.refresh(qr_code)
 
             return generated_codes
+        finally:
+            session.close()
+
+    def record_scan_event(
+        self,
+        qr_code_id: int,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        location_data: Optional[dict] = None,
+    ) -> ScanEvent:
+        """
+        Record a QR code scan event.
+
+        Args:
+            qr_code_id: ID of the scanned QR code
+            ip_address: IP address of the scanner
+            user_agent: User agent of the scanner
+            location_data: Location information
+
+        Returns:
+            ScanEvent: Created scan event
+        """
+        session = self._get_session()
+        try:
+            self._set_search_path(session)
+
+            scan_event = ScanEvent(
+                qr_code_id=qr_code_id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                location_data=location_data,
+                scanned_at=datetime.utcnow(),
+            )
+
+            session.add(scan_event)
+            session.commit()
+            session.refresh(scan_event)
+
+            return scan_event
+        finally:
+            session.close()
+
+    def get_scan_events_by_qr_code(
+        self, qr_code_id: int, skip: int = 0, limit: int = 100
+    ) -> List[ScanEvent]:
+        """
+        Get scan events for a specific QR code.
+
+        Args:
+            qr_code_id: QR code ID
+            skip: Number of records to skip
+            limit: Maximum number of records
+
+        Returns:
+            List[ScanEvent]: List of scan events
+        """
+        session = self._get_session()
+        try:
+            self._set_search_path(session)
+            return (
+                session.query(ScanEvent)
+                .filter(ScanEvent.qr_code_id == qr_code_id)
+                .order_by(ScanEvent.scanned_at.desc())
+                .offset(skip)
+                .limit(limit)
+                .all()
+            )
+        finally:
+            session.close()
+
+    def get_scan_events_by_owner(
+        self, owner_id: int, skip: int = 0, limit: int = 100
+    ) -> List[ScanEvent]:
+        """
+        Get scan events for QR codes owned by a user.
+
+        Args:
+            owner_id: Owner's tenant user ID
+            skip: Number of records to skip
+            limit: Maximum number of records
+
+        Returns:
+            List[ScanEvent]: List of scan events
+        """
+        session = self._get_session()
+        try:
+            self._set_search_path(session)
+            from ..models.tenant import Pet
+
+            # Join scan_events -> qr_codes -> pets to filter by owner
+            return (
+                session.query(ScanEvent)
+                .join(QRCode, ScanEvent.qr_code_id == QRCode.id)
+                .join(Pet, QRCode.pet_id == Pet.id)
+                .filter(Pet.owner_id == owner_id)
+                .order_by(ScanEvent.scanned_at.desc())
+                .offset(skip)
+                .limit(limit)
+                .all()
+            )
+        finally:
+            session.close()
+
+    def get_all_scan_events(
+        self, skip: int = 0, limit: int = 100
+    ) -> List[ScanEvent]:
+        """
+        Get all scan events for the tenant (for tenant admin).
+
+        Args:
+            skip: Number of records to skip
+            limit: Maximum number of records
+
+        Returns:
+            List[ScanEvent]: List of scan events
+        """
+        session = self._get_session()
+        try:
+            self._set_search_path(session)
+            return (
+                session.query(ScanEvent)
+                .order_by(ScanEvent.scanned_at.desc())
+                .offset(skip)
+                .limit(limit)
+                .all()
+            )
         finally:
             session.close()

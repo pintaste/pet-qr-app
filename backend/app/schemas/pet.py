@@ -77,8 +77,8 @@ class PetResponse(BaseModel):
     photos: List[str] = []
     medical_info: Dict[str, Any] = {}
     owner_id: int
-    is_active: bool
     is_pinned: bool = False
+    qr_code_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -138,6 +138,8 @@ class QRCodeUpdate(BaseModel):
         None, min_length=4, max_length=10, description="PIN for accessing pet info"
     )
     is_active: Optional[bool] = Field(None, description="Is QR code active")
+    status: Optional[str] = Field(None, description="QR code status")
+    activated_by_user_id: Optional[int] = Field(None, description="User ID who activated this QR code")
 
 
 class QRCodeResponse(BaseModel):
@@ -151,6 +153,8 @@ class QRCodeResponse(BaseModel):
     batch_id: Optional[str] = None
     print_data: Optional[Dict[str, Any]] = None
     activated_at: Optional[datetime] = None
+    activated_by_user_id: Optional[int] = None
+    activation_count: int = 0
     created_at: datetime
 
     @property
@@ -230,6 +234,24 @@ class PetScanLogResponse(BaseModel):
     pin_verified: bool
 
     scanned_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ScanEventResponse(BaseModel):
+    """Schema for scan event response."""
+
+    id: int
+    qr_code_id: int
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    location_data: Optional[Dict[str, Any]] = None
+    scanned_at: datetime
+
+    # Additional fields for display
+    qr_code: Optional[str] = None
+    pet_name: Optional[str] = None
 
     class Config:
         from_attributes = True

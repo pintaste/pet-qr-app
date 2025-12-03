@@ -154,7 +154,8 @@ start_dev_servers() {
         if [ -d "../venv_linux" ]; then
             # Use python -m uvicorn to avoid hardcoded shebang path issues
             # Set NO_PROXY to avoid proxy interference with localhost
-            nohup env NO_PROXY=localhost,127.0.0.1 ../venv_linux/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 > ../logs/backend.log 2>&1 &
+            # Unset DATABASE_URL to force loading from .env file (async driver)
+            nohup env -u DATABASE_URL NO_PROXY=localhost,127.0.0.1 ../venv_linux/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 > ../logs/backend.log 2>&1 &
             echo $! > ../logs/backend.pid
             print_status "✅ Backend started on http://localhost:8000 (PID: $(cat ../logs/backend.pid))"
         else
