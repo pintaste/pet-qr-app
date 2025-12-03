@@ -2,11 +2,15 @@
 Pet management API endpoints.
 """
 
+import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 from ...core.dependencies import get_current_user, get_db
+
+logger = logging.getLogger(__name__)
 from ...models.shared import User, Tenant
 from ...schemas.pet import PetCreate, PetUpdate, PetResponse, PetPublicResponse
 from ...services.pet import PetService
@@ -58,8 +62,14 @@ async def create_pet(
         pet_service = PetService(tenant_schema=tenant_schema)
         pet = pet_service.create_pet(pet_data, owner_id=current_user.id)
         return PetResponse.from_orm(pet)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to create pet: {str(e)}")
+    except IntegrityError as e:
+        logger.error(f"Integrity error creating pet: {e}")
+        raise HTTPException(status_code=409, detail="Pet data conflict or constraint violation")
+    except SQLAlchemyError as e:
+        logger.error(f"Database error creating pet: {e}")
+        raise HTTPException(status_code=500, detail="Database error while creating pet")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/", response_model=List[PetResponse])

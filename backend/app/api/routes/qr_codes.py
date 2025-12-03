@@ -3,6 +3,7 @@ QR Code management API endpoints.
 """
 
 import asyncio
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks, Request
 from fastapi.responses import Response
@@ -10,8 +11,11 @@ from pydantic import BaseModel
 
 from sqlmodel import Session, select
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 from ...core.dependencies import get_current_user, get_db
+
+logger = logging.getLogger(__name__)
 from ...models.shared import User, UserRole, Tenant
 from ...models.tenant import QRCodeStatus
 from ...schemas.pet import (
@@ -112,10 +116,18 @@ async def create_qr_code(
         qr_service = QRCodeService(tenant_schema=tenant_schema)
         qr_code = qr_service.create_qr_code(qr_data, owner_id=current_user.id)
         return QRCodeResponse.from_orm(qr_code)
-    except Exception as e:
+    except IntegrityError as e:
+        logger.error(f"Integrity error creating QR code: {e}")
         raise HTTPException(
-            status_code=400, detail=f"Failed to create QR code: {str(e)}"
+            status_code=409, detail="QR code already exists or constraint violation"
         )
+    except SQLAlchemyError as e:
+        logger.error(f"Database error creating QR code: {e}")
+        raise HTTPException(
+            status_code=500, detail="Database error while creating QR code"
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/available", response_model=List[QRCodeResponse])
@@ -219,7 +231,7 @@ async def get_qr_info(
     if not qr_obj:
         raise HTTPException(status_code=404, detail="QR code not found")
 
-    # Record scan event
+    # Record scan event - non-critical, don't fail the main request
     try:
         ip_address = request.client.host if request.client else None
         user_agent = request.headers.get("user-agent")
@@ -228,10 +240,12 @@ async def get_qr_info(
             ip_address=ip_address,
             user_agent=user_agent,
         )
-    except Exception as e:
-        # Log error but don't fail the request
-        import logging
-        logging.error(f"Failed to record scan event: {e}")
+    except SQLAlchemyError as e:
+        # Log database error but don't fail the request
+        logger.warning(f"Failed to record scan event (database): {e}")
+    except (ValueError, TypeError) as e:
+        # Log data error but don't fail the request
+        logger.warning(f"Failed to record scan event (data): {e}")
 
     return QRCodePublicResponse(
         code=qr_obj.code,
@@ -656,8 +670,11 @@ def _execute_bulk_delete(task_id: str, qr_ids: List[int], qr_service: QRCodeServ
                 success_count += 1
             else:
                 fail_count += 1
-        except Exception as e:
-            print(f"[BulkDelete] Failed to delete QR {qr_id}: {e}")
+        except SQLAlchemyError as e:
+            logger.error(f"[BulkDelete] Database error deleting QR {qr_id}: {e}")
+            fail_count += 1
+        except (ValueError, KeyError) as e:
+            logger.error(f"[BulkDelete] Invalid data for QR {qr_id}: {e}")
             fail_count += 1
 
         # Update progress after each deletion
@@ -824,9 +841,15 @@ async def generate_batch_qr_codes(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except IntegrityError as e:
+        logger.error(f"Integrity error generating batch: {e}")
         raise HTTPException(
-            status_code=500, detail=f"Failed to generate batch: {str(e)}"
+            status_code=409, detail="Batch ID conflict or constraint violation"
+        )
+    except SQLAlchemyError as e:
+        logger.error(f"Database error generating batch: {e}")
+        raise HTTPException(
+            status_code=500, detail="Database error while generating batch"
         )
 
 
@@ -937,10 +960,14 @@ async def get_qr_code_image(
         media_type = "image/png" if format.lower() == "png" else "image/jpeg"
         return Response(content=image_bytes, media_type=media_type)
 
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to generate QR image: {str(e)}"
-        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid parameters: {str(e)}")
+    except IOError as e:
+        logger.error(f"IO error generating QR image: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate QR image")
+    except (RuntimeError, MemoryError) as e:
+        logger.error(f"System error generating QR image: {e}")
+        raise HTTPException(status_code=500, detail="System error generating QR image")
 
 
 @router.get("/{qr_id}/download")
@@ -1002,7 +1029,11 @@ async def download_qr_code(
             headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
 
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to generate QR image: {str(e)}"
-        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid parameters: {str(e)}")
+    except IOError as e:
+        logger.error(f"IO error generating QR image for download: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate QR image")
+    except (RuntimeError, MemoryError) as e:
+        logger.error(f"System error generating QR image for download: {e}")
+        raise HTTPException(status_code=500, detail="System error generating QR image")

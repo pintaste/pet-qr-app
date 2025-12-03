@@ -4,13 +4,17 @@ Tenant Admin API routes.
 These endpoints are accessible to TENANT_ADMIN and SUPER_ADMIN roles.
 """
 
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select, text
+from sqlalchemy.exc import SQLAlchemyError, ProgrammingError
 from pydantic import BaseModel
 
 from app.core.dependencies import get_current_tenant_admin, get_db
 from app.models.shared import User, UserRole, Tenant
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -1106,8 +1110,17 @@ def _get_support_metrics(db: Session, schema_name: str) -> dict:
             "open_tickets": open_tickets,
             "recent_tickets": recent_tickets,
         }
-    except Exception:
-        # Table might not exist
+    except ProgrammingError:
+        # Table doesn't exist yet - return empty data
+        return {
+            "tickets_by_status": [],
+            "tickets_by_priority": [],
+            "open_tickets": 0,
+            "recent_tickets": 0,
+        }
+    except SQLAlchemyError as e:
+        # Other database errors - log and return empty
+        logger.debug(f"Support ticket analytics query failed: {e}")
         return {
             "tickets_by_status": [],
             "tickets_by_priority": [],

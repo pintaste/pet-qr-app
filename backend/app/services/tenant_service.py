@@ -2,13 +2,17 @@
 Multi-tenant service for domain routing and schema management.
 """
 
+import logging
 from typing import Optional, Dict, Any
 from fastapi import HTTPException, status
 from sqlmodel import Session, select, text
+from sqlalchemy.exc import SQLAlchemyError, ProgrammingError
 from app.core.config import settings
 from app.models.shared import Tenant, TenantTier
 import redis
 import json
+
+logger = logging.getLogger(__name__)
 
 
 class TenantService:
@@ -221,11 +225,19 @@ class TenantService:
             db.commit()
             return True
 
-        except Exception as e:
+        except ProgrammingError as e:
             db.rollback()
+            logger.error(f"SQL syntax error creating tenant schema: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create tenant schema: {str(e)}",
+                detail="Failed to create tenant schema: SQL error",
+            )
+        except SQLAlchemyError as e:
+            db.rollback()
+            logger.error(f"Database error creating tenant schema: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create tenant schema: database error",
             )
 
     async def create_tenant(
@@ -303,11 +315,18 @@ class TenantService:
 
             return tenant
 
-        except Exception as e:
+        except SQLAlchemyError as e:
             db.rollback()
+            logger.error(f"Database error creating tenant: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create tenant: {str(e)}",
+                detail="Failed to create tenant: database error",
+            )
+        except ValueError as e:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
             )
 
     def get_tenant_database_url(self, tenant: Tenant) -> str:
@@ -342,10 +361,17 @@ class TenantService:
             schema_name = self.get_tenant_schema_name(tenant)
             # Set search path to tenant schema - quote to handle special characters
             db.exec(text(f'SET search_path TO "{schema_name}"'))
-        except Exception as e:
+        except ProgrammingError as e:
+            logger.error(f"SQL error switching tenant context: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to switch tenant context: {str(e)}",
+                detail="Failed to switch tenant context: invalid schema",
+            )
+        except SQLAlchemyError as e:
+            logger.error(f"Database error switching tenant context: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to switch tenant context: database error",
             )
 
     def validate_tenant_access(

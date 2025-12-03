@@ -171,9 +171,15 @@ async def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_
         return RefreshTokenResponse(access_token=new_access_token, token_type="bearer")
     except HTTPException:
         raise
-    except Exception:
+    except (ValueError, KeyError) as e:
+        # Token parsing or validation errors
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+        )
+    except (AttributeError, TypeError) as e:
+        # Unexpected token format errors
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Malformed refresh token"
         )
 
 
