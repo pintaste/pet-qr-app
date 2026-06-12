@@ -4,7 +4,7 @@ FastAPI dependencies for authentication and authorization.
 
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session, select
 
@@ -106,7 +106,22 @@ async def get_current_super_user(
     return current_user
 
 
-def get_tenant_from_request(request) -> Optional[str]:
+def get_tenant_schema(request: Request) -> str:
+    """
+    Get the tenant schema from request state.
+
+    This is set by the TenantMiddleware based on the request domain/subdomain.
+
+    Args:
+        request: FastAPI request object
+
+    Returns:
+        str: Tenant schema name (e.g., "demo", "tenant_123")
+    """
+    return getattr(request.state, "tenant_schema", "shared")
+
+
+def get_tenant_from_request(request: Request) -> Optional[str]:
     """
     Extract tenant information from request.
 
@@ -119,14 +134,13 @@ def get_tenant_from_request(request) -> Optional[str]:
     Returns:
         str: Tenant identifier or None for default tenant
     """
-    # For now, return None (single tenant mode)
-    # TODO: Implement domain/subdomain-based tenant detection
-    return None
+    # Get tenant ID from request state (set by TenantMiddleware)
+    return getattr(request.state, "tenant_id", None)
 
 
 async def get_current_tenant(
-    request, current_user: User = Depends(get_current_user)
-) -> Optional[str]:
+    request: Request, current_user: User = Depends(get_current_user)
+) -> Optional[int]:
     """
     Get the current tenant for the authenticated user.
 
@@ -135,15 +149,15 @@ async def get_current_tenant(
         current_user: Current authenticated user
 
     Returns:
-        str: Tenant identifier
+        int: Tenant ID
     """
     # Extract tenant from request (domain/subdomain)
-    tenant = get_tenant_from_request(request)
+    tenant_id = get_tenant_from_request(request)
 
     # Validate user has access to this tenant
-    if tenant and current_user.tenant_id != tenant:
+    if tenant_id and current_user.tenant_id != tenant_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to this tenant"
         )
 
-    return tenant or current_user.tenant_id
+    return tenant_id or current_user.tenant_id

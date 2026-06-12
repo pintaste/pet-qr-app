@@ -3,10 +3,10 @@ QR Code management API endpoints.
 """
 
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 
-from ...core.dependencies import get_current_user
+from ...core.dependencies import get_current_user, get_tenant_schema
 from ...models.shared import User
 from ...schemas.pet import (
     QRCodeCreate,
@@ -27,16 +27,18 @@ from ...services.qr_image import QRImageService
 router = APIRouter()
 
 
-def get_qr_service() -> QRCodeService:
-    """Get QR code service instance."""
-    # TODO: Get tenant schema from request context
-    return QRCodeService(tenant_schema="demo")
+def get_qr_service(
+    tenant_schema: str = Depends(get_tenant_schema),
+) -> QRCodeService:
+    """Get QR code service instance with tenant context."""
+    return QRCodeService(tenant_schema=tenant_schema)
 
 
-def get_pet_service() -> PetService:
-    """Get pet service instance."""
-    # TODO: Get tenant schema from request context
-    return PetService(tenant_schema="demo")
+def get_pet_service(
+    tenant_schema: str = Depends(get_tenant_schema),
+) -> PetService:
+    """Get pet service instance with tenant context."""
+    return PetService(tenant_schema=tenant_schema)
 
 
 def get_qr_image_service() -> QRImageService:

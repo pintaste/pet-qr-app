@@ -3,9 +3,9 @@ Pet management API endpoints.
 """
 
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from ...core.dependencies import get_current_user
+from ...core.dependencies import get_current_user, get_tenant_schema
 from ...models.shared import User
 from ...schemas.pet import PetCreate, PetUpdate, PetResponse, PetPublicResponse
 from ...services.pet import PetService
@@ -14,10 +14,11 @@ from ...services.pet import PetService
 router = APIRouter()
 
 
-def get_pet_service() -> PetService:
-    """Get pet service instance."""
-    # TODO: Get tenant schema from request context
-    return PetService(tenant_schema="demo")
+def get_pet_service(
+    tenant_schema: str = Depends(get_tenant_schema),
+) -> PetService:
+    """Get pet service instance with tenant context."""
+    return PetService(tenant_schema=tenant_schema)
 
 
 @router.post("/", response_model=PetResponse)
