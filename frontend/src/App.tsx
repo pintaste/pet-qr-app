@@ -12,7 +12,7 @@ import LandingPage from '@/pages/LandingPage'
 import LanguageSelectionPage from '@/pages/LanguageSelectionPage'
 import PINVerificationPage from '@/pages/PINVerificationPage'
 import PetDisplayPage from '@/pages/PetDisplayPage'
-import DashboardPage from '@/pages/DashboardPage'
+import PetManagementPage from '@/pages/PetManagementPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import QRStatusCheckPage from '@/pages/QRStatusCheckPage'
 
@@ -72,7 +72,7 @@ function App() {
         {/* Protected Routes (full header with logout) */}
         <Route path="/dashboard/*" element={
           <Layout>
-            <DashboardPage />
+            <PetManagementPage />
           </Layout>
         } />
 
