@@ -5,6 +5,7 @@ Allows SUPER_ADMIN and TENANT_ADMIN to impersonate other users for support purpo
 All impersonation actions are logged for audit purposes.
 """
 
+from collections import OrderedDict
 from typing import Optional
 from datetime import datetime
 from fastapi import Request, HTTPException, status
@@ -83,13 +84,18 @@ class ImpersonationContext:
         return self.impersonated_user_id or self.original_user_id
 
 
-# Global impersonation context (will be enhanced with session-based storage)
-_impersonation_context = {}
+# Keyed by Bearer token (unique per user session), bounded to prevent memory growth.
+# Using OrderedDict for O(1) LRU eviction.
+_MAX_IMPERSONATION_SESSIONS = 1000
+_impersonation_context: OrderedDict = OrderedDict()
 
 
 def get_impersonation_context(request: Request) -> ImpersonationContext:
     """
-    Get or create impersonation context for the current request/session.
+    Get or create impersonation context for the current session.
+
+    Keyed by the Bearer token so the context is tied to the authenticated session,
+    not the transient request object whose id() can be reused across requests.
 
     Args:
         request: FastAPI request object
@@ -97,10 +103,19 @@ def get_impersonation_context(request: Request) -> ImpersonationContext:
     Returns:
         ImpersonationContext for the current session
     """
-    # Use session ID or user ID as key (simplified for now)
-    session_key = id(request)
+    auth_header = request.headers.get("Authorization", "")
+    # Extract token; fall back to empty string (unauthenticated request)
+    session_key = auth_header.removeprefix("Bearer ").strip() or ""
+
     if session_key not in _impersonation_context:
+        if len(_impersonation_context) >= _MAX_IMPERSONATION_SESSIONS:
+            # Evict oldest entry (LRU)
+            _impersonation_context.popitem(last=False)
         _impersonation_context[session_key] = ImpersonationContext()
+    else:
+        # Move to end to mark as recently used
+        _impersonation_context.move_to_end(session_key)
+
     return _impersonation_context[session_key]
 
 
