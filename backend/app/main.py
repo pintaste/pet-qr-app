@@ -30,10 +30,10 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json" if settings.ENABLE_DOCS else None,
     )
 
-    # Configure CORS
+    # Configure CORS — must use explicit origin list when allow_credentials=True
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Allow all origins for development
+        allow_origins=settings.get_cors_origins(),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
