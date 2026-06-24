@@ -29,12 +29,17 @@ def get_tenant_schema_for_user(db: Session, user: User) -> str:
 
     Returns:
         str: Schema name
+
+    Raises:
+        HTTPException: If user has no tenant assigned
     """
     if user.tenant_id:
         tenant = db.exec(select(Tenant).where(Tenant.id == user.tenant_id)).first()
         if tenant:
             return f"tenant_{tenant.subdomain.replace('-', '_')}"
-    return "tenant_demo"
+    raise HTTPException(
+        status_code=403, detail="User is not associated with any tenant"
+    )
 
 
 @router.post("/", response_model=PetResponse)
@@ -126,7 +131,10 @@ async def search_pets(
     """
     tenant_schema = get_tenant_schema_for_user(db, current_user)
     pet_service = PetService(tenant_schema=tenant_schema)
-    pets = pet_service.search_pets(query=q, skip=skip, limit=limit)
+    # owner_id ensures users only search within their own pets
+    pets = pet_service.search_pets(
+        query=q, owner_id=current_user.id, skip=skip, limit=limit
+    )
     return [PetResponse.from_orm(pet) for pet in pets]
 
 
@@ -242,8 +250,8 @@ async def get_public_pet_info(pet_id: int, db: Session = Depends(get_db)):
     Raises:
         HTTPException: If pet not found
     """
-    # Get all tenant schemas and search for the pet
-    tenants = db.exec(select(Tenant)).all()
+    # Fetch only active tenants to limit scan scope
+    tenants = db.exec(select(Tenant).where(Tenant.is_active == True)).all()
 
     pet = None
     for tenant in tenants:
@@ -256,7 +264,7 @@ async def get_public_pet_info(pet_id: int, db: Session = Depends(get_db)):
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
 
-    # Create public pet response with filtered information
+    # Return only non-sensitive public fields
     return PetPublicResponse(
         name=pet.name,
         breed=pet.breed,
