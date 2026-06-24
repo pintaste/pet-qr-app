@@ -5,10 +5,11 @@ Authentication routes with JWT token management.
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlmodel import Session
+from sqlmodel import Session, select
 from app.database import get_db
 from app.services.auth import AuthService
 from app.models.shared import User
+from app.core.security import verify_token as _verify_token
 
 # Note: Using Pydantic models directly until shared package is properly configured
 from pydantic import BaseModel
@@ -134,10 +135,12 @@ async def login(
     auth_service = AuthService(db)
     login_data = UserLogin(email=request.email, password=request.password)
 
+    # login_user internally calls authenticate_user (bcrypt once); don't call again
     token_response = auth_service.login_user(login_data)
 
-    # Get user info
-    user = auth_service.authenticate_user(request.email, request.password)
+    # Retrieve user via token subject — no extra bcrypt round
+    user_id = _verify_token(token_response.access_token, token_type="access")
+    user = db.exec(select(User).where(User.id == int(user_id))).first()
 
     return LoginResponse(
         access_token=token_response.access_token,
@@ -167,8 +170,10 @@ async def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_
     """
     try:
         auth_service = AuthService(db)
-        new_access_token = auth_service.refresh_access_token(request.refresh_token)
-        return RefreshTokenResponse(access_token=new_access_token, token_type="bearer")
+        token_response = auth_service.refresh_access_token(request.refresh_token)
+        return RefreshTokenResponse(
+            access_token=token_response.access_token, token_type="bearer"
+        )
     except HTTPException:
         raise
     except (ValueError, KeyError) as e:
@@ -222,7 +227,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/verify-token")
-async def verify_token(
+async def verify_token_endpoint(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ):
@@ -237,14 +242,20 @@ async def verify_token(
         dict: Token verification result.
     """
     try:
-        auth_service = AuthService(db)
-        payload = auth_service.verify_token(credentials.credentials)
+        user_id = _verify_token(credentials.credentials, token_type="access")
+        if user_id is None:
+            return {"valid": False}
+
+        user = db.exec(select(User).where(User.id == int(user_id))).first()
+        if user is None or not user.is_active:
+            return {"valid": False}
+
         return {
             "valid": True,
-            "user_id": payload.get("user_id"),
-            "email": payload.get("sub"),
-            "role": payload.get("role"),
-            "tenant_id": payload.get("tenant_id"),
+            "user_id": user.id,
+            "email": user.email,
+            "role": user.role.value if hasattr(user.role, "value") else user.role,
+            "tenant_id": user.tenant_id,
         }
-    except HTTPException:
+    except (ValueError, TypeError):
         return {"valid": False}
